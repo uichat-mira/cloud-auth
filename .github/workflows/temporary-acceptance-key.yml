@@ -1,0 +1,33 @@
+name: Install temporary acceptance SSH key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install one-time acceptance key
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          command_timeout: 2m
+          script: |
+            set -eu
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            touch ~/.ssh/authorized_keys
+            chmod 600 ~/.ssh/authorized_keys
+            tmp="$(mktemp)"
+            grep -Fv 'mira-cloud-auth-acceptance-2026-10-22' ~/.ssh/authorized_keys > "$tmp" || true
+            cat "$tmp" > ~/.ssh/authorized_keys
+            rm -f "$tmp"
+            printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP8tDXSS03mNzUmU9bfKZ+psigdtq/5LUT4PL1OIDvsg mira-cloud-auth-acceptance-2026-10-22' >> ~/.ssh/authorized_keys
+            chmod 600 ~/.ssh/authorized_keys
+            grep -F 'mira-cloud-auth-acceptance-2026-10-22' ~/.ssh/authorized_keys
