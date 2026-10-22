@@ -15,7 +15,6 @@ concurrency:
 jobs:
   deploy:
     name: Deploy test and smoke
-    if: vars.MIRA_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: test
