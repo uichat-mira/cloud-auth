@@ -3,6 +3,7 @@ CREATE TABLE accounts (
   username TEXT NOT NULL,
   username_normalized TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
+  password_version INTEGER NOT NULL DEFAULT 1,
   is_allowed INTEGER NOT NULL DEFAULT 1 CHECK (is_allowed IN (0, 1)),
   disabled_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -6,6 +6,7 @@ export interface AccountRecord {
   username: string;
   usernameNormalized: string;
   passwordHash: string;
+  passwordVersion: number;
   isAllowed: boolean;
   disabledAt: string | null;
   createdAt: string;
@@ -37,6 +38,7 @@ type AccountRow = {
   username: string;
   username_normalized: string;
   password_hash: string;
+  password_version: number;
   is_allowed: number;
   disabled_at: string | null;
   created_at: string;
@@ -64,7 +66,7 @@ export class AuthRepository {
   findAccountByUsername(usernameNormalized: string): AccountRecord | null {
     const row = this.db
       .prepare(
-        `SELECT id, username, username_normalized, password_hash, is_allowed, disabled_at,
+        `SELECT id, username, username_normalized, password_hash, password_version, is_allowed, disabled_at,
                 created_at, updated_at, password_changed_at, last_login_at
            FROM accounts
           WHERE username_normalized = ?`,
@@ -76,7 +78,7 @@ export class AuthRepository {
   findAccountById(accountId: string): AccountRecord | null {
     const row = this.db
       .prepare(
-        `SELECT id, username, username_normalized, password_hash, is_allowed, disabled_at,
+        `SELECT id, username, username_normalized, password_hash, password_version, is_allowed, disabled_at,
                 created_at, updated_at, password_changed_at, last_login_at
            FROM accounts
           WHERE id = ?`,
@@ -101,18 +103,12 @@ export class AuthRepository {
     return account;
   }
 
-  updateLastLogin(accountId: string, now: string): void {
-    this.db
-      .prepare("UPDATE accounts SET last_login_at = ?, updated_at = ? WHERE id = ?")
-      .run(now, now, accountId);
-  }
-
   updatePasswordAndRevokeSessions(accountId: string, passwordHash: string, now: string): void {
     this.db.exec("BEGIN IMMEDIATE;");
     try {
       this.db
         .prepare(
-          "UPDATE accounts SET password_hash = ?, password_changed_at = ?, updated_at = ? WHERE id = ?",
+          "UPDATE accounts SET password_hash = ?, password_version = password_version + 1, password_changed_at = ?, updated_at = ? WHERE id = ?",
         )
         .run(passwordHash, now, now, accountId);
       this.revokeAllSessions(accountId, "password_reset", now);
@@ -154,26 +150,42 @@ export class AuthRepository {
   createSessionIfAccountActive(
     id: string,
     accountId: string,
-    expectedPasswordChangedAt: string,
+    expectedPasswordVersion: number,
     secretHash: string,
     expiresAt: string,
     now: string,
   ): boolean {
-    const result = this.db
-      .prepare(
-        `INSERT INTO sessions (
-           id, account_id, device_id, secret_hash, expires_at,
-           created_at, last_seen_at, rotated_at, revoked_at, revoke_reason
-         )
-         SELECT ?, id, NULL, ?, ?, ?, ?, NULL, NULL, NULL
-           FROM accounts
-          WHERE id = ?
-            AND is_allowed = 1
-            AND disabled_at IS NULL
-            AND password_changed_at = ?`,
-      )
-      .run(id, secretHash, expiresAt, now, now, accountId, expectedPasswordChangedAt);
-    return result.changes === 1;
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      const result = this.db
+        .prepare(
+          `INSERT INTO sessions (
+             id, account_id, device_id, secret_hash, expires_at,
+             created_at, last_seen_at, rotated_at, revoked_at, revoke_reason
+           )
+           SELECT ?, id, NULL, ?, ?, ?, ?, NULL, NULL, NULL
+             FROM accounts
+            WHERE id = ?
+              AND is_allowed = 1
+              AND disabled_at IS NULL
+              AND password_version = ?`,
+        )
+        .run(id, secretHash, expiresAt, now, now, accountId, expectedPasswordVersion);
+
+      if (result.changes !== 1) {
+        this.db.exec("ROLLBACK;");
+        return false;
+      }
+
+      this.db
+        .prepare("UPDATE accounts SET last_login_at = ?, updated_at = ? WHERE id = ?")
+        .run(now, now, accountId);
+      this.db.exec("COMMIT;");
+      return true;
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
   }
 
   findSessionWithAccount(sessionId: string): SessionWithAccount | null {
@@ -182,7 +194,7 @@ export class AuthRepository {
         `SELECT
            s.id AS session_id, s.account_id, s.device_id, s.secret_hash, s.expires_at,
            s.created_at AS session_created_at, s.last_seen_at, s.rotated_at, s.revoked_at, s.revoke_reason,
-           a.id, a.username, a.username_normalized, a.password_hash, a.is_allowed, a.disabled_at,
+           a.id, a.username, a.username_normalized, a.password_hash, a.password_version, a.is_allowed, a.disabled_at,
            a.created_at, a.updated_at, a.password_changed_at, a.last_login_at
          FROM sessions s
          JOIN accounts a ON a.id = s.account_id
@@ -258,6 +270,7 @@ function mapAccount(row: AccountRow): AccountRecord {
     username: row.username,
     usernameNormalized: row.username_normalized,
     passwordHash: row.password_hash,
+    passwordVersion: row.password_version,
     isAllowed: row.is_allowed === 1,
     disabledAt: row.disabled_at,
     createdAt: row.created_at,

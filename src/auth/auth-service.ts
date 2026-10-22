@@ -94,7 +94,7 @@ export class AuthService {
       const created = this.repository.createSessionIfAccountActive(
         issued.id,
         account.id,
-        account.passwordChangedAt,
+        account.passwordVersion,
         issued.secretHash,
         expiresAt,
         nowIso,
@@ -103,7 +103,6 @@ export class AuthService {
         throw new AuthError("AUTH_INVALID_CREDENTIALS", 401, "Invalid account or password");
       }
 
-      this.repository.updateLastLogin(account.id, nowIso);
       this.loginGuard.resetAfterSuccess(account.usernameNormalized);
 
       return {

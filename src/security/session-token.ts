@@ -25,7 +25,7 @@ export function parseSessionToken(token: string): { id: string; secret: string }
   if (parts.length !== 3 || parts[0] !== TOKEN_PREFIX) return null;
   const [, id, secret] = parts;
   if (!id || !secret) return null;
-  if (!/^[A-Za-z0-9_-]+$/.test(id) || !/^[A-Za-z0-9_-]+$/.test(secret)) return null;
+  if (!/^[A-Za-z0-9_-]{22}$/.test(id) || !/^[A-Za-z0-9_-]{43}$/.test(secret)) return null;
   return { id, secret };
 }
 

@@ -80,7 +80,7 @@ function readPasswordFromStdin(): string {
     console.error("Password must be provided on stdin; plaintext command-line password arguments are not supported.");
     process.exit(2);
   }
-  return readFileSync(0, "utf8").replace(/[\r\n]+$/, "");
+  return readFileSync(0, "utf8");
 }
 
 function printUsageAndExit(): never {

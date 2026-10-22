@@ -7,10 +7,14 @@ export interface BuildAppOptions {
   db: DatabaseSync;
   authService?: AuthService;
   logger?: boolean | object;
+  trustProxy?: boolean;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({
+    logger: options.logger ?? false,
+    trustProxy: options.trustProxy ?? false,
+  });
 
   app.get("/health", async () => ({
     status: "ok",

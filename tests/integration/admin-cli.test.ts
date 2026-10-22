@@ -18,7 +18,7 @@ describe("maintainer admin CLI", () => {
     const databasePath = join(dir, "auth.sqlite");
     const env = { ...process.env, MIRA_AUTH_DB_PATH: databasePath };
 
-    const provision = runAdmin(["provision", "pilot"], "first strong pilot passphrase\n", env);
+    const provision = runAdmin(["provision", "pilot"], "first strong pilot passphrase", env);
     expect(provision.status).toBe(0);
     expect(provision.stdout).toContain('"username":"pilot"');
     expect(provision.stdout).not.toContain("first strong pilot passphrase");
@@ -29,7 +29,7 @@ describe("maintainer admin CLI", () => {
     });
     context.db.close();
 
-    const reset = runAdmin(["reset-password", "pilot"], "second strong pilot passphrase\n", env);
+    const reset = runAdmin(["reset-password", "pilot"], "second strong pilot passphrase", env);
     expect(reset.status).toBe(0);
     expect(reset.stdout).not.toContain("second strong pilot passphrase");
 

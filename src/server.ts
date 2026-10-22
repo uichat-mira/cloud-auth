@@ -27,6 +27,7 @@ const authService = new AuthService(
 const app = buildApp({
   db,
   authService,
+  trustProxy: true,
   logger: {
     level: config.logLevel,
     redact: {

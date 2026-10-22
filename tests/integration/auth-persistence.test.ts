@@ -53,7 +53,7 @@ describe("auth persistence", () => {
     const created = context.repository.createSessionIfAccountActive(
       issued.id,
       beforeReset!.id,
-      beforeReset!.passwordChangedAt,
+      beforeReset!.passwordVersion,
       issued.secretHash,
       new Date(Date.now() + 3600_000).toISOString(),
       new Date().toISOString(),
