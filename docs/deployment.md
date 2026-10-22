@@ -30,9 +30,19 @@ Use an isolated service directory such as /opt/cloud-auth.
 
 Do not share the SQLite file or service-specific secrets with another Mira service.
 
-## Caddy
+## Caddy and environment naming
 
-The public hostname is intentionally not frozen by OPS-001. Use deploy/Caddyfile.example and route the chosen hostname to 127.0.0.1:8788.
+The canonical long-lived production host is:
+
+`https://cloud-auth.tomzlab.cn`
+
+The reserved test hostname is:
+
+`https://test.cloud-auth.tomzlab.cn`
+
+To conserve the 2 vCPU / 2 GiB host budget, test is **not** an always-on second Cloud Auth instance. Test deployment is manual and temporary when environment acceptance is required. Production is the only long-lived Cloud Auth container.
+
+Caddy terminates TLS and reverse-proxies the production hostname to `127.0.0.1:8788`.
 
 ## Closed-pilot account administration
 
@@ -60,6 +70,14 @@ SQLite VACUUM INTO creates the consistent snapshot. Object-storage credentials m
 
 ## Promotion
 
-Repository environments follow feat/* -> dev -> test -> prod.
+Repository environments follow `feat/* -> dev -> test -> prod`.
 
-OPS-001 does not authorize a production deployment. Deployment/promotion requires its own explicit authority and environment evidence.
+Production uses a fresh production SQLite database under `/opt/cloud-auth/data`; test data is never copied into production.
+
+The production deploy stops the temporary test container before binding production to loopback port 8788 and removes the former `mira-ai.tomzlab.cn/cloud-auth-test/` Caddy import/snippet. The small test data directory may remain for forensic/reference use, but it consumes no running CPU/RAM.
+
+The browser acceptance harness is disabled in production (`MIRA_AUTH_ACCEPTANCE_UI=false`). Cloud Auth production is an API service consumed by Mira clients, not an administrator web console.
+
+GitHub-hosted runners may experience source-dependent ingress resets against the mainland server. Therefore server-local `/ready`, `/health`, successful Caddy validation/reload, and target-server Argon2 benchmark are hard deployment evidence; runner-origin public HTTPS smoke is advisory and browser reachability is checked separately.
+
+Production promotion/deployment requires explicit maintainer authority. OPS-006 received that authority on 2026-10-22.
