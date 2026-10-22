@@ -59,6 +59,8 @@ jobs:
       - run: npm ci
       - run: npm run test:integration
       - run: npm run build
+      - name: Argon2 V0 baseline benchmark
+        run: npm run benchmark:argon2 -- 3
 
   docker:
     name: Docker Runtime

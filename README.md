@@ -41,5 +41,9 @@ Default local database path is ./data/auth.sqlite.
 
 - GET /health: process liveness
 - GET /ready: process + database readiness
+- POST /v1/auth/login: account/password root authentication
+- GET /v1/auth/session: restore accepted Cloud Session
+- POST /v1/auth/session/renew: rotate/extend Cloud Session without resending password
+- POST /v1/auth/logout: revoke current Cloud Session
 
-No authentication endpoints exist in OPS-001.
+See docs/auth-v0.md for the OPS-006 account/session contract and maintainer administration.

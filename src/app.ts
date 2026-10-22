@@ -1,13 +1,20 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
+import type { AuthService } from "./auth/auth-service.js";
+import { registerAuthRoutes } from "./auth/routes.js";
 
 export interface BuildAppOptions {
   db: DatabaseSync;
+  authService?: AuthService;
   logger?: boolean | object;
+  trustProxy?: boolean;
 }
 
 export function buildApp(options: BuildAppOptions): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({
+    logger: options.logger ?? false,
+    trustProxy: options.trustProxy ?? false,
+  });
 
   app.get("/health", async () => ({
     status: "ok",
@@ -23,6 +30,8 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       return reply.code(503).send({ status: "not_ready" });
     }
   });
+
+  if (options.authService) registerAuthRoutes(app, options.authService);
 
   return app;
 }
