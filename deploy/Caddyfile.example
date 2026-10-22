@@ -1,0 +1,4 @@
+# Choose the public hostname at deployment time; the application contract does not depend on it.
+{$CLOUD_AUTH_HOSTNAME} {
+  reverse_proxy 127.0.0.1:8788
+}

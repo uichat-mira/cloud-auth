@@ -1,0 +1,37 @@
+services:
+  cloud-auth:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8788
+      MIRA_AUTH_DB_PATH: /data/auth.sqlite
+      LOG_LEVEL: info
+    ports:
+      - "127.0.0.1:8788:8788"
+    volumes:
+      - cloud-auth-data:/data
+    mem_limit: 512m
+    cpus: 1.0
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8788/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  cloud-auth-data:
