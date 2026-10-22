@@ -1,8 +1,11 @@
 import Fastify, { type FastifyInstance } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
+import type { AuthService } from "./auth/auth-service.js";
+import { registerAuthRoutes } from "./auth/routes.js";
 
 export interface BuildAppOptions {
   db: DatabaseSync;
+  authService?: AuthService;
   logger?: boolean | object;
 }
 
@@ -23,6 +26,8 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
       return reply.code(503).send({ status: "not_ready" });
     }
   });
+
+  if (options.authService) registerAuthRoutes(app, options.authService);
 
   return app;
 }

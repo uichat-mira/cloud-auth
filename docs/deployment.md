@@ -34,6 +34,20 @@ Do not share the SQLite file or service-specific secrets with another Mira servi
 
 The public hostname is intentionally not frozen by OPS-001. Use deploy/Caddyfile.example and route the chosen hostname to 127.0.0.1:8788.
 
+## Closed-pilot account administration
+
+OPS-006 exposes no public admin HTTP endpoint. After the image is built, maintainers administer the account database from the service runtime:
+
+```bash
+read -s MIRA_PASSWORD
+printf '%s' "$MIRA_PASSWORD" | docker compose exec -T cloud-auth node dist/admin-cli.js provision pilot
+unset MIRA_PASSWORD
+```
+
+The same CLI provides `reset-password`, `allow`, `deny`, `enable`, and `disable`.
+
+Run `npm run benchmark:argon2 -- 5` (or the equivalent command inside the Node 24 runtime) on the target server before production promotion. The initial configuration starts at Argon2id m=19456 KiB, t=2, p=1; target-server evidence may justify tuning upward but must not silently lower the reviewed V0 floor.
+
 ## Backup
 
 The runtime image contains scripts/backup.mjs. Create a consistent SQLite snapshot inside the running container:

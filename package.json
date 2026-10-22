@@ -18,6 +18,9 @@
     "test:integration": "vitest run tests/integration",
     "check": "npm run typecheck && npm run test",
     "db:migrate": "tsx src/migrate-cli.ts",
+    "admin:dev": "tsx src/admin-cli.ts",
+    "admin": "node dist/admin-cli.js",
+    "benchmark:argon2": "node scripts/benchmark-argon2.mjs",
     "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
