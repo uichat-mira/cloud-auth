@@ -22,6 +22,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm audit --audit-level=moderate
+      - name: Validate deployment scripts
+        run: sh -n scripts/*.sh
 
   t1:
     name: T1 Unit
@@ -68,6 +70,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose config
+      - run: docker compose -f docker-compose.test.yml config
+      - run: docker compose -f docker-compose.prod.yml config
       - run: docker compose up -d --build
       - name: Wait for readiness
         shell: bash
