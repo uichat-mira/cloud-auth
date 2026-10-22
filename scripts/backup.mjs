@@ -1,9 +1,14 @@
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 const source = resolve(process.env.MIRA_AUTH_DB_PATH ?? "./data/auth.sqlite");
 const backupDir = resolve(process.env.MIRA_AUTH_BACKUP_DIR ?? "./backups");
+
+if (!existsSync(source) || !statSync(source).isFile()) {
+  throw new Error("Cloud Auth database does not exist: " + source);
+}
+
 mkdirSync(backupDir, { recursive: true });
 
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
