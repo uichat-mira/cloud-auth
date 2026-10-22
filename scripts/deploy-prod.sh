@@ -11,15 +11,15 @@ gzip -dc mira-cloud-auth-prod-image.tar.gz | docker load >/dev/null
 
 APP_UID="$(docker run --rm --entrypoint id mira-cloud-auth:prod -u)"
 APP_GID="$(docker run --rm --entrypoint id mira-cloud-auth:prod -g)"
-chown "$APP_UID:$APP_GID" data
-chmod 700 data
+chown "$APP_UID:$APP_GID" data backups
+chmod 700 data backups
 
 # Take a consistent local snapshot before replacing an existing production container.
 if docker compose -f docker-compose.prod.yml ps --status running --services 2>/dev/null | grep -qx cloud-auth; then
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "backups/$stamp"
   chown "$APP_UID:$APP_GID" "backups/$stamp"
-  docker compose -f docker-compose.prod.yml exec -T     -e MIRA_AUTH_BACKUP_DIR="/data/backups/$stamp"     cloud-auth node scripts/backup.mjs
+  docker compose -f docker-compose.prod.yml exec -T     -e MIRA_AUTH_BACKUP_DIR="/backups/$stamp"     cloud-auth node scripts/backup.mjs
 fi
 
 # The production service owns loopback port 8788. Stop the temporary test service first.
