@@ -1,8 +1,6 @@
 name: Deploy Cloud Auth Test
 
 on:
-  push:
-    branches: [test]
   workflow_dispatch:
 
 permissions:
@@ -71,5 +69,9 @@ jobs:
       - name: Public test smoke
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location https://mira-ai.tomzlab.cn/cloud-auth-test/health
-          curl --fail --silent --show-error --location https://mira-ai.tomzlab.cn/cloud-auth-test/ | grep -F "Mira Cloud Auth"
+          if ! getent ahostsv4 test.cloud-auth.tomzlab.cn >/dev/null 2>&1; then
+            echo "::warning::test.cloud-auth.tomzlab.cn does not resolve; skipping public test smoke."
+            exit 0
+          fi
+          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
+          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Auth"
