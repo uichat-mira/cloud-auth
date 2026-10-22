@@ -1,0 +1,77 @@
+name: Deploy Cloud Auth Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-auth-test
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy test and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test image
+        run: |
+          set -euo pipefail
+          docker build -t mira-cloud-auth:test .
+          docker save mira-cloud-auth:test | gzip -1 > mira-cloud-auth-test-image.tar.gz
+          gzip -t mira-cloud-auth-test-image.tar.gz
+
+      - name: Prepare isolated test directory
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          command_timeout: 2m
+          script: |
+            set -eu
+            mkdir -p /opt/cloud-auth-test/data /opt/cloud-auth-test/backups /opt/cloud-auth-test/scripts /opt/cloud-auth-test/deploy
+            chmod 700 /opt/cloud-auth-test/data /opt/cloud-auth-test/backups
+
+      - name: Upload test bundle
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          source: "docker-compose.test.yml,scripts/deploy-test.sh,scripts/install-caddy-test-route.sh,deploy/mira-cloud-auth-test.caddy,mira-cloud-auth-test-image.tar.gz"
+          target: "/opt/cloud-auth-test"
+          overwrite: true
+
+      - name: Deploy, benchmark and local smoke
+        uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          command_timeout: 10m
+          envs: DEPLOY_SHA
+          script: |
+            set -eu
+            chmod +x /opt/cloud-auth-test/scripts/deploy-test.sh /opt/cloud-auth-test/scripts/install-caddy-test-route.sh
+            /opt/cloud-auth-test/scripts/deploy-test.sh
+
+      - name: Public test smoke
+        run: |
+          set -euo pipefail
+          if ! getent ahostsv4 test.cloud-auth.tomzlab.cn >/dev/null 2>&1; then
+            echo "::warning::test.cloud-auth.tomzlab.cn does not resolve; skipping public test smoke."
+            exit 0
+          fi
+          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
+          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Auth"

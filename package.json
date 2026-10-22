@@ -1,0 +1,35 @@
+{
+  "name": "@uichat-mira/cloud-auth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mira Cloud shared identity service",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:contract": "vitest run tests/contract",
+    "test:integration": "vitest run tests/integration",
+    "check": "npm run typecheck && npm run test",
+    "db:migrate": "tsx src/migrate-cli.ts",
+    "admin:dev": "tsx src/admin-cli.ts",
+    "admin": "node dist/admin-cli.js",
+    "benchmark:argon2": "node scripts/benchmark-argon2.mjs",
+    "backup": "node scripts/backup.mjs"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^5.0.5"
+  }
+}
