@@ -9,6 +9,11 @@ test -f mira-cloud-auth-test-image.tar.gz
 gzip -t mira-cloud-auth-test-image.tar.gz
 gzip -dc mira-cloud-auth-test-image.tar.gz | docker load >/dev/null
 
+APP_UID="$(docker run --rm --entrypoint id mira-cloud-auth:test -u)"
+APP_GID="$(docker run --rm --entrypoint id mira-cloud-auth:test -g)"
+chown "$APP_UID:$APP_GID" data
+chmod 700 data
+
 docker compose -f docker-compose.test.yml up -d --force-recreate --remove-orphans
 
 attempt=0
