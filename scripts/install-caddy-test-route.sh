@@ -4,8 +4,7 @@ set -eu
 SOURCE_DIR=${SOURCE_DIR:-/opt/cloud-auth-test}
 CADDYFILE=${CADDYFILE:-/etc/caddy/Caddyfile}
 SNIPPET=/etc/caddy/mira-cloud-auth-test.caddy
-IMPORT_LINE="    import /etc/caddy/mira-cloud-auth-test.caddy"
-SITE="mira-ai.tomzlab.cn"
+IMPORT_LINE="import /etc/caddy/mira-cloud-auth-test.caddy"
 
 if [ "$(id -u)" -eq 0 ]; then
   SUDO=""
@@ -19,30 +18,19 @@ fi
 test -f "$SOURCE_DIR/deploy/mira-cloud-auth-test.caddy"
 $SUDO test -f "$CADDYFILE"
 
-$SUDO cp "$CADDYFILE" "$CADDYFILE.before-cloud-auth-test"
+BACKUP="$CADDYFILE.before-cloud-auth-test"
+$SUDO cp "$CADDYFILE" "$BACKUP"
 $SUDO install -m 0644 "$SOURCE_DIR/deploy/mira-cloud-auth-test.caddy" "$SNIPPET"
 
 if ! $SUDO grep -Fq "$IMPORT_LINE" "$CADDYFILE"; then
-  $SUDO python3 - "$CADDYFILE" "$SITE" "$IMPORT_LINE" <<'PY'
-from pathlib import Path
-import sys
-
-path = Path(sys.argv[1])
-site = sys.argv[2]
-import_line = sys.argv[3]
-lines = path.read_text().splitlines()
-
-matches = [index for index, line in enumerate(lines) if line.strip() == f"{site} {{"]
-if len(matches) != 1:
-    raise SystemExit(f"Expected exactly one {site} site block, found {len(matches)}")
-
-index = matches[0] + 1
-lines.insert(index, import_line)
-path.write_text("\n".join(lines) + "\n")
-PY
+  printf '\n%s\n' "$IMPORT_LINE" | $SUDO tee -a "$CADDYFILE" >/dev/null
 fi
 
-$SUDO caddy validate --config "$CADDYFILE" --adapter caddyfile
+if ! $SUDO caddy validate --config "$CADDYFILE" --adapter caddyfile; then
+  $SUDO cp "$BACKUP" "$CADDYFILE"
+  echo "Caddy validation failed; restored the previous configuration" >&2
+  exit 1
+fi
 
 if command -v systemctl >/dev/null 2>&1 && $SUDO systemctl is-active --quiet caddy; then
   $SUDO systemctl reload caddy
