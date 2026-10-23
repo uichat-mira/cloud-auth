@@ -36,10 +36,13 @@ describe("test-only acceptance UI", () => {
     const page = await app.inject({ method: "GET", url: "/" });
     expect(page.statusCode).toBe(200);
     expect(page.headers["cache-control"]).toBe("no-store");
+    expect(page.headers["content-security-policy"]).toContain("form-action 'self'");
     expect(page.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
     expect(page.body).toContain("登录验收");
     expect(page.body).toContain("不是管理员后台");
     expect(page.body).toContain("./acceptance.js");
+    expect(page.body).toContain('method="post"');
+    expect(page.body).toContain('action="./"');
 
     const script = await app.inject({ method: "GET", url: "/acceptance.js" });
     expect(script.statusCode).toBe(200);
@@ -47,6 +50,7 @@ describe("test-only acceptance UI", () => {
     expect(script.body).toContain("sessionStorage");
     expect(script.body).toContain("v1/auth/login");
     expect(script.body).toContain("v1/auth/logout");
+    expect(() => new Function(script.body)).not.toThrow();
 
     await app.close();
     db.close();
