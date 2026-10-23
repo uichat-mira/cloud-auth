@@ -39,7 +39,7 @@ const ACCEPTANCE_HTML = String.raw`<!doctype html>
   <h1>登录验收</h1>
   <p class="subtle">这个页面只验证 OPS-006 的用户链路：登录、刷新恢复 Session、退出和错误状态。它不是管理员后台，也不是正式客户端。</p>
 
-  <form id="login-form">
+  <form id="login-form" method="post" action="./">
     <label>账号
       <input id="username" name="username" autocomplete="username" required maxlength="128">
     </label>
@@ -84,7 +84,7 @@ const ACCEPTANCE_JS = String.raw`(() => {
   const accountId = document.querySelector("#account-id");
   const expiresAt = document.querySelector("#expires-at");
 
-  const endpoint = (path) => "./" + path.replace(/^\\/+/, "");
+  const endpoint = (path) => "./" + (path.startsWith("/") ? path.slice(1) : path);
 
   function setStatus(message, kind) {
     status.textContent = message;
@@ -213,7 +213,7 @@ export function registerAcceptanceUi(app: import("fastify").FastifyInstance): vo
       .header("cache-control", "no-store")
       .header(
         "content-security-policy",
-        "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        "default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
       )
       .type("text/html; charset=utf-8")
       .send(ACCEPTANCE_HTML);
