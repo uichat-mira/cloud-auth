@@ -73,35 +73,50 @@ export function createCloudAuthClient(
   }
 
   function getSession(sessionToken: string): Promise<CloudSession> {
-    return requestJson(
+    return requestSession(
       "/v1/auth/session",
-      {
-        method: "GET",
-        headers: bearerHeaders(sessionToken),
-      },
+      "GET",
+      sessionToken,
       cloudSessionSchema,
     );
   }
 
   function renewSession(sessionToken: string): Promise<IssuedCloudSession> {
-    return requestJson(
+    return requestSession(
       "/v1/auth/session/renew",
-      {
-        method: "POST",
-        headers: bearerHeaders(sessionToken),
-      },
+      "POST",
+      sessionToken,
       issuedCloudSessionSchema,
     );
   }
 
   function logout(sessionToken: string): Promise<void> {
-    return requestNoContent("/v1/auth/logout", {
-      method: "POST",
-      headers: bearerHeaders(sessionToken),
-    });
+    return requestNoContent(
+      "/v1/auth/logout",
+      authenticatedRequest("POST", sessionToken),
+    );
+  }
+
+  function requestSession<T>(
+    path: string,
+    method: "GET" | "POST",
+    sessionToken: string,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    return requestJson(path, authenticatedRequest(method, sessionToken), schema);
   }
 
   return { login, getSession, renewSession, logout };
+}
+
+function authenticatedRequest(
+  method: "GET" | "POST",
+  sessionToken: string,
+): RequestInit {
+  return {
+    method,
+    headers: bearerHeaders(sessionToken),
+  };
 }
 
 function bearerHeaders(sessionToken: string): Record<string, string> {
