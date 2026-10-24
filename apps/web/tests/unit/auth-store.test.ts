@@ -4,10 +4,13 @@ import type { CloudAuthClient } from "@/lib/auth/client";
 import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
 import type { PersistedCloudSession } from "@/lib/auth/session-storage";
 import { createMemoryStorage } from "../helpers/session-storage";
+import {
+  account,
+  expiresAt,
+  expectLoggedOutState,
+  expectUnavailableState,
+} from "../helpers/auth-fixtures";
 import { createAuthStore, type AuthStore } from "@/lib/auth/store";
-
-const account = { id: "account-1", username: "pilot" };
-const expiresAt = "2026-11-01T00:00:00.000Z";
 
 function issued(token: string): IssuedCloudSession {
   return { sessionToken: token, account, expiresAt };
@@ -45,20 +48,6 @@ async function createAuthenticatedLogoutStore(
   if (!stored) throw new Error("Expected login to persist a Cloud Session");
 
   return { store, storage, stored };
-}
-
-function expectLoggedOut(
-  store: AuthStore,
-  storage: ReturnType<typeof createMemoryStorage>,
-): void {
-  expect(store.getState()).toMatchObject({
-    status: "unauthenticated",
-    account: null,
-    expiresAt: null,
-    pending: null,
-    failure: null,
-  });
-  expect(storage.load()).toBeNull();
 }
 
 describe("auth store", () => {
@@ -140,11 +129,7 @@ describe("auth store", () => {
 
     await store.getState().restore();
 
-    expect(store.getState()).toMatchObject({
-      status: "unavailable",
-      failure: { kind: "service_unavailable" },
-      pending: null,
-    });
+    expectUnavailableState(store);
     expect(storage.load()).toEqual(stored);
   });
 
@@ -174,7 +159,8 @@ describe("auth store", () => {
     await store.getState().logout();
 
     expect(logoutToken).toBe("token-1");
-    expectLoggedOut(store, storage);
+    expectLoggedOutState(store);
+    expect(storage.load()).toBeNull();
   });
 
   it("clears the stored session when logout reports re-authentication required", async () => {
@@ -189,7 +175,8 @@ describe("auth store", () => {
 
     await store.getState().logout();
 
-    expectLoggedOut(store, storage);
+    expectLoggedOutState(store);
+    expect(storage.load()).toBeNull();
   });
 
   it.each([
