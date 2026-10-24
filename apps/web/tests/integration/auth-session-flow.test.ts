@@ -4,9 +4,13 @@ import { createCloudAuthClient } from "@/lib/auth/client";
 import type { PersistedCloudSession } from "@/lib/auth/session-storage";
 import { createMemoryStorage } from "../helpers/session-storage";
 import { createAuthStore, type AuthStore } from "@/lib/auth/store";
+import {
+  account,
+  expiresAt,
+  expectLoggedOutState,
+  expectUnavailableState,
+} from "../helpers/auth-fixtures";
 
-const account = { id: "account-1", username: "pilot" };
-const expiresAt = "2026-11-01T00:00:00.000Z";
 const password = "correct horse battery staple";
 
 const servers: Array<{ close(): Promise<void> }> = [];
@@ -147,16 +151,6 @@ function expectAuthenticated(
   });
 }
 
-function expectLoggedOut(store: AuthStore): void {
-  expect(store.getState()).toMatchObject({
-    status: "unauthenticated",
-    account: null,
-    expiresAt: null,
-    failure: null,
-    pending: null,
-  });
-}
-
 describe("web Cloud Session flow with a mocked HTTP boundary", () => {
   it("logs in, restores, renews, and logs out through the client and store", async () => {
     const { server, storage, store } = await createAuthenticatedHarness();
@@ -178,7 +172,7 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
     });
 
     await store.getState().logout();
-    expectLoggedOut(store);
+    expectLoggedOutState(store);
     expect(storage.load()).toBeNull();
     expect(server.requests).toEqual([
       "POST /v1/auth/login",
@@ -194,7 +188,7 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
     server.setLogoutFailure("reauth");
     await store.getState().logout();
 
-    expectLoggedOut(store);
+    expectLoggedOutState(store);
     expect(storage.load()).toBeNull();
   });
 
@@ -210,7 +204,7 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
     server.setLogoutFailure("none");
     await store.getState().logout();
 
-    expectLoggedOut(store);
+    expectLoggedOutState(store);
     expect(storage.load()).toBeNull();
   });
 
@@ -240,11 +234,7 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
     server.setUnavailable(true);
     await store.getState().restore();
 
-    expect(store.getState()).toMatchObject({
-      status: "unavailable",
-      failure: { kind: "service_unavailable" },
-      pending: null,
-    });
+    expectUnavailableState(store);
     expect(storage.load()).toEqual(issued);
 
     server.setUnavailable(false);
