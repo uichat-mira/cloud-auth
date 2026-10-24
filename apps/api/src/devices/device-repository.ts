@@ -43,7 +43,7 @@ type DeviceRow = {
 export class DeviceRepository {
   constructor(private readonly db: DatabaseSync) {}
 
-  registerDevice(input: RegisterDeviceInput): DeviceRecord | null | "platform_mismatch" {
+  registerDevice(input: RegisterDeviceInput): DeviceRecord | null | "platform_mismatch" | "session_device_mismatch" {
     this.db.exec("BEGIN IMMEDIATE;");
     try {
       const existing = this.findByInstallation(input.accountId, input.installationId);
@@ -86,6 +86,26 @@ export class DeviceRepository {
 
       const device = this.findByInstallation(input.accountId, input.installationId);
       if (!device) throw new Error("Device write did not persist");
+
+      // Do not return successful registration for a device other than the session's.
+      // This check and the tentative device write are in the same transaction.
+      const session = this.db
+        .prepare(
+          `SELECT device_id
+             FROM sessions
+            WHERE id = ?
+              AND account_id = ?
+              AND revoked_at IS NULL
+              AND expires_at > ?`,
+        )
+        .get(input.sessionId, input.accountId, input.now) as
+        | { device_id: string | null }
+        | undefined;
+      if (!session) throw new Error("Active device-registration session was not found");
+      if (session.device_id !== null && session.device_id !== device.id) {
+        this.db.exec("ROLLBACK;");
+        return "session_device_mismatch";
+      }
 
       this.db
         .prepare(

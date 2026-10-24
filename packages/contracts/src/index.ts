@@ -90,6 +90,7 @@ export const deviceErrorCodeSchema = z.enum([
   "DEVICE_NOT_FOUND",
   "DEVICE_REVOKED",
   "DEVICE_PLATFORM_MISMATCH",
+  "DEVICE_SESSION_MISMATCH",
   "DEVICE_INTERNAL_ERROR",
 ]);
 

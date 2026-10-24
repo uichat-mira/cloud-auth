@@ -133,6 +133,58 @@ export class AuthRepository {
     }
   }
 
+  changePasswordIfSessionActive(
+    accountId: string,
+    sessionId: string,
+    expectedSecretHash: string,
+    expectedPasswordVersion: number,
+    passwordHash: string,
+    now: string,
+  ): boolean {
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      // Verify the initiating session at the mutation boundary, after Argon2's async work.
+      const result = this.db
+        .prepare(
+          `UPDATE accounts
+              SET password_hash = ?,
+                  password_version = password_version + 1,
+                  password_changed_at = ?,
+                  updated_at = ?
+            WHERE id = ?
+              AND is_allowed = 1
+              AND disabled_at IS NULL
+              AND password_version = ?
+              AND EXISTS (
+                SELECT 1
+                  FROM sessions s
+                  LEFT JOIN devices d ON d.id = s.device_id
+                 WHERE s.id = ?
+                   AND s.account_id = accounts.id
+                   AND s.secret_hash = ?
+                   AND s.revoked_at IS NULL
+                   AND s.expires_at > ?
+                   AND (
+                     s.device_id IS NULL
+                     OR (d.account_id = s.account_id AND d.revoked_at IS NULL)
+                   )
+              )`,
+        )
+        .run(passwordHash, now, now, accountId, expectedPasswordVersion, sessionId, expectedSecretHash, now);
+
+      if (result.changes !== 1) {
+        this.db.exec("ROLLBACK;");
+        return false;
+      }
+      this.revokeAllSessions(accountId, "password_changed", now);
+      this.db.exec("COMMIT;");
+      return true;
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+  }
+
   setAllowedAndRevokeIfDenied(accountId: string, allowed: boolean, now: string): void {
     this.db.exec("BEGIN IMMEDIATE;");
     try {

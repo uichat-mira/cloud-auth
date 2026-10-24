@@ -50,7 +50,8 @@ describe("Mira Device SQLite persistence", () => {
       clientName: "Mira Desktop",
       clientVersion: "1.0.0",
     });
-    const mobile = second.deviceService.register(alice.sessionToken, {
+    const aliceMobileSession = await second.service.login("alice", password, "127.0.0.4");
+    const mobile = second.deviceService.register(aliceMobileSession.sessionToken, {
       installationId: randomUUID(),
       platform: "mobile",
       clientName: "Mira Mobile",

@@ -116,7 +116,7 @@ Registration also binds the acting session to that device when the session is no
 2. register the installation identity;
 3. continue using the now device-bound Cloud Session.
 
-A session already bound to another device is not rebound by a later registration.
+A session already bound to another device is not rebound by a later registration: the request returns `409 DEVICE_SESSION_MISMATCH` and rolls back any device write. A new installation needs a fresh unbound login/session to register.
 
 ### POST /v1/devices
 
@@ -169,7 +169,7 @@ A device owned by another account, an unknown device id, and a malformed device 
 
 Restore (`GET /v1/auth/session`), renewal (`POST /v1/auth/session/renew`), logout, password change, and device operations all authenticate through the same session check. A session bound to a revoked device is rejected with `401 AUTH_REAUTH_REQUIRED` even if the session row itself has not yet been read as revoked.
 
-Renewal performs the rotation and the device-active check in one SQLite write, so a revocation that commits before or after the renewal cannot leave a renewed session attached to a revoked device. Session issuance with a device context likewise resolves the device and inserts the session in one transaction.
+Renewal performs the rotation and the device-active check in one SQLite write, so a revocation that commits before or after the renewal cannot leave a renewed session attached to a revoked device. Pending self-service password changes revalidate session, device and account authorization atomically after hashing and before writing the new password. Session issuance with a device context likewise resolves the device and inserts the session in one transaction.
 
 Sessions with `device_id = NULL` remain valid for browser and legacy clients. Existing unbound sessions are not retroactively attributed to a device; a Desktop/Mobile client becomes device-bound by registering its installation or by signing in with device context. That nullable field is not an escape hatch for a session that is already bound to a revoked device: binding happens once, cannot be removed through the public API, and every bound session is checked against its device.
 

@@ -8,7 +8,8 @@ import type { DeviceRecord, DeviceRepository } from "./device-repository.js";
 export type DeviceErrorCode =
   | "DEVICE_NOT_FOUND"
   | "DEVICE_REVOKED"
-  | "DEVICE_PLATFORM_MISMATCH";
+  | "DEVICE_PLATFORM_MISMATCH"
+  | "DEVICE_SESSION_MISMATCH";
 
 export class DeviceError extends Error {
   constructor(
@@ -43,6 +44,14 @@ export class DeviceService {
         "DEVICE_PLATFORM_MISMATCH",
         409,
         "Mira Device platform cannot change",
+      );
+    }
+
+    if (device === "session_device_mismatch") {
+      throw new DeviceError(
+        "DEVICE_SESSION_MISMATCH",
+        409,
+        "Cloud Session is already bound to another Mira Device",
       );
     }
 

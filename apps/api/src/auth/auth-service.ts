@@ -186,12 +186,15 @@ export class AuthService {
       }
 
       const passwordHash = await this.passwordHasher.hash(newPassword);
-      this.repository.updatePasswordAndRevokeSessions(
+      const changed = this.repository.changePasswordIfSessionActive(
         authenticated.account.id,
+        authenticated.session.id,
+        authenticated.session.secretHash,
+        authenticated.account.passwordVersion,
         passwordHash,
         new Date().toISOString(),
-        "password_changed",
       );
+      if (!changed) throw reauthRequired();
       this.loginGuard.resetAfterSuccess(authenticated.account.usernameNormalized);
     } finally {
       guard.releaseHashSlot();

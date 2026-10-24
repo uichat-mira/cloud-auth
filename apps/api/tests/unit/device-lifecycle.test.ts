@@ -74,7 +74,26 @@ describe("Mira Device lifecycle model", () => {
       context.deviceService.list(alice.sessionToken).find((device) => device.id === aliceDesktop.id),
     ).toEqual(aliceDesktopAgain);
 
-    const aliceMobile = context.deviceService.register(alice.sessionToken, {
+    // A Cloud Session already bound to Desktop cannot also register a new Mobile device.
+    const boundSessionId = parseSessionToken(alice.sessionToken)!.id;
+    try {
+      context.deviceService.register(alice.sessionToken, {
+        installationId: mobileInstallation,
+        platform: "mobile",
+      });
+      throw new Error("Expected session-device mismatch");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "DEVICE_SESSION_MISMATCH", statusCode: 409 });
+    }
+    expect(
+      context.db.prepare("SELECT device_id FROM sessions WHERE id = ?").get(boundSessionId),
+    ).toMatchObject({ device_id: aliceDesktop.id });
+    expect(context.db.prepare("SELECT COUNT(*) AS count FROM devices").get()).toMatchObject({
+      count: 1,
+    });
+
+    const aliceMobileSession = await context.service.login("alice", password, "127.0.0.3");
+    const aliceMobile = context.deviceService.register(aliceMobileSession.sessionToken, {
       installationId: mobileInstallation,
       platform: "mobile",
     });

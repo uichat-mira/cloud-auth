@@ -94,7 +94,20 @@ describe("Mira Device HTTP contract", () => {
       },
     });
 
-    const mobile = await register(alice.sessionToken, {
+    const invalidRebinding = await register(alice.sessionToken, {
+      installationId: aliceMobileInstallation,
+      platform: "mobile",
+    });
+    expect(invalidRebinding.statusCode).toBe(409);
+    expect(deviceErrorEnvelopeSchema.parse(invalidRebinding.json()).error.code).toBe(
+      "DEVICE_SESSION_MISMATCH",
+    );
+    expect(context.db.prepare("SELECT COUNT(*) AS count FROM devices").get()).toMatchObject({
+      count: 1,
+    });
+
+    const aliceMobileSession = await context.service.login("alice", password, "127.0.0.4");
+    const mobile = await register(aliceMobileSession.sessionToken, {
       installationId: aliceMobileInstallation,
       platform: "mobile",
     });
