@@ -116,52 +116,32 @@ describe("Cloud Auth client contract", () => {
 
   it("classifies canonical auth error envelopes", async () => {
     const cases = [
-      {
-        status: 401,
-        code: "AUTH_REAUTH_REQUIRED",
-        kind: "reauth_required",
-      },
-      {
-        status: 401,
-        code: "AUTH_INVALID_CREDENTIALS",
-        kind: "invalid_credentials",
-      },
-      {
-        status: 429,
-        code: "AUTH_RATE_LIMITED",
-        kind: "rate_limited",
-      },
-      {
-        status: 503,
-        code: "AUTH_BUSY",
-        kind: "service_unavailable",
-      },
-      {
-        status: 500,
-        code: "AUTH_INTERNAL_ERROR",
-        kind: "unexpected_response",
-      },
+      [401, "AUTH_REAUTH_REQUIRED", "reauth_required"],
+      [401, "AUTH_INVALID_CREDENTIALS", "invalid_credentials"],
+      [429, "AUTH_RATE_LIMITED", "rate_limited"],
+      [503, "AUTH_BUSY", "service_unavailable"],
+      [500, "AUTH_INTERNAL_ERROR", "unexpected_response"],
     ] as const;
 
-    for (const testCase of cases) {
+    for (const [status, code, kind] of cases) {
       const requests: RecordedRequest[] = [];
       const client = clientReturning(
         jsonResponse(
           {
             error: {
-              code: testCase.code,
+              code,
               message: "Canonical auth error",
             },
           },
-          testCase.status,
+          status,
         ),
         requests,
       );
 
       const failure = await captureFailure(client.login({ username: "pilot", password: "x" }));
-      expect(failure.status).toBe(testCase.status);
-      expect(failure.code).toBe(testCase.code);
-      expect(failure.kind).toBe(testCase.kind);
+      expect(failure.status).toBe(status);
+      expect(failure.code).toBe(code);
+      expect(failure.kind).toBe(kind);
     }
   });
 
