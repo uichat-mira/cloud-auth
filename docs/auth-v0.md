@@ -1,6 +1,6 @@
 # Mira Cloud Account / Session V0
 
-This document describes the implemented OPS-006 account/session contract and the OPS-015 authenticated password-change flow. It is not a public-registration or service-credential specification.
+This document describes the implemented OPS-006 account/session contract, the OPS-015 authenticated password-change flow, and the OPS-007 Mira Device lifecycle. It is not a public-registration or service-credential specification.
 
 ## User-facing contract
 
@@ -25,9 +25,15 @@ Request:
 ```json
 {
   "username": "pilot",
-  "password": "..."
+  "password": "...",
+  "device": {
+    "installationId": "random-uuidv4",
+    "platform": "desktop"
+  }
 }
 ```
+
+`device` is optional. Existing browser and older-client callers that omit it keep the OPS-006 unbound-session behavior. Desktop/Mobile clients may include their existing installation identity to have the newly issued Cloud Session atomically bound to that account-owned, non-revoked Mira Device. A device context that is unknown for the account, revoked, or platform-mismatched returns `401 AUTH_DEVICE_REJECTED` and no session. A reinstall or new installation must first sign in without device context and register its new installation through `POST /v1/devices`; it is never rebound from hardware identifiers.
 
 Success returns:
 
@@ -87,9 +93,9 @@ The token format is opaque to clients. V0 currently uses a versioned session id 
 
 The database stores only SHA-256 of the high-entropy secret, domain-separated for Cloud Session use. The plaintext token exists only at initial issuance/renewal and in client secure storage.
 
-`sessions.device_id` is intentionally nullable in OPS-006. OPS-007 owns Mira Device registration/binding and will attach the session to the canonical device record without redefining the session credential.
+`sessions.device_id` remains nullable so OPS-006 browser sessions and older clients keep working. OPS-007 attaches Desktop/Mobile sessions to the canonical device record without redefining the session credential. An unbound session is not reported as device-bound. Once a session is bound it is not silently unbound or moved to another device.
 
-## Mira Device (OPS-007 first slice)
+## Mira Device (OPS-007)
 
 A Mira Device represents one Mira Desktop or Mira Mobile installation owned by a Mira Cloud Account. It is not a hardware identity: `installation_id` is a client-generated random UUIDv4 created for one installation, and a reinstall or new installation reports a new UUID and therefore becomes a distinct Mira Device. No IMEI, MAC address, serial number, hardware fingerprint, Push provider token, or Remote V1 credential is stored.
 
@@ -102,7 +108,15 @@ The additive `devices` migration persists:
 - nullable `public_key` reserved for a later proof-of-possession design;
 - `created_at`, `last_seen_at`, `revoked_at`, and `revoke_reason`.
 
-Both device endpoints require an existing accepted Cloud Session. The acting account is derived from that session; the request cannot name another account. Repeated registration of the same installation under the same account is idempotent and refreshes `last_seen_at` and support metadata. The installation's platform is immutable: changing desktop to mobile (or vice versa) returns `409 DEVICE_PLATFORM_MISMATCH` without modifying the device.
+All device endpoints require an existing accepted Cloud Session. The acting account is derived from that session; the request cannot name another account. Repeated registration of the same installation under the same account is idempotent and refreshes `last_seen_at` and support metadata. The installation's platform is immutable: changing desktop to mobile (or vice versa) returns `409 DEVICE_PLATFORM_MISMATCH` without modifying the device.
+
+Registration also binds the acting session to that device when the session is not already device-bound. This is the normal first-install path:
+
+1. sign in (with or without device context);
+2. register the installation identity;
+3. continue using the now device-bound Cloud Session.
+
+A session already bound to another device is not rebound by a later registration: the request returns `409 DEVICE_SESSION_MISMATCH` and rolls back any device write. A new installation needs a fresh unbound login/session to register.
 
 ### POST /v1/devices
 
@@ -143,9 +157,25 @@ Requires `Authorization: Bearer <Cloud Session>`.
 
 The list is scoped to the authenticated account. It never returns password hashes, Cloud Session secret material, installation IDs, public keys, Remote V1 credentials, Provider secrets, or Push tokens.
 
-### Deferred device lifecycle work
+### DELETE /v1/devices/:deviceId
 
-This first OPS-007 slice implements persistence, registration, and own-device listing. Binding new Cloud Sessions to a `device_id`, enforcing device revocation during session renewal/issuance, and exposing an independent revoke operation remain deferred to the second OPS-007 implementation slice. The persisted `revoked_at` state already prevents a revoked installation from silently re-registering, but Cloud Session enforcement is not claimed here.
+Requires `Authorization: Bearer <Cloud Session>`.
+
+Revokes one Mira Device owned by the authenticated account and immediately revokes every Cloud Session bound to that device (`revoke_reason = device_revoked`). The response is the public device metadata with `revokedAt` set. Repeating the same revoke for the caller's own device is idempotent and keeps the original revocation timestamp.
+
+A device owned by another account, an unknown device id, and a malformed device id all return the same `404 DEVICE_NOT_FOUND` response, so the endpoint does not reveal whether another account's device exists. Other devices and their sessions on the same account are not affected.
+
+### Session binding and revocation enforcement
+
+Restore (`GET /v1/auth/session`), renewal (`POST /v1/auth/session/renew`), logout, password change, and device operations all authenticate through the same session check. A session bound to a revoked device is rejected with `401 AUTH_REAUTH_REQUIRED` even if the session row itself has not yet been read as revoked.
+
+Renewal performs the rotation and the device-active check in one SQLite write, so a revocation that commits before or after the renewal cannot leave a renewed session attached to a revoked device. Pending self-service password changes revalidate session, device and account authorization atomically after hashing and before writing the new password. Session issuance with a device context likewise resolves the device and inserts the session in one transaction.
+
+Sessions with `device_id = NULL` remain valid for browser and legacy clients. Existing unbound sessions are not retroactively attributed to a device; a Desktop/Mobile client becomes device-bound by registering its installation or by signing in with device context. That nullable field is not an escape hatch for a session that is already bound to a revoked device: binding happens once, cannot be removed through the public API, and every bound session is checked against its device.
+
+### Known V0 boundary
+
+V0 uses installation identity plus possession of a Cloud Session. It does not provide per-device asymmetric proof-of-possession. A client that deliberately omits its device context is treated as a browser/legacy client. Revoking a device therefore stops that device's bound sessions and prevents it from obtaining a new device-bound session, but it cannot distinguish a modified native client that chooses to present itself as a browser. Push installation identity, Remote V1 pairing credentials, and hardware identifiers remain outside this model.
 
 ### Web Account Portal client
 

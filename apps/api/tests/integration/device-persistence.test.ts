@@ -3,6 +3,8 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { AuthError } from "../../src/auth/auth-service.js";
+import { parseSessionToken } from "../../src/security/session-token.js";
 import { createTestAuth } from "../helpers/auth.js";
 
 const cleanup: string[] = [];
@@ -33,7 +35,7 @@ describe("Mira Device SQLite persistence", () => {
 
     const second = createTestAuth(databasePath);
     expect(second.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({
-      count: 3,
+      count: 4,
     });
     expect(second.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'devices'").get()).toMatchObject({
       name: "devices",
@@ -48,7 +50,8 @@ describe("Mira Device SQLite persistence", () => {
       clientName: "Mira Desktop",
       clientVersion: "1.0.0",
     });
-    const mobile = second.deviceService.register(alice.sessionToken, {
+    const aliceMobileSession = await second.service.login("alice", password, "127.0.0.4");
+    const mobile = second.deviceService.register(aliceMobileSession.sessionToken, {
       installationId: randomUUID(),
       platform: "mobile",
       clientName: "Mira Mobile",
@@ -68,7 +71,7 @@ describe("Mira Device SQLite persistence", () => {
 
     const third = createTestAuth(databasePath);
     expect(third.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({
-      count: 3,
+      count: 4,
     });
 
     const aliceDevices = third.deviceService.list(alice.sessionToken);
@@ -112,6 +115,108 @@ describe("Mira Device SQLite persistence", () => {
       false,
     );
 
+    const sessionColumns = third.db.prepare("PRAGMA table_info(sessions)").all() as Array<{
+      name: string;
+      notnull: number;
+    }>;
+    expect(sessionColumns.find((column) => column.name === "device_id")?.notnull).toBe(0);
+    expect(
+      third.db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_sessions_device_id'",
+        )
+        .get(),
+    ).toMatchObject({ name: "idx_sessions_device_id" });
+
     third.db.close();
+  });
+
+  it("persists device-bound session revocation across reopen and keeps legacy sessions", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-device-session-persistence-"));
+    cleanup.push(dir);
+    const databasePath = join(dir, "auth.sqlite");
+
+    const first = createTestAuth(databasePath);
+    await first.service.provisionAccount("alice", password);
+    const desktopLogin = await first.service.login("alice", password, "127.0.0.1");
+    const mobileLogin = await first.service.login("alice", password, "127.0.0.2");
+    const legacyLogin = await first.service.login("alice", password, "127.0.0.3");
+
+    const desktop = first.deviceService.register(desktopLogin.sessionToken, {
+      installationId: randomUUID(),
+      platform: "desktop",
+      clientName: "Mira Desktop",
+    });
+    const mobile = first.deviceService.register(mobileLogin.sessionToken, {
+      installationId: randomUUID(),
+      platform: "mobile",
+      clientName: "Mira Mobile",
+    });
+    const revoked = first.deviceService.revoke(desktopLogin.sessionToken, desktop.id);
+    expect(revoked.revokedAt).not.toBeNull();
+
+    const desktopSessionId = parseSessionToken(desktopLogin.sessionToken)?.id;
+    const mobileSessionId = parseSessionToken(mobileLogin.sessionToken)?.id;
+    const legacySessionId = parseSessionToken(legacyLogin.sessionToken)?.id;
+    expect(desktopSessionId).toBeTruthy();
+    expect(mobileSessionId).toBeTruthy();
+    expect(legacySessionId).toBeTruthy();
+    first.db.close();
+
+    const second = createTestAuth(databasePath);
+    expect(
+      second.db
+        .prepare("SELECT device_id, revoked_at, revoke_reason FROM sessions WHERE id = ?")
+        .get(desktopSessionId!) as {
+        device_id: string | null;
+        revoked_at: string | null;
+        revoke_reason: string | null;
+      },
+    ).toEqual({
+      device_id: desktop.id,
+      revoked_at: revoked.revokedAt,
+      revoke_reason: "device_revoked",
+    });
+    expect(
+      second.db
+        .prepare("SELECT device_id, revoked_at FROM sessions WHERE id = ?")
+        .get(mobileSessionId!) as { device_id: string | null; revoked_at: string | null },
+    ).toEqual({ device_id: mobile.id, revoked_at: null });
+    expect(
+      second.db
+        .prepare("SELECT device_id, revoked_at FROM sessions WHERE id = ?")
+        .get(legacySessionId!) as { device_id: string | null; revoked_at: string | null },
+    ).toEqual({ device_id: null, revoked_at: null });
+    expect(
+      second.db.prepare("SELECT revoked_at FROM devices WHERE id = ?").get(desktop.id),
+    ).toMatchObject({ revoked_at: revoked.revokedAt });
+
+    for (const action of [
+      () => second.service.getSession(desktopLogin.sessionToken),
+      () => second.service.renewSession(desktopLogin.sessionToken),
+    ]) {
+      try {
+        action();
+        throw new Error("Expected the revoked device session to stay rejected");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AuthError);
+        expect(error).toMatchObject({ code: "AUTH_REAUTH_REQUIRED", statusCode: 401 });
+      }
+    }
+
+    expect(second.service.getSession(mobileLogin.sessionToken).account.username).toBe("alice");
+    expect(second.service.renewSession(mobileLogin.sessionToken).account.username).toBe("alice");
+    expect(second.service.getSession(legacyLogin.sessionToken).account.username).toBe("alice");
+    const renewedLegacy = second.service.renewSession(legacyLogin.sessionToken);
+    expect(renewedLegacy.account.username).toBe("alice");
+
+    expect(second.deviceService.list(renewedLegacy.sessionToken)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: desktop.id, revokedAt: revoked.revokedAt }),
+        expect.objectContaining({ id: mobile.id, revokedAt: null }),
+      ]),
+    );
+
+    second.db.close();
   });
 });

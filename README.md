@@ -57,12 +57,13 @@ The API default local database path is `./data/auth.sqlite` relative to `apps/ap
 
 - GET /health: process liveness
 - GET /ready: process + database readiness
-- POST /v1/auth/login: account/password root authentication
+- POST /v1/auth/login: account/password root authentication with optional Mira Device context
 - GET /v1/auth/session: restore accepted Cloud Session
 - POST /v1/auth/session/renew: rotate/extend Cloud Session without resending password
 - POST /v1/auth/password: change the authenticated account password and revoke all sessions
 - POST /v1/auth/logout: revoke current Cloud Session
 - POST /v1/devices: register the current installation as a Mira Device
 - GET /v1/devices: list the authenticated account's Mira Devices
+- DELETE /v1/devices/:deviceId: revoke one owned Mira Device and its Cloud Sessions
 
-See docs/auth-v0.md for the OPS-006 account/session contract and maintainer administration.
+See docs/auth-v0.md for the OPS-006 account/session contract, the OPS-007 Mira Device lifecycle, and maintainer administration.

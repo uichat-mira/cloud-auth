@@ -7,10 +7,27 @@ export const accountIdentitySchema = z
   })
   .strict();
 
+export const devicePlatformSchema = z.enum(["desktop", "mobile"]);
+
+const installationIdPattern =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+
+const installationIdSchema = z
+  .string()
+  .regex(installationIdPattern, "installationId must be a randomly generated UUIDv4");
+
+export const deviceLoginContextSchema = z
+  .object({
+    installationId: installationIdSchema,
+    platform: devicePlatformSchema,
+  })
+  .strict();
+
 export const loginRequestSchema = z
   .object({
     username: z.string().min(1).max(128),
     password: z.string().min(1).max(256),
+    device: deviceLoginContextSchema.optional(),
   })
   .strict();
 
@@ -34,16 +51,11 @@ export const issuedCloudSessionSchema = cloudSessionSchema
   })
   .strict();
 
-export const devicePlatformSchema = z.enum(["desktop", "mobile"]);
-
-const installationIdPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const deviceIdSchema = z.uuid();
 
 export const registerDeviceRequestSchema = z
   .object({
-    installationId: z
-      .string()
-      .regex(installationIdPattern, "installationId must be a randomly generated UUIDv4"),
+    installationId: installationIdSchema,
     platform: devicePlatformSchema,
     clientName: z.string().min(1).max(80).regex(/\S/, "clientName must not be blank").optional(),
     clientVersion: z
@@ -75,8 +87,10 @@ export const deviceListResponseSchema = z
 
 export const deviceErrorCodeSchema = z.enum([
   "DEVICE_INVALID_REQUEST",
+  "DEVICE_NOT_FOUND",
   "DEVICE_REVOKED",
   "DEVICE_PLATFORM_MISMATCH",
+  "DEVICE_SESSION_MISMATCH",
   "DEVICE_INTERNAL_ERROR",
 ]);
 
@@ -95,6 +109,7 @@ export const publicAuthErrorCodeSchema = z.enum([
   "AUTH_INVALID_CREDENTIALS",
   "AUTH_INVALID_PASSWORD",
   "AUTH_REAUTH_REQUIRED",
+  "AUTH_DEVICE_REJECTED",
   "AUTH_RATE_LIMITED",
   "AUTH_BUSY",
   "AUTH_INTERNAL_ERROR",
@@ -128,6 +143,7 @@ export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type CloudSession = z.infer<typeof cloudSessionSchema>;
 export type IssuedCloudSession = z.infer<typeof issuedCloudSessionSchema>;
 export type DevicePlatform = z.infer<typeof devicePlatformSchema>;
+export type DeviceLoginContext = z.infer<typeof deviceLoginContextSchema>;
 export type RegisterDeviceRequest = z.infer<typeof registerDeviceRequestSchema>;
 export type MiraDevice = z.infer<typeof miraDeviceSchema>;
 export type DeviceListResponse = z.infer<typeof deviceListResponseSchema>;

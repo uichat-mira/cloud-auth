@@ -7,6 +7,7 @@ import {
   authErrorEnvelopeSchema,
   deviceErrorEnvelopeSchema,
   deviceListResponseSchema,
+  issuedCloudSessionSchema,
   miraDeviceSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 import { buildApp } from "../../src/app.js";
@@ -93,7 +94,20 @@ describe("Mira Device HTTP contract", () => {
       },
     });
 
-    const mobile = await register(alice.sessionToken, {
+    const invalidRebinding = await register(alice.sessionToken, {
+      installationId: aliceMobileInstallation,
+      platform: "mobile",
+    });
+    expect(invalidRebinding.statusCode).toBe(409);
+    expect(deviceErrorEnvelopeSchema.parse(invalidRebinding.json()).error.code).toBe(
+      "DEVICE_SESSION_MISMATCH",
+    );
+    expect(context.db.prepare("SELECT COUNT(*) AS count FROM devices").get()).toMatchObject({
+      count: 1,
+    });
+
+    const aliceMobileSession = await context.service.login("alice", password, "127.0.0.4");
+    const mobile = await register(aliceMobileSession.sessionToken, {
       installationId: aliceMobileInstallation,
       platform: "mobile",
     });
@@ -220,6 +234,214 @@ describe("Mira Device HTTP contract", () => {
       "AUTH_REAUTH_REQUIRED",
     );
 
+    const unauthorizedRevoke = await app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${randomUUID()}`,
+    });
+    expect(unauthorizedRevoke.statusCode).toBe(401);
+    expect(authErrorEnvelopeSchema.parse(unauthorizedRevoke.json()).error.code).toBe(
+      "AUTH_REAUTH_REQUIRED",
+    );
+
+    await app.close();
+    context.db.close();
+  });
+
+  it("revokes one device and immediately invalidates only its sessions", async () => {
+    const context = createContext();
+    await context.service.provisionAccount("alice", password);
+    await context.service.provisionAccount("bob", password);
+    const aliceDesktop = await context.service.login("alice", password, "127.0.0.1");
+    const aliceMobile = await context.service.login("alice", password, "127.0.0.2");
+    const bob = await context.service.login("bob", password, "127.0.0.3");
+    const app = await buildDeviceApp(context);
+
+    const desktopInstallation = randomUUID();
+    const mobileInstallation = randomUUID();
+    const bobInstallation = randomUUID();
+    const register = (token: string, payload: Record<string, unknown>) =>
+      app.inject({
+        method: "POST",
+        url: "/v1/devices",
+        headers: { authorization: `Bearer ${token}` },
+        payload,
+      });
+
+    const desktopResponse = await register(aliceDesktop.sessionToken, {
+      installationId: desktopInstallation,
+      platform: "desktop",
+      clientName: "Mira Desktop",
+    });
+    const desktop = miraDeviceSchema.parse(desktopResponse.json());
+    const mobileResponse = await register(aliceMobile.sessionToken, {
+      installationId: mobileInstallation,
+      platform: "mobile",
+      clientName: "Mira Mobile",
+    });
+    const mobile = miraDeviceSchema.parse(mobileResponse.json());
+    const bobResponse = await register(bob.sessionToken, {
+      installationId: bobInstallation,
+      platform: "desktop",
+    });
+    const bobDevice = miraDeviceSchema.parse(bobResponse.json());
+
+    const revokedResponse = await app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${desktop.id}`,
+      headers: { authorization: `Bearer ${aliceDesktop.sessionToken}` },
+    });
+    expect(revokedResponse.statusCode).toBe(200);
+    const revoked = miraDeviceSchema.parse(revokedResponse.json());
+    expect(revoked).toMatchObject({ id: desktop.id, revokedAt: expect.any(String) });
+    expect(revokedResponse.body).not.toContain(desktopInstallation);
+
+    for (const request of [
+      { method: "GET" as const, url: "/v1/auth/session" },
+      { method: "POST" as const, url: "/v1/auth/session/renew" },
+    ]) {
+      const response = await app.inject({
+        ...request,
+        headers: { authorization: `Bearer ${aliceDesktop.sessionToken}` },
+      });
+      expect(response.statusCode).toBe(401);
+      expect(authErrorEnvelopeSchema.parse(response.json()).error.code).toBe(
+        "AUTH_REAUTH_REQUIRED",
+      );
+    }
+
+    const mobileRestore = await app.inject({
+      method: "GET",
+      url: "/v1/auth/session",
+      headers: { authorization: `Bearer ${aliceMobile.sessionToken}` },
+    });
+    expect(mobileRestore.statusCode).toBe(200);
+    const mobileRenew = await app.inject({
+      method: "POST",
+      url: "/v1/auth/session/renew",
+      headers: { authorization: `Bearer ${aliceMobile.sessionToken}` },
+    });
+    expect(mobileRenew.statusCode).toBe(200);
+    const renewedMobileSession = issuedCloudSessionSchema.parse(mobileRenew.json());
+
+    const aliceList = await app.inject({
+      method: "GET",
+      url: "/v1/devices",
+      headers: { authorization: `Bearer ${renewedMobileSession.sessionToken}` },
+    });
+    expect(aliceList.statusCode).toBe(200);
+    expect(deviceListResponseSchema.parse(aliceList.json()).devices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: desktop.id, revokedAt: revoked.revokedAt }),
+        expect.objectContaining({ id: mobile.id, revokedAt: null }),
+      ]),
+    );
+
+    const repeatedRevoke = await app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${desktop.id}`,
+      headers: { authorization: `Bearer ${renewedMobileSession.sessionToken}` },
+    });
+    expect(repeatedRevoke.statusCode).toBe(200);
+    expect(miraDeviceSchema.parse(repeatedRevoke.json()).revokedAt).toBe(revoked.revokedAt);
+
+    const crossAccountRevoke = await app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${mobile.id}`,
+      headers: { authorization: `Bearer ${bob.sessionToken}` },
+    });
+    const unknownRevoke = await app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${randomUUID()}`,
+      headers: { authorization: `Bearer ${bob.sessionToken}` },
+    });
+    expect(crossAccountRevoke.statusCode).toBe(404);
+    expect(unknownRevoke.statusCode).toBe(404);
+    expect(crossAccountRevoke.json()).toEqual(unknownRevoke.json());
+    expect(deviceErrorEnvelopeSchema.parse(crossAccountRevoke.json())).toEqual({
+      error: { code: "DEVICE_NOT_FOUND", message: "Mira Device not found" },
+    });
+
+    const malformedRevoke = await app.inject({
+      method: "DELETE",
+      url: "/v1/devices/not-a-device-id",
+      headers: { authorization: `Bearer ${bob.sessionToken}` },
+    });
+    expect(malformedRevoke.statusCode).toBe(404);
+    expect(deviceErrorEnvelopeSchema.parse(malformedRevoke.json()).error.code).toBe(
+      "DEVICE_NOT_FOUND",
+    );
+
+    const aliceDevices = await app.inject({
+      method: "GET",
+      url: "/v1/devices",
+      headers: { authorization: `Bearer ${renewedMobileSession.sessionToken}` },
+    });
+    expect(deviceListResponseSchema.parse(aliceDevices.json()).devices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: desktop.id, revokedAt: revoked.revokedAt }),
+        expect.objectContaining({ id: mobile.id, revokedAt: null }),
+      ]),
+    );
+    const bobDevices = await app.inject({
+      method: "GET",
+      url: "/v1/devices",
+      headers: { authorization: `Bearer ${bob.sessionToken}` },
+    });
+    expect(deviceListResponseSchema.parse(bobDevices.json()).devices).toEqual([bobDevice]);
+
+    const rejectedDeviceLogin = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: {
+        username: "alice",
+        password,
+        device: { installationId: desktopInstallation, platform: "desktop" },
+      },
+    });
+    expect(rejectedDeviceLogin.statusCode).toBe(401);
+    expect(authErrorEnvelopeSchema.parse(rejectedDeviceLogin.json()).error.code).toBe(
+      "AUTH_DEVICE_REJECTED",
+    );
+
+    const acceptedDeviceLogin = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: {
+        username: "alice",
+        password,
+        device: { installationId: mobileInstallation.toUpperCase(), platform: "mobile" },
+      },
+    });
+    expect(acceptedDeviceLogin.statusCode).toBe(200);
+    expect(issuedCloudSessionSchema.parse(acceptedDeviceLogin.json()).account.username).toBe(
+      "alice",
+    );
+
+    const legacyLogin = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "alice", password },
+    });
+    expect(legacyLogin.statusCode).toBe(200);
+
+    for (const response of [
+      revokedResponse,
+      desktopResponse,
+      mobileResponse,
+      aliceList,
+      repeatedRevoke,
+      crossAccountRevoke,
+      acceptedDeviceLogin,
+      legacyLogin,
+    ]) {
+      expect(response.body).not.toContain(password);
+      expect(response.body).not.toContain("secret_hash");
+      expect(response.body).not.toContain("password_hash");
+      expect(response.body).not.toContain(desktopInstallation);
+      expect(response.body).not.toContain(mobileInstallation);
+      expect(response.body).not.toContain(bobInstallation);
+    }
+
     await app.close();
     context.db.close();
   });
@@ -228,6 +450,7 @@ describe("Mira Device HTTP contract", () => {
     const context = createContext();
     await context.service.provisionAccount("revoked", password);
     const session = await context.service.login("revoked", password, "127.0.0.1");
+    const freshSession = await context.service.login("revoked", password, "127.0.0.2");
     const app = await buildDeviceApp(context);
     const installationId = randomUUID();
 
@@ -245,7 +468,7 @@ describe("Mira Device HTTP contract", () => {
     const rejected = await app.inject({
       method: "POST",
       url: "/v1/devices",
-      headers: { authorization: `Bearer ${session.sessionToken}` },
+      headers: { authorization: `Bearer ${freshSession.sessionToken}` },
       payload: { installationId, platform: "mobile" },
     });
     expect(rejected.statusCode).toBe(409);
@@ -259,12 +482,19 @@ describe("Mira Device HTTP contract", () => {
     const list = await app.inject({
       method: "GET",
       url: "/v1/devices",
-      headers: { authorization: `Bearer ${session.sessionToken}` },
+      headers: { authorization: `Bearer ${freshSession.sessionToken}` },
     });
     expect(list.statusCode).toBe(200);
     expect(deviceListResponseSchema.parse(list.json()).devices).toEqual([
       { ...device, revokedAt: "2026-10-24T08:00:00.000Z" },
     ]);
+
+    const boundSession = await app.inject({
+      method: "GET",
+      url: "/v1/auth/session",
+      headers: { authorization: `Bearer ${session.sessionToken}` },
+    });
+    expect(boundSession.statusCode).toBe(401);
 
     await app.close();
     context.db.close();
