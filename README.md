@@ -67,3 +67,5 @@ The API default local database path is `./data/auth.sqlite` relative to `apps/ap
 - DELETE /v1/devices/:deviceId: revoke one owned Mira Device and its Cloud Sessions
 
 See docs/auth-v0.md for the OPS-006 account/session contract, the OPS-007 Mira Device lifecycle, and maintainer administration.
+
+Service credentials are not yet exposed over HTTP. See docs/service-credentials-v0.md for the OPS-008 run 1 canonical claims contract, Ed25519 sign/verify helpers, trust assumptions, and deferred issuance/JWKS/rotation work.
