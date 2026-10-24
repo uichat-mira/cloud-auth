@@ -1,6 +1,6 @@
 import type {
   AccountIdentity,
-  IssuedCloudSession,
+  CloudSession,
 } from "@uichat-mira/cloud-auth-contracts";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { CloudAuthClient } from "./client";
@@ -57,7 +57,7 @@ export function createAuthStore({
 
       try {
         const issued = await client.login({ username, password });
-        applyIssuedSession(set, storage, issued);
+        applySession(set, storage, issued.sessionToken, issued);
       } catch (error) {
         const failure = toAuthFailure(error);
         set((state) => ({
@@ -82,17 +82,7 @@ export function createAuthStore({
 
       try {
         const session = await client.getSession(persisted.sessionToken);
-        storage.save({
-          sessionToken: persisted.sessionToken,
-          expiresAt: session.expiresAt,
-        });
-        set({
-          status: "authenticated",
-          account: session.account,
-          expiresAt: session.expiresAt,
-          failure: null,
-          pending: null,
-        });
+        applySession(set, storage, persisted.sessionToken, session);
       } catch (error) {
         applySessionFailure(set, storage, error);
       }
@@ -111,7 +101,7 @@ export function createAuthStore({
 
       try {
         const issued = await client.renewSession(persisted.sessionToken);
-        applyIssuedSession(set, storage, issued);
+        applySession(set, storage, issued.sessionToken, issued);
       } catch (error) {
         applySessionFailure(set, storage, error);
       }
@@ -161,19 +151,20 @@ function setUnauthenticated(
   });
 }
 
-function applyIssuedSession(
+function applySession(
   set: StoreApi<AuthStoreState>["setState"],
   storage: SessionStorageAdapter,
-  issued: IssuedCloudSession,
+  sessionToken: string,
+  session: CloudSession,
 ): void {
   storage.save({
-    sessionToken: issued.sessionToken,
-    expiresAt: issued.expiresAt,
+    sessionToken,
+    expiresAt: session.expiresAt,
   });
   set({
     status: "authenticated",
-    account: issued.account,
-    expiresAt: issued.expiresAt,
+    account: session.account,
+    expiresAt: session.expiresAt,
     failure: null,
     pending: null,
   });
