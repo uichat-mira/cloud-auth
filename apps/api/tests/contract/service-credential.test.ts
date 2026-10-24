@@ -444,8 +444,10 @@ describe("service credential verification contract", () => {
 
     // A Relay ticket must never be accepted as connection eligibility
     // without verifying the actual requested room and peer role.
+    const relayWithoutConnectionContext = relayVerifier();
+    delete relayWithoutConnectionContext.expectedRelay;
     expectVerificationError(
-      () => verifyServiceCredential(issueRelayToken(), relayVerifier({ expectedRelay: undefined })),
+      () => verifyServiceCredential(issueRelayToken(), relayWithoutConnectionContext),
       "INVALID_VERIFIER_CONFIG",
     );
 
