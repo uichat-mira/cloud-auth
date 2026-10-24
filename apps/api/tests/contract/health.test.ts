@@ -29,4 +29,20 @@ describe("health contract", () => {
     await app.close();
     db.close();
   });
+  it("does not serve the retired browser acceptance harness", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-auth-no-legacy-ui-"));
+    cleanup.push(dir);
+    const db = openDatabase({ databasePath: join(dir, "auth.sqlite") });
+    const app = buildApp({ db });
+
+    for (const url of ["/", "/acceptance.js"]) {
+      const response = await app.inject({ method: "GET", url });
+      expect(response.statusCode).toBe(404);
+      expect(response.body).not.toContain("登录验收");
+    }
+
+    await app.close();
+    db.close();
+  });
+
 });

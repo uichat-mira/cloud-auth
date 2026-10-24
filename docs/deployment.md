@@ -19,6 +19,7 @@ cloud-auth.tomzlab.cn (DNS)
 - 生产目录：`/opt/cloud-auth`；Compose 文件：`docker-compose.prod.yml`；生产容器镜像：`mira-cloud-auth:prod`。
 - 应用端口仅发布到服务器回环 `127.0.0.1:8788`，**不要**向互联网开放 8788。Caddy 负责 HTTPS。
 - 生产交付物由同一 Docker build 产生 API 与 Account Portal。容器运行 Fastify API；部署脚本从同一镜像提取 `apps/web/dist` 到 `/opt/cloud-auth/web`，由宿主 Caddy 直接提供静态页面。
+- OPS-014 已移除原来基于 `String.raw` 的临时登录验收页、运行开关和 test Caddy 的 `/_acceptance/` 代理。正式验收走 `/login` 与 `/account`；不要恢复测试专用的密码表单。
 - MiraAI/New API 是同一宿主机上的**其他服务**，不是 Cloud Auth 的上游；这份指南不负责部署或改动它们。
 - 规范来源：[环境模型](https://github.com/uichat-mira/.github/blob/main/docs/engineering/environment-model.md)、[测试标准](https://github.com/uichat-mira/.github/blob/main/docs/engineering/testing-standard.md)、[Cloud Auth 设计](https://github.com/uichat-mira/.github/blob/main/docs/engineering/mira-cloud-auth.md)。
 
@@ -56,7 +57,7 @@ feat/* → dev → test → prod
 ```
 
 - 功能/脚本变更：先 PR 到 `dev`，通过相关检查；按已审候选进入 `test`，最后才进入 `prod`。不要因为分支发生分叉就整分支强合并并夹带无关代码；必要时仅提升已审的变更。
-- `test`：手动触发 [Deploy Cloud Auth Test](../.github/workflows/deploy-test.yml)；不是一个常驻独立实例。测试与生产部署使用同一宿主机回环端口 **8788**，安排明确的测试窗口，不要在生产正在提供服务时随意启动测试部署。
+- `test`：手动触发 [Deploy Cloud Auth Test](../.github/workflows/deploy-test.yml)；不是一个常驻独立实例。测试与生产部署使用同一宿主机回环端口 **8788**，安排明确的测试窗口，不要在生产正在提供服务时随意启动测试部署。测试域名直接访问 `/login`、`/account`，不再配置 `/_acceptance/` 代理。
 - `prod`：**push 到 `prod` 自动触发** [Deploy Cloud Auth Production](../.github/workflows/deploy-prod.yml)，也支持手动 `workflow_dispatch`。重跑生产工作流会再次构建、上传并重建容器；它不是无副作用的“状态检查”。
 - `main` 不是生产环境分支。部署前记录待发布 commit SHA、回滚锚点与数据库备份位置。
 

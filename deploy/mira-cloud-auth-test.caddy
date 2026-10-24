@@ -4,13 +4,6 @@ test.cloud-auth.tomzlab.cn {
     reverse_proxy 127.0.0.1:8788
   }
 
-  # Keep the temporary OPS-006 acceptance harness reachable until the real
-  # Account Portal flow replaces it. handle_path strips this prefix before
-  # proxying, so its relative /v1 requests continue to work unchanged.
-  handle_path /_acceptance/* {
-    reverse_proxy 127.0.0.1:8788
-  }
-
   handle {
     root * /opt/cloud-auth-test/web
     try_files {path} /index.html
