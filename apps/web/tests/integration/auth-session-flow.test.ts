@@ -39,13 +39,7 @@ async function startAuthServer() {
         return;
       }
 
-      tokenSequence += 1;
-      activeToken = `mcs_v1.session-${tokenSequence}.secret`;
-      sendJson(response, 200, {
-        sessionToken: activeToken,
-        account,
-        expiresAt,
-      });
+      activeToken = issueSession(response, tokenSequence += 1);
       return;
     }
 
@@ -61,13 +55,7 @@ async function startAuthServer() {
     }
 
     if (request.method === "POST" && request.url === "/v1/auth/session/renew") {
-      tokenSequence += 1;
-      activeToken = `mcs_v1.session-${tokenSequence}.secret`;
-      sendJson(response, 200, {
-        sessionToken: activeToken,
-        account,
-        expiresAt,
-      });
+      activeToken = issueSession(response, tokenSequence += 1);
       return;
     }
 
@@ -278,6 +266,16 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+}
+
+function issueSession(response: ServerResponse, sequence: number): string {
+  const sessionToken = `mcs_v1.session-${sequence}.secret`;
+  sendJson(response, 200, {
+    sessionToken,
+    account,
+    expiresAt,
+  });
+  return sessionToken;
 }
 
 function sendAuthError(
