@@ -47,6 +47,20 @@ async function createAuthenticatedLogoutStore(
   return { store, storage, stored };
 }
 
+function expectLoggedOut(
+  store: AuthStore,
+  storage: ReturnType<typeof createMemoryStorage>,
+): void {
+  expect(store.getState()).toMatchObject({
+    status: "unauthenticated",
+    account: null,
+    expiresAt: null,
+    pending: null,
+    failure: null,
+  });
+  expect(storage.load()).toBeNull();
+}
+
 describe("auth store", () => {
   it("stores the issued session after login without exposing token in state", async () => {
     const storage = createMemoryStorage();
@@ -160,14 +174,7 @@ describe("auth store", () => {
     await store.getState().logout();
 
     expect(logoutToken).toBe("token-1");
-    expect(store.getState()).toMatchObject({
-      status: "unauthenticated",
-      account: null,
-      expiresAt: null,
-      pending: null,
-      failure: null,
-    });
-    expect(storage.load()).toBeNull();
+    expectLoggedOut(store, storage);
   });
 
   it("clears the stored session when logout reports re-authentication required", async () => {
@@ -182,14 +189,7 @@ describe("auth store", () => {
 
     await store.getState().logout();
 
-    expect(store.getState()).toMatchObject({
-      status: "unauthenticated",
-      account: null,
-      expiresAt: null,
-      pending: null,
-      failure: null,
-    });
-    expect(storage.load()).toBeNull();
+    expectLoggedOut(store, storage);
   });
 
   it.each([
