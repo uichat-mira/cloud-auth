@@ -1,9 +1,24 @@
-import { Link } from "react-router-dom";
+import { useState, type FormEvent } from "react";
+import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useAuthSession } from "@/lib/auth/context";
 
 export function LoginPage() {
+  const { status, failure, pending, login, clearFailure } = useAuthSession();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  if (status === "authenticated") {
+    return <Navigate to="/account" replace />;
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void login(username, password);
+  }
+
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-center">
       <section className="space-y-4">
@@ -14,7 +29,7 @@ export function LoginPage() {
           登录 Mira Cloud
         </h1>
         <p className="max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-          使用 Mira Cloud 账号访问跨设备账户与云端服务。登录与会话处理将在后续版本接入此页面。
+          使用 Mira Cloud 账号访问跨设备账户与云端服务。登录后会建立可恢复、可续期的 Cloud Session。
         </p>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span className="rounded-full border px-3 py-1">Cloud Account</span>
@@ -27,15 +42,11 @@ export function LoginPage() {
         <CardHeader>
           <CardTitle>账号登录</CardTitle>
           <CardDescription>
-            当前为 Web 界面骨架，认证流程尚未接入。
+            使用 Mira Cloud 账号与密码登录当前浏览器。
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form
-            className="grid gap-4"
-            aria-describedby="login-placeholder-note"
-            onSubmit={(event) => event.preventDefault()}
-          >
+          <form className="grid gap-4" onSubmit={handleSubmit}>
             <div className="grid gap-2">
               <label className="text-sm font-medium" htmlFor="username">
                 账号
@@ -45,7 +56,12 @@ export function LoginPage() {
                 name="username"
                 autoComplete="username"
                 placeholder="Mira Cloud 账号"
-                disabled
+                required
+                value={username}
+                onChange={(event) => {
+                  setUsername(event.target.value);
+                  if (failure) clearFailure();
+                }}
               />
             </div>
             <div className="grid gap-2">
@@ -58,19 +74,30 @@ export function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 placeholder="密码"
-                disabled
+                required
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (failure) clearFailure();
+                }}
               />
             </div>
-            <Button type="submit" className="w-full" disabled>
-              登录
+            {failure ? (
+              <p
+                role="alert"
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {failure.message}
+              </p>
+            ) : null}
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={pending !== null || status === "restoring"}
+            >
+              {pending === "login" ? "登录中…" : "登录"}
             </Button>
           </form>
-          <p
-            id="login-placeholder-note"
-            className="mt-4 text-xs leading-5 text-muted-foreground"
-          >
-            账号密码认证与 Cloud Session 将作为后续工作项接入。
-          </p>
           <p className="mt-6 text-xs text-muted-foreground">
             只是想查看账户页面？
             <Button asChild variant="link" className="h-auto px-1 py-0 text-xs">
