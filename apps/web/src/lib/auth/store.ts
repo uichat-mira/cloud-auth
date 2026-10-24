@@ -80,12 +80,10 @@ export function createAuthStore({
 
       set({ status: "restoring", pending: "restore", failure: null });
 
-      try {
+      await runSessionOperation(set, storage, async () => {
         const session = await client.getSession(persisted.sessionToken);
-        applySession(set, storage, persisted.sessionToken, session);
-      } catch (error) {
-        applySessionFailure(set, storage, error);
-      }
+        return { sessionToken: persisted.sessionToken, session };
+      });
     },
 
     async renew() {
@@ -99,12 +97,10 @@ export function createAuthStore({
 
       set({ pending: "renew", failure: null });
 
-      try {
+      await runSessionOperation(set, storage, async () => {
         const issued = await client.renewSession(persisted.sessionToken);
-        applySession(set, storage, issued.sessionToken, issued);
-      } catch (error) {
-        applySessionFailure(set, storage, error);
-      }
+        return { sessionToken: issued.sessionToken, session: issued };
+      });
     },
 
     async logout() {
@@ -136,6 +132,19 @@ export function createAuthStore({
       set({ failure: null });
     },
   }));
+}
+
+async function runSessionOperation(
+  set: StoreApi<AuthStoreState>["setState"],
+  storage: SessionStorageAdapter,
+  operation: () => Promise<{ sessionToken: string; session: CloudSession }>,
+): Promise<void> {
+  try {
+    const { sessionToken, session } = await operation();
+    applySession(set, storage, sessionToken, session);
+  } catch (error) {
+    applySessionFailure(set, storage, error);
+  }
 }
 
 function setUnauthenticated(
