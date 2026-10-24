@@ -22,6 +22,20 @@ describe("auth failure classification", () => {
     ).toBe("invalid_credentials");
   });
 
+  it("maps password policy rejections to a distinct failure", () => {
+    const failure = failureFromErrorResponse(
+      400,
+      envelope("AUTH_INVALID_PASSWORD"),
+      null,
+    );
+    expect(failure).toMatchObject({
+      kind: "invalid_password",
+      code: "AUTH_INVALID_PASSWORD",
+      status: 400,
+    });
+    expect(failure.message).toContain("新密码不符合密码策略");
+  });
+
   it("maps rate limiting and transient service states", () => {
     const rateLimited = failureFromErrorResponse(
       429,

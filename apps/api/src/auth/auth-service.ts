@@ -1,7 +1,7 @@
 import type { AccountIdentity, CloudSession, IssuedCloudSession } from "@uichat-mira/cloud-auth-contracts";
 import type { AuthRepository, AccountRecord } from "./auth-repository.js";
 import { normalizeUsername } from "./username.js";
-import type { PasswordHasher } from "../security/password.js";
+import { validatePassword, type PasswordHasher } from "../security/password.js";
 import type { LoginGuard } from "../security/login-guard.js";
 import {
   issueSessionToken,
@@ -11,6 +11,7 @@ import {
 
 export type AuthErrorCode =
   | "AUTH_INVALID_CREDENTIALS"
+  | "AUTH_INVALID_PASSWORD"
   | "AUTH_REAUTH_REQUIRED"
   | "AUTH_RATE_LIMITED"
   | "AUTH_BUSY"
@@ -49,18 +50,7 @@ export class AuthService {
       usernameNormalized = "invalid";
     }
 
-    const guard = this.loginGuard.begin(usernameNormalized, ip);
-    if (!guard.allowed) {
-      if (guard.code === "rate_limited") {
-        throw new AuthError(
-          "AUTH_RATE_LIMITED",
-          429,
-          "Too many login attempts",
-          guard.retryAfterSeconds,
-        );
-      }
-      throw new AuthError("AUTH_BUSY", 503, "Authentication is temporarily busy", guard.retryAfterSeconds);
-    }
+    const guard = this.beginCredentialAttempt(usernameNormalized, ip);
 
     try {
       const account = usernameNormalized === "invalid"
@@ -141,6 +131,50 @@ export class AuthService {
     this.repository.revokeSession(authenticated.session.id, "logout", new Date().toISOString());
   }
 
+  async changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string,
+    ip: string,
+  ): Promise<void> {
+    const authenticated = this.requireSession(token);
+    const guard = this.beginCredentialAttempt(
+      authenticated.account.usernameNormalized,
+      ip,
+    );
+
+    try {
+      const currentPasswordValid = await this.passwordHasher.verify(
+        currentPassword,
+        authenticated.account.passwordHash,
+      );
+      if (!currentPasswordValid) {
+        throw new AuthError("AUTH_INVALID_CREDENTIALS", 401, "Current password is incorrect");
+      }
+
+      try {
+        validatePassword(newPassword);
+      } catch (error) {
+        throw new AuthError(
+          "AUTH_INVALID_PASSWORD",
+          400,
+          error instanceof Error ? error.message : "Password does not meet the policy",
+        );
+      }
+
+      const passwordHash = await this.passwordHasher.hash(newPassword);
+      this.repository.updatePasswordAndRevokeSessions(
+        authenticated.account.id,
+        passwordHash,
+        new Date().toISOString(),
+        "password_changed",
+      );
+      this.loginGuard.resetAfterSuccess(authenticated.account.usernameNormalized);
+    } finally {
+      guard.releaseHashSlot();
+    }
+  }
+
   async provisionAccount(username: string, password: string): Promise<AccountRecord> {
     const usernameNormalized = this.normalizeAdminUsername(username);
     if (this.repository.findAccountByUsername(usernameNormalized)) {
@@ -166,6 +200,30 @@ export class AuthService {
   setDisabled(username: string, disabled: boolean): void {
     const account = this.requireAdminAccount(username);
     this.repository.setDisabledAndRevoke(account.id, disabled, new Date().toISOString());
+  }
+
+  private beginCredentialAttempt(
+    usernameNormalized: string,
+    ip: string,
+  ): { releaseHashSlot: () => void } {
+    const guard = this.loginGuard.begin(usernameNormalized, ip);
+    if (!guard.allowed) {
+      if (guard.code === "rate_limited") {
+        throw new AuthError(
+          "AUTH_RATE_LIMITED",
+          429,
+          "Too many login attempts",
+          guard.retryAfterSeconds,
+        );
+      }
+      throw new AuthError(
+        "AUTH_BUSY",
+        503,
+        "Authentication is temporarily busy",
+        guard.retryAfterSeconds,
+      );
+    }
+    return guard;
   }
 
   private requireSession(token: string) {

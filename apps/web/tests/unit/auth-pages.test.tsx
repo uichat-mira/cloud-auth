@@ -18,6 +18,7 @@ function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient
     login: async () => issuedSession("token-1"),
     getSession: async () => ({ account, expiresAt }),
     renewSession: async () => issuedSession("token-2"),
+    changePassword: async () => undefined,
     logout: async () => undefined,
     ...overrides,
   };
@@ -58,6 +59,7 @@ describe("auth-backed route components", () => {
       },
       getSession: async () => ({ account, expiresAt }),
       renewSession: async () => issuedSession("token-2"),
+      changePassword: async () => undefined,
       logout: async (token) => {
         logoutToken = token;
       },
@@ -149,6 +151,127 @@ describe("auth-backed route components", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "账户概览" }),
     ).toBeInTheDocument();
+  });
+
+  it("submits a password change, shows pending state, and forces re-login", async () => {
+    let resolveChange: () => void = () => undefined;
+    const pendingChange = new Promise<void>((resolve) => {
+      resolveChange = resolve;
+    });
+    const calls: Array<{
+      token: string;
+      currentPassword: string;
+      newPassword: string;
+    }> = [];
+
+    const { storage } = renderWithClient({
+      client: createClient({
+        changePassword: async (token, request) => {
+          calls.push({ token, ...request });
+          await pendingChange;
+        },
+      }),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    await screen.findByText("pilot");
+    fireEvent.change(screen.getByLabelText("当前密码"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("新密码"), {
+      target: { value: "another strong replacement passphrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+
+    expect(
+      await screen.findByRole("button", { name: "修改中…" }),
+    ).toBeDisabled();
+
+    resolveChange();
+
+    expect(
+      await screen.findByText("密码已修改，请重新登录。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.queryByLabelText("当前密码")).not.toBeInTheDocument();
+    expect(calls).toEqual([
+      {
+        token: "token-1",
+        currentPassword: "correct horse battery staple",
+        newPassword: "another strong replacement passphrase",
+      },
+    ]);
+    await waitFor(() => {
+      expect(storage.load()).toBeNull();
+    });
+  });
+
+  it("shows an incorrect-current-password error without ending the session", async () => {
+    const { storage } = renderWithClient({
+      client: createClient({
+        changePassword: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("invalid_credentials", {
+              status: 401,
+              code: "AUTH_INVALID_CREDENTIALS",
+            }),
+          );
+        },
+      }),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    await screen.findByText("pilot");
+    fireEvent.change(screen.getByLabelText("当前密码"), {
+      target: { value: "wrong current password" },
+    });
+    fireEvent.change(screen.getByLabelText("新密码"), {
+      target: { value: "another strong replacement passphrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "账号或密码不正确。",
+    );
+    expect(screen.getByLabelText("当前密码")).toBeInTheDocument();
+    expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
+  });
+
+  it("shows a password-policy error without revoking the session", async () => {
+    const { storage } = renderWithClient({
+      client: createClient({
+        changePassword: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("invalid_password", {
+              status: 400,
+              code: "AUTH_INVALID_PASSWORD",
+            }),
+          );
+        },
+      }),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    await screen.findByText("pilot");
+    fireEvent.change(screen.getByLabelText("当前密码"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.change(screen.getByLabelText("新密码"), {
+      target: { value: "too short" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "新密码不符合密码策略，请使用至少 15 个字符的新密码。",
+    );
+    expect(screen.getByLabelText("当前密码")).toBeInTheDocument();
+    expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
   });
 
   it("returns to the logged-out account view with an expired-session explanation", async () => {

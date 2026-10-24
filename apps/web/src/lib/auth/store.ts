@@ -18,9 +18,14 @@ export type AuthStatus =
   | "unauthenticated"
   | "unavailable";
 
-export type AuthOperation = "login" | "restore" | "renew" | "logout";
+export type AuthOperation =
+  | "login"
+  | "restore"
+  | "renew"
+  | "changePassword"
+  | "logout";
 
-export type AuthNotice = "session_renewed";
+export type AuthNotice = "session_renewed" | "password_changed";
 
 export interface AuthStoreState {
   status: AuthStatus;
@@ -32,6 +37,7 @@ export interface AuthStoreState {
   login(username: string, password: string): Promise<void>;
   restore(): Promise<void>;
   renew(): Promise<void>;
+  changePassword(currentPassword: string, newPassword: string): Promise<void>;
   logout(): Promise<void>;
   clearFailure(): void;
 }
@@ -114,6 +120,46 @@ export function createAuthStore({
       if (get().status === "authenticated" && get().failure === null) {
         set({ notice: "session_renewed" });
       }
+    },
+
+    async changePassword(currentPassword, newPassword) {
+      if (get().pending !== null) return;
+
+      const persisted = storage.load();
+      if (!persisted) {
+        setUnauthenticated(set, createAuthFailure("reauth_required"));
+        return;
+      }
+
+      set({ pending: "changePassword", failure: null, notice: null });
+
+      try {
+        await client.changePassword(persisted.sessionToken, {
+          currentPassword,
+          newPassword,
+        });
+      } catch (error) {
+        const failure = toAuthFailure(error);
+
+        if (failure.kind === "reauth_required") {
+          storage.clear();
+          setUnauthenticated(set, failure);
+          return;
+        }
+
+        set({ failure, pending: null });
+        return;
+      }
+
+      storage.clear();
+      set({
+        status: "unauthenticated",
+        account: null,
+        expiresAt: null,
+        failure: null,
+        notice: "password_changed",
+        pending: null,
+      });
     },
 
     async logout() {
