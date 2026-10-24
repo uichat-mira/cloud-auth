@@ -74,13 +74,7 @@ export function createAuthStore({
 
       const persisted = storage.load();
       if (!persisted) {
-        set({
-          status: "unauthenticated",
-          account: null,
-          expiresAt: null,
-          failure: null,
-          pending: null,
-        });
+        setUnauthenticated(set);
         return;
       }
 
@@ -109,13 +103,7 @@ export function createAuthStore({
 
       const persisted = storage.load();
       if (!persisted) {
-        set({
-          status: "unauthenticated",
-          account: null,
-          expiresAt: null,
-          failure: createAuthFailure("reauth_required"),
-          pending: null,
-        });
+        setUnauthenticated(set, createAuthFailure("reauth_required"));
         return;
       }
 
@@ -160,6 +148,19 @@ export function createAuthStore({
   }));
 }
 
+function setUnauthenticated(
+  set: StoreApi<AuthStoreState>["setState"],
+  failure: AuthFailure | null = null,
+): void {
+  set({
+    status: "unauthenticated",
+    account: null,
+    expiresAt: null,
+    failure,
+    pending: null,
+  });
+}
+
 function applyIssuedSession(
   set: StoreApi<AuthStoreState>["setState"],
   storage: SessionStorageAdapter,
@@ -183,13 +184,7 @@ function clearLocalSession(
   storage: SessionStorageAdapter,
 ): void {
   storage.clear();
-  set({
-    status: "unauthenticated",
-    account: null,
-    expiresAt: null,
-    failure: null,
-    pending: null,
-  });
+  setUnauthenticated(set);
 }
 
 function applySessionFailure(
@@ -201,13 +196,7 @@ function applySessionFailure(
 
   if (failure.kind === "reauth_required") {
     storage.clear();
-    set({
-      status: "unauthenticated",
-      account: null,
-      expiresAt: null,
-      failure,
-      pending: null,
-    });
+    setUnauthenticated(set, failure);
     return;
   }
 
