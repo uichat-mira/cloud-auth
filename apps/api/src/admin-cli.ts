@@ -85,7 +85,7 @@ function readPasswordFromStdin(): string {
 
 function printUsageAndExit(): never {
   console.error(
-    "Usage: npm run admin -- <provision|reset-password|allow|deny|enable|disable> <username>\n" +
+    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable> <username>\n" +
       "provision/reset-password read the password from stdin.",
   );
   process.exit(2);
