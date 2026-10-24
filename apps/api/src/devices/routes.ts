@@ -1,4 +1,5 @@
 import {
+  deviceIdSchema,
   registerDeviceRequestSchema,
   type RegisterDeviceRequest,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -36,4 +37,24 @@ export function registerDeviceRoutes(app: FastifyInstance, deviceService: Device
       return sendDeviceError(reply, error);
     }
   });
+
+  app.delete<{ Params: { deviceId: string } }>(
+    "/v1/devices/:deviceId",
+    async (request, reply) => {
+      try {
+        const token = readBearerToken(request);
+        if (!deviceIdSchema.safeParse(request.params.deviceId).success) {
+          return reply.code(404).send({
+            error: {
+              code: "DEVICE_NOT_FOUND",
+              message: "Mira Device not found",
+            },
+          });
+        }
+        return reply.code(200).send(deviceService.revoke(token, request.params.deviceId));
+      } catch (error) {
+        return sendDeviceError(reply, error);
+      }
+    },
+  );
 }

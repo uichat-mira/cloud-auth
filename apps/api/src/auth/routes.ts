@@ -19,7 +19,12 @@ export function registerAuthRoutes(app: FastifyInstance, authService: AuthServic
     },
     async (request, reply) => {
       try {
-        const result = await authService.login(request.body.username, request.body.password, request.ip);
+        const result = await authService.login(
+          request.body.username,
+          request.body.password,
+          request.ip,
+          request.body.device,
+        );
         return reply.code(200).send(result);
       } catch (error) {
         return sendAuthError(reply, error);

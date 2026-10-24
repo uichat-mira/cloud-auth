@@ -18,6 +18,7 @@ export interface DeviceRecord {
 
 export interface RegisterDeviceInput {
   accountId: string;
+  sessionId: string;
   installationId: string;
   platform: DevicePlatform;
   clientName: string | null;
@@ -85,6 +86,55 @@ export class DeviceRepository {
 
       const device = this.findByInstallation(input.accountId, input.installationId);
       if (!device) throw new Error("Device write did not persist");
+
+      this.db
+        .prepare(
+          `UPDATE sessions
+              SET device_id = ?
+            WHERE id = ?
+              AND account_id = ?
+              AND revoked_at IS NULL
+              AND device_id IS NULL`,
+        )
+        .run(device.id, input.sessionId, input.accountId);
+
+      this.db.exec("COMMIT;");
+      return device;
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  revokeDevice(accountId: string, deviceId: string, now: string): DeviceRecord | null {
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      const existing = this.findById(accountId, deviceId);
+      if (!existing) {
+        this.db.exec("ROLLBACK;");
+        return null;
+      }
+
+      this.db
+        .prepare(
+          `UPDATE devices
+              SET revoked_at = COALESCE(revoked_at, ?),
+                  revoke_reason = COALESCE(revoke_reason, ?)
+            WHERE id = ? AND account_id = ?`,
+        )
+        .run(now, "user_revoked", deviceId, accountId);
+
+      this.db
+        .prepare(
+          `UPDATE sessions
+              SET revoked_at = COALESCE(revoked_at, ?),
+                  revoke_reason = COALESCE(revoke_reason, ?)
+            WHERE device_id = ? AND account_id = ? AND revoked_at IS NULL`,
+        )
+        .run(now, "device_revoked", deviceId, accountId);
+
+      const device = this.findById(accountId, deviceId);
+      if (!device) throw new Error("Device revoke did not persist");
       this.db.exec("COMMIT;");
       return device;
     } catch (error) {
@@ -115,6 +165,18 @@ export class DeviceRepository {
           WHERE account_id = ? AND installation_id = ?`,
       )
       .get(accountId, installationId) as DeviceRow | undefined;
+    return row ? mapDevice(row) : null;
+  }
+
+  private findById(accountId: string, deviceId: string): DeviceRecord | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, account_id, installation_id, platform, client_name, client_version, public_key,
+                created_at, last_seen_at, revoked_at, revoke_reason
+           FROM devices
+          WHERE account_id = ? AND id = ?`,
+      )
+      .get(accountId, deviceId) as DeviceRow | undefined;
     return row ? mapDevice(row) : null;
   }
 }

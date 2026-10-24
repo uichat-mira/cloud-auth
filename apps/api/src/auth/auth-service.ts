@@ -1,4 +1,9 @@
-import type { AccountIdentity, CloudSession, IssuedCloudSession } from "@uichat-mira/cloud-auth-contracts";
+import type {
+  AccountIdentity,
+  CloudSession,
+  DeviceLoginContext,
+  IssuedCloudSession,
+} from "@uichat-mira/cloud-auth-contracts";
 import type { AuthRepository, AccountRecord } from "./auth-repository.js";
 import { normalizeUsername } from "./username.js";
 import { validatePassword, type PasswordHasher } from "../security/password.js";
@@ -13,6 +18,7 @@ export type AuthErrorCode =
   | "AUTH_INVALID_CREDENTIALS"
   | "AUTH_INVALID_PASSWORD"
   | "AUTH_REAUTH_REQUIRED"
+  | "AUTH_DEVICE_REJECTED"
   | "AUTH_RATE_LIMITED"
   | "AUTH_BUSY"
   | "AUTH_ACCOUNT_EXISTS"
@@ -42,7 +48,12 @@ export class AuthService {
     private readonly options: AuthServiceOptions,
   ) {}
 
-  async login(username: string, password: string, ip: string): Promise<IssuedCloudSession> {
+  async login(
+    username: string,
+    password: string,
+    ip: string,
+    device?: DeviceLoginContext,
+  ): Promise<IssuedCloudSession> {
     let usernameNormalized: string;
     try {
       usernameNormalized = normalizeUsername(username);
@@ -77,8 +88,18 @@ export class AuthService {
         issued.secretHash,
         expiresAt,
         nowIso,
+        device
+          ? { installationId: device.installationId.toLowerCase(), platform: device.platform }
+          : undefined,
       );
       if (!created) {
+        if (device) {
+          throw new AuthError(
+            "AUTH_DEVICE_REJECTED",
+            401,
+            "Mira Device is not accepted for this account",
+          );
+        }
         throw new AuthError("AUTH_INVALID_CREDENTIALS", 401, "Invalid account or password");
       }
 
@@ -96,7 +117,9 @@ export class AuthService {
 
   getSession(token: string): CloudSession {
     const authenticated = this.requireSession(token);
-    this.repository.touchSession(authenticated.session.id, new Date().toISOString());
+    if (!this.repository.touchSession(authenticated.session.id, new Date().toISOString())) {
+      throw reauthRequired();
+    }
     return {
       account: publicAccount(authenticated.account),
       expiresAt: authenticated.session.expiresAt,
@@ -231,6 +254,14 @@ export class AuthService {
     return publicAccount(authenticated.account);
   }
 
+  requireSessionContext(token: string): { account: AccountIdentity; sessionId: string } {
+    const authenticated = this.requireSession(token);
+    return {
+      account: publicAccount(authenticated.account),
+      sessionId: authenticated.session.id,
+    };
+  }
+
   private requireSession(token: string) {
     const parsed = parseSessionToken(token);
     if (!parsed) throw reauthRequired();
@@ -242,6 +273,11 @@ export class AuthService {
     if (record.session.revokedAt) throw reauthRequired();
     if (Date.parse(record.session.expiresAt) <= Date.now()) throw reauthRequired();
     if (!record.account.isAllowed || record.account.disabledAt) throw reauthRequired();
+
+    if (record.session.deviceId !== null) {
+      if (record.session.deviceAccountId !== record.session.accountId) throw reauthRequired();
+      if (record.session.deviceRevokedAt !== null) throw reauthRequired();
+    }
 
     return record;
   }

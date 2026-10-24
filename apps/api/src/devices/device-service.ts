@@ -5,7 +5,10 @@ import type {
 import type { AuthService } from "../auth/auth-service.js";
 import type { DeviceRecord, DeviceRepository } from "./device-repository.js";
 
-export type DeviceErrorCode = "DEVICE_REVOKED" | "DEVICE_PLATFORM_MISMATCH";
+export type DeviceErrorCode =
+  | "DEVICE_NOT_FOUND"
+  | "DEVICE_REVOKED"
+  | "DEVICE_PLATFORM_MISMATCH";
 
 export class DeviceError extends Error {
   constructor(
@@ -24,9 +27,10 @@ export class DeviceService {
   ) {}
 
   register(token: string, request: RegisterDeviceRequest): MiraDevice {
-    const account = this.authService.requireAccountIdentity(token);
+    const session = this.authService.requireSessionContext(token);
     const device = this.repository.registerDevice({
-      accountId: account.id,
+      accountId: session.account.id,
+      sessionId: session.sessionId,
       installationId: request.installationId.toLowerCase(),
       platform: request.platform,
       clientName: request.clientName?.trim() ?? null,
@@ -56,6 +60,15 @@ export class DeviceService {
   list(token: string): MiraDevice[] {
     const account = this.authService.requireAccountIdentity(token);
     return this.repository.listDevicesByAccount(account.id).map(publicDevice);
+  }
+
+  revoke(token: string, deviceId: string): MiraDevice {
+    const account = this.authService.requireAccountIdentity(token);
+    const device = this.repository.revokeDevice(account.id, deviceId, new Date().toISOString());
+    if (!device) {
+      throw new DeviceError("DEVICE_NOT_FOUND", 404, "Mira Device not found");
+    }
+    return publicDevice(device);
   }
 }
 
