@@ -46,3 +46,18 @@ jobs:
               curl --noproxy '*' -sSI --http1.1 --max-time 6 --resolve "$host:443:127.0.0.1" "https://$host/health" || true
               echo
             done
+            echo '=== HOST AND ROUTING ==='
+            hostname
+            echo 'LOCAL_NETWORK_INTERFACES'
+            ip -4 -br addr show | sed -E 's/[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/x.x.x.x/g' | head -12
+            ip4="$(getent ahostsv4 cloud-auth.tomzlab.cn | awk 'NR==1{print $1}')"
+            if ip -o -4 addr show | grep -Fq "$ip4"; then echo 'DNS_IP_ASSIGNED_TO_HOST=yes'; else echo 'DNS_IP_ASSIGNED_TO_HOST=no (may be NAT)'; fi
+            echo '=== SERVER CERTIFICATE IDENTITY BY ENTRY PATH ==='
+            for host in cloud-auth.tomzlab.cn mira-ai.tomzlab.cn; do
+              for target in 127.0.0.1 "$ip4"; do
+                if test "$target" = 127.0.0.1; then echo "CERT host=$host entry=loopback"; else echo "CERT host=$host entry=public-ip"; fi
+                timeout 7 openssl s_client -connect "$target:443" -servername "$host" </dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256 -subject -issuer 2>&1 | head -4 || true
+              done
+            done
+            echo '=== CADDY CONFIG SUMMARY ==='
+            grep -nE 'mira-ai.tomzlab.cn|cloud-auth.tomzlab.cn|import|bind|respond|reverse_proxy|handle_path|handle ' /etc/caddy/Caddyfile | head -35 || true
