@@ -29,6 +29,10 @@ Local, Direct, and Tailscale product paths remain independent from Mira Cloud Au
 
 OPS-001 intentionally provides only the service boundary, persistence/migration substrate, health/readiness, backup procedure, and CI/runtime evidence. Account/password, device lifecycle, and service credential behavior belong to follow-up work items.
 
+## Deployment and operations
+
+- [Cloud Auth 部署与排障指南（中文）](docs/deployment.md)：部署前检查、GitHub Actions 发布、Caddy 监听与 NAT、T5 验收、回滚及 2026-10-24 事故复盘。
+
 ## Development
 
 1. npm ci
