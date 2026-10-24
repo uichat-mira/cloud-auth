@@ -60,6 +60,7 @@ The API default local database path is `./data/auth.sqlite` relative to `apps/ap
 - POST /v1/auth/login: account/password root authentication
 - GET /v1/auth/session: restore accepted Cloud Session
 - POST /v1/auth/session/renew: rotate/extend Cloud Session without resending password
+- POST /v1/auth/password: change the authenticated account password and revoke all sessions
 - POST /v1/auth/logout: revoke current Cloud Session
 
 See docs/auth-v0.md for the OPS-006 account/session contract and maintainer administration.

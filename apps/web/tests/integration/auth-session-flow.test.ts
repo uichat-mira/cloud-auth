@@ -12,6 +12,7 @@ import {
 } from "../helpers/auth-fixtures";
 
 const password = "correct horse battery staple";
+const newPassword = "another strong replacement passphrase";
 
 const servers: Array<{ close(): Promise<void> }> = [];
 
@@ -20,6 +21,7 @@ afterEach(async () => {
 });
 
 type LogoutFailure = "none" | "reauth" | "busy" | "malformed";
+type PasswordChangeFailure = "none" | "reauth" | "busy" | "policy";
 
 async function startAuthServer() {
   let activeToken: string | null = null;
@@ -27,6 +29,7 @@ async function startAuthServer() {
   let unavailable = false;
   let loginRateLimited = false;
   let logoutFailure: LogoutFailure = "none";
+  let passwordChangeFailure: PasswordChangeFailure = "none";
   const requests: string[] = [];
 
   const server = createServer(async (request, response) => {
@@ -75,6 +78,36 @@ async function startAuthServer() {
       return;
     }
 
+    if (request.method === "POST" && request.url === "/v1/auth/password") {
+      if (passwordChangeFailure === "reauth") {
+        sendAuthError(response, 401, "AUTH_REAUTH_REQUIRED", "Re-authentication is required");
+        return;
+      }
+      if (passwordChangeFailure === "busy") {
+        sendAuthError(response, 503, "AUTH_BUSY", "Authentication is temporarily busy");
+        return;
+      }
+      if (passwordChangeFailure === "policy") {
+        sendAuthError(response, 400, "AUTH_INVALID_PASSWORD", "Password must contain at least 15 characters");
+        return;
+      }
+
+      const body = await readJson(request);
+      if (body.currentPassword !== password) {
+        sendAuthError(response, 401, "AUTH_INVALID_CREDENTIALS", "Current password is incorrect");
+        return;
+      }
+      if (typeof body.newPassword !== "string" || body.newPassword.length < 15) {
+        sendAuthError(response, 400, "AUTH_INVALID_PASSWORD", "Password must contain at least 15 characters");
+        return;
+      }
+
+      activeToken = null;
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+
     if (request.method === "POST" && request.url === "/v1/auth/logout") {
       if (logoutFailure === "reauth") {
         sendAuthError(response, 401, "AUTH_REAUTH_REQUIRED", "Re-authentication is required");
@@ -118,6 +151,9 @@ async function startAuthServer() {
     },
     setLogoutFailure(value: LogoutFailure) {
       logoutFailure = value;
+    },
+    setPasswordChangeFailure(value: PasswordChangeFailure) {
+      passwordChangeFailure = value;
     },
     expireSessions() {
       activeToken = null;
@@ -198,6 +234,84 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
       "POST /v1/auth/session/renew",
       "POST /v1/auth/logout",
     ]);
+  });
+
+  it("changes the password through the authenticated client and clears the local session", async () => {
+    const { server, storage, store } = await createAuthenticatedHarness();
+
+    await store.getState().changePassword(password, newPassword);
+
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      expiresAt: null,
+      failure: null,
+      notice: "password_changed",
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+    expect(server.requests).toContain("POST /v1/auth/password");
+
+    server.expireSessions();
+    await store.getState().restore();
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+  });
+
+  it("preserves the session when the current password is incorrect", async () => {
+    const { storage, store, issued } = await createAuthenticatedHarness();
+
+    await store.getState().changePassword("wrong current password", newPassword);
+
+    expectAuthenticated(store, "invalid_credentials");
+    expect(store.getState().notice).toBeNull();
+    expect(storage.load()).toEqual(issued);
+  });
+
+  it("preserves the session when the new password fails policy", async () => {
+    const { server, storage, store, issued } = await createAuthenticatedHarness();
+
+    server.setPasswordChangeFailure("policy");
+    await store.getState().changePassword(password, "too short");
+
+    expectAuthenticated(store, "invalid_password");
+    expect(storage.load()).toEqual(issued);
+
+    server.setPasswordChangeFailure("none");
+    await store.getState().changePassword(password, newPassword);
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      notice: "password_changed",
+    });
+    expect(storage.load()).toBeNull();
+  });
+
+  it("preserves the session when password change is transiently unavailable", async () => {
+    const { server, storage, store, issued } = await createAuthenticatedHarness();
+
+    server.setPasswordChangeFailure("busy");
+    await store.getState().changePassword(password, newPassword);
+
+    expectAuthenticated(store, "service_unavailable");
+    expect(storage.load()).toEqual(issued);
+  });
+
+  it("clears the local session when password change reports re-authentication required", async () => {
+    const { server, storage, store } = await createAuthenticatedHarness();
+
+    server.setPasswordChangeFailure("reauth");
+    await store.getState().changePassword(password, newPassword);
+
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      failure: { kind: "reauth_required" },
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
   });
 
   it("clears the local session when logout returns explicit re-authentication required", async () => {

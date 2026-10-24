@@ -14,6 +14,13 @@ export const loginRequestSchema = z
   })
   .strict();
 
+export const changePasswordRequestSchema = z
+  .object({
+    currentPassword: z.string().min(1).max(256),
+    newPassword: z.string().min(1).max(256),
+  })
+  .strict();
+
 export const cloudSessionSchema = z
   .object({
     account: accountIdentitySchema,
@@ -29,6 +36,7 @@ export const issuedCloudSessionSchema = cloudSessionSchema
 
 export const publicAuthErrorCodeSchema = z.enum([
   "AUTH_INVALID_CREDENTIALS",
+  "AUTH_INVALID_PASSWORD",
   "AUTH_REAUTH_REQUIRED",
   "AUTH_RATE_LIMITED",
   "AUTH_BUSY",
@@ -50,8 +58,16 @@ export const loginRequestJsonSchema = z.toJSONSchema(loginRequestSchema, {
   target: "draft-7",
 });
 
+export const changePasswordRequestJsonSchema = z.toJSONSchema(
+  changePasswordRequestSchema,
+  {
+    target: "draft-7",
+  },
+);
+
 export type AccountIdentity = z.infer<typeof accountIdentitySchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 export type CloudSession = z.infer<typeof cloudSessionSchema>;
 export type IssuedCloudSession = z.infer<typeof issuedCloudSessionSchema>;
 export type PublicAuthErrorCode = z.infer<typeof publicAuthErrorCodeSchema>;
