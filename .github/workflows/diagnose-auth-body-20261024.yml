@@ -20,7 +20,7 @@ jobs:
           set +e
           for host in mira-ai.tomzlab.cn cloud-auth.tomzlab.cn; do
             echo "=== RUNNER PUBLIC GET $host ==="
-            curl --noproxy '*' --http1.1 -sS -i -v --connect-timeout 4 --max-time 6 "https://$host/health" 2>&1 | tail -24
+            curl --noproxy '*' --http1.1 -sS -i -v --connect-timeout 4 --max-time 6 "https://$host/health" 2>&1 | tail -24 || true
           done
       - name: Server GET body and headers across API and Caddy
         uses: appleboy/ssh-action@v1
