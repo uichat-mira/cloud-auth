@@ -1,10 +1,8 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCloudAuthClient } from "@/lib/auth/client";
-import type {
-  PersistedCloudSession,
-  SessionStorageAdapter,
-} from "@/lib/auth/session-storage";
+import type { PersistedCloudSession } from "@/lib/auth/session-storage";
+import { createMemoryStorage } from "../helpers/session-storage";
 import { createAuthStore, type AuthStore } from "@/lib/auth/store";
 
 const account = { id: "account-1", username: "pilot" };
@@ -16,19 +14,6 @@ const servers: Array<{ close(): Promise<void> }> = [];
 afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
 });
-
-function createMemoryStorage(initial: PersistedCloudSession | null = null) {
-  let current = initial;
-  return {
-    load: () => current,
-    save: (session: PersistedCloudSession) => {
-      current = session;
-    },
-    clear: () => {
-      current = null;
-    },
-  } satisfies SessionStorageAdapter;
-}
 
 type LogoutFailure = "none" | "reauth" | "busy" | "malformed";
 
