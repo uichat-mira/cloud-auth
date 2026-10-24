@@ -103,7 +103,12 @@ export class AuthRepository {
     return account;
   }
 
-  updatePasswordAndRevokeSessions(accountId: string, passwordHash: string, now: string): void {
+  updatePasswordAndRevokeSessions(
+    accountId: string,
+    passwordHash: string,
+    now: string,
+    revokeReason = "password_reset",
+  ): void {
     this.db.exec("BEGIN IMMEDIATE;");
     try {
       this.db
@@ -111,7 +116,7 @@ export class AuthRepository {
           "UPDATE accounts SET password_hash = ?, password_version = password_version + 1, password_changed_at = ?, updated_at = ? WHERE id = ?",
         )
         .run(passwordHash, now, now, accountId);
-      this.revokeAllSessions(accountId, "password_reset", now);
+      this.revokeAllSessions(accountId, revokeReason, now);
       this.db.exec("COMMIT;");
     } catch (error) {
       this.db.exec("ROLLBACK;");

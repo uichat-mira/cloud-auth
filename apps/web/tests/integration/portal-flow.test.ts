@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const webRoot = fileURLToPath(new URL("../..", import.meta.url));
 const screenshotDir = join(webRoot, "coverage", "screenshots");
 const password = "correct horse battery staple";
+const newPassword = "another strong replacement passphrase";
 const account = { id: "account-1", username: "pilot" } as const;
 const expiresAt = "2026-11-01T00:00:00.000Z";
 
@@ -64,12 +65,13 @@ afterAll(async () => {
 
 for (const viewport of viewports) {
   describe(`${viewport.name} portal flow`, () => {
-    it("captures logged-out, restored, renewed, logged-out, and expired states", async () => {
+    it("captures login, restore, renew, password-change, and expired states", async () => {
       const page = await browser.newPage({
         viewport: { width: viewport.width, height: viewport.height },
       });
 
       try {
+        authServer.reset();
         await page.goto(`${baseUrl}/login`, { waitUntil: "load" });
         await page
           .getByRole("heading", { level: 1, name: "登录 Mira Cloud" })
@@ -100,6 +102,39 @@ for (const viewport of viewports) {
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "renewed", viewport.name);
 
+        await page.getByText("修改密码").first().waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "password-form", viewport.name);
+
+        await page.getByLabel("当前密码").fill("wrong current password");
+        await page.getByLabel("新密码").fill(newPassword);
+        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByText("账号或密码不正确。").waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "password-error", viewport.name);
+
+        await page.getByLabel("当前密码").fill(password);
+        await page.getByLabel("新密码").fill("too short");
+        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByText(/新密码不符合密码策略/).waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "password-policy-error", viewport.name);
+
+        await page.getByLabel("当前密码").fill(password);
+        await page.getByLabel("新密码").fill(newPassword);
+        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByText("密码已修改，请重新登录。").waitFor();
+        await page.getByRole("link", { name: "前往登录" }).waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "password-changed", viewport.name);
+
+        await page.getByRole("link", { name: "前往登录" }).click();
+        await page.getByLabel("账号").fill("pilot");
+        await page.getByLabel("密码").fill(newPassword);
+        await page.getByRole("button", { name: "登录" }).click();
+        await page.waitForURL("**/account");
+        await page.getByText("pilot").waitFor();
+
         await page.getByRole("button", { name: "退出登录" }).click();
         await page.getByRole("link", { name: "前往登录" }).waitFor();
         await expectNoHorizontalOverflow(page);
@@ -107,7 +142,7 @@ for (const viewport of viewports) {
 
         await page.getByRole("link", { name: "前往登录" }).click();
         await page.getByLabel("账号").fill("pilot");
-        await page.getByLabel("密码").fill(password);
+        await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
         await page.getByText("pilot").waitFor();
@@ -149,6 +184,7 @@ async function expectNoHorizontalOverflow(
 
 interface AuthServer {
   url: string;
+  reset(): void;
   expireSessions(): void;
   close(): Promise<void>;
 }
@@ -156,11 +192,12 @@ interface AuthServer {
 async function startAuthServer(): Promise<AuthServer> {
   let activeToken: string | null = null;
   let tokenSequence = 0;
+  let currentPassword = password;
 
   const server = createHttpServer(async (request, response) => {
     if (request.method === "POST" && request.url === "/v1/auth/login") {
       const body = await readJson(request);
-      if (body.username !== "pilot" || body.password !== password) {
+      if (body.username !== "pilot" || body.password !== currentPassword) {
         sendAuthError(response, 401, "AUTH_INVALID_CREDENTIALS");
         return;
       }
@@ -181,6 +218,24 @@ async function startAuthServer(): Promise<AuthServer> {
 
     if (request.method === "POST" && request.url === "/v1/auth/session/renew") {
       activeToken = issueSession(response, (tokenSequence += 1));
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/v1/auth/password") {
+      const body = await readJson(request);
+      if (body.currentPassword !== currentPassword) {
+        sendAuthError(response, 401, "AUTH_INVALID_CREDENTIALS");
+        return;
+      }
+      if (typeof body.newPassword !== "string" || body.newPassword.length < 15) {
+        sendAuthError(response, 400, "AUTH_INVALID_PASSWORD");
+        return;
+      }
+
+      currentPassword = body.newPassword;
+      activeToken = null;
+      response.writeHead(204);
+      response.end();
       return;
     }
 
@@ -206,6 +261,11 @@ async function startAuthServer(): Promise<AuthServer> {
 
   return {
     url: `http://127.0.0.1:${address.port}`,
+    reset() {
+      currentPassword = password;
+      activeToken = null;
+      tokenSequence = 0;
+    },
     expireSessions() {
       activeToken = null;
     },

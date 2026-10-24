@@ -114,10 +114,35 @@ describe("Cloud Auth client contract", () => {
     });
   });
 
+  it("posts an authenticated password-change request and accepts 204", async () => {
+    const requests: RecordedRequest[] = [];
+    const client = clientReturning(new Response(null, { status: 204 }), requests);
+
+    await expect(
+      client.changePassword("token-1", {
+        currentPassword: "correct horse battery staple",
+        newPassword: "another strong replacement passphrase",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(requests[0]?.url).toBe("/v1/auth/password");
+    expect(requests[0]?.init?.method).toBe("POST");
+    expect(requests[0]?.init?.headers).toMatchObject({
+      accept: "application/json",
+      authorization: "Bearer token-1",
+      "content-type": "application/json",
+    });
+    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({
+      currentPassword: "correct horse battery staple",
+      newPassword: "another strong replacement passphrase",
+    });
+  });
+
   it("classifies canonical auth error envelopes", async () => {
     const cases = [
       [401, "AUTH_REAUTH_REQUIRED", "reauth_required"],
       [401, "AUTH_INVALID_CREDENTIALS", "invalid_credentials"],
+      [400, "AUTH_INVALID_PASSWORD", "invalid_password"],
       [429, "AUTH_RATE_LIMITED", "rate_limited"],
       [503, "AUTH_BUSY", "service_unavailable"],
       [500, "AUTH_INTERNAL_ERROR", "unexpected_response"],

@@ -1,6 +1,7 @@
 import {
   cloudSessionSchema,
   issuedCloudSessionSchema,
+  type ChangePasswordRequest,
   type CloudSession,
   type IssuedCloudSession,
   type LoginRequest,
@@ -17,6 +18,10 @@ export interface CloudAuthClient {
   login(request: LoginRequest): Promise<IssuedCloudSession>;
   getSession(sessionToken: string): Promise<CloudSession>;
   renewSession(sessionToken: string): Promise<IssuedCloudSession>;
+  changePassword(
+    sessionToken: string,
+    request: ChangePasswordRequest,
+  ): Promise<void>;
   logout(sessionToken: string): Promise<void>;
 }
 
@@ -99,6 +104,20 @@ export function createCloudAuthClient(
     );
   }
 
+  function changePassword(
+    sessionToken: string,
+    request: ChangePasswordRequest,
+  ): Promise<void> {
+    return requestNoContent("/v1/auth/password", {
+      method: "POST",
+      headers: {
+        ...bearerHeaders(sessionToken),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
+    });
+  }
+
   function requestSession<T>(
     path: string,
     method: AuthenticatedMethod,
@@ -108,7 +127,7 @@ export function createCloudAuthClient(
     return requestJson(path, authenticatedRequest(method, sessionToken), schema);
   }
 
-  return { login, getSession, renewSession, logout };
+  return { login, getSession, renewSession, changePassword, logout };
 }
 
 function authenticatedRequest(

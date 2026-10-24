@@ -206,6 +206,195 @@ describe("Mira Cloud Account HTTP contract", () => {
     context.db.close();
   });
 
+  it("changes the authenticated account password and revokes every Cloud Session", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-auth-change-password-"));
+    cleanup.push(dir);
+    const context = createTestAuth(join(dir, "auth.sqlite"));
+    await context.service.provisionAccount("changeme", password);
+    const app = buildApp({ db: context.db, authService: context.service });
+
+    const firstLogin = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "changeme", password },
+    });
+    const secondLogin = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "changeme", password },
+    });
+    const firstToken = (firstLogin.json() as { sessionToken: string }).sessionToken;
+    const secondToken = (secondLogin.json() as { sessionToken: string }).sessionToken;
+
+    const changed = await app.inject({
+      method: "POST",
+      url: "/v1/auth/password",
+      headers: { authorization: `Bearer ${firstToken}` },
+      payload: {
+        currentPassword: password,
+        newPassword: replacementPassword,
+      },
+    });
+    expect(changed.statusCode).toBe(204);
+    expect(changed.body).toBe("");
+    expect(changed.body).not.toContain(replacementPassword);
+
+    for (const token of [firstToken, secondToken]) {
+      const revoked = await app.inject({
+        method: "GET",
+        url: "/v1/auth/session",
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(revoked.statusCode).toBe(401);
+      expect(authErrorEnvelopeSchema.parse(revoked.json()).error.code).toBe(
+        "AUTH_REAUTH_REQUIRED",
+      );
+    }
+
+    const oldPassword = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "changeme", password },
+    });
+    expect(oldPassword.statusCode).toBe(401);
+
+    const newPassword = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "changeme", password: replacementPassword },
+    });
+    expect(newPassword.statusCode).toBe(200);
+
+    await app.close();
+    context.db.close();
+  });
+
+  it("rejects an incorrect current password without mutating credentials or the session", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-auth-change-wrong-"));
+    cleanup.push(dir);
+    const context = createTestAuth(join(dir, "auth.sqlite"));
+    await context.service.provisionAccount("keepme", password);
+    const app = buildApp({ db: context.db, authService: context.service });
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "keepme", password },
+    });
+    const token = (login.json() as { sessionToken: string }).sessionToken;
+
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/v1/auth/password",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        currentPassword: "not the current password",
+        newPassword: replacementPassword,
+      },
+    });
+    expect(rejected.statusCode).toBe(401);
+    expect(authErrorEnvelopeSchema.parse(rejected.json()).error.code).toBe(
+      "AUTH_INVALID_CREDENTIALS",
+    );
+    expect(rejected.body).not.toContain(replacementPassword);
+
+    const restored = await app.inject({
+      method: "GET",
+      url: "/v1/auth/session",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(restored.statusCode).toBe(200);
+
+    const oldPassword = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "keepme", password },
+    });
+    expect(oldPassword.statusCode).toBe(200);
+
+    const rejectedNewPassword = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "keepme", password: replacementPassword },
+    });
+    expect(rejectedNewPassword.statusCode).toBe(401);
+
+    await app.close();
+    context.db.close();
+  });
+
+  it("rejects a policy-invalid new password without revoking the active session", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-auth-change-policy-"));
+    cleanup.push(dir);
+    const context = createTestAuth(join(dir, "auth.sqlite"));
+    await context.service.provisionAccount("policyme", password);
+    const app = buildApp({ db: context.db, authService: context.service });
+
+    const login = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "policyme", password },
+    });
+    const token = (login.json() as { sessionToken: string }).sessionToken;
+
+    const rejected = await app.inject({
+      method: "POST",
+      url: "/v1/auth/password",
+      headers: { authorization: `Bearer ${token}` },
+      payload: {
+        currentPassword: password,
+        newPassword: "too short",
+      },
+    });
+    expect(rejected.statusCode).toBe(400);
+    const envelope = authErrorEnvelopeSchema.parse(rejected.json());
+    expect(envelope.error.code).toBe("AUTH_INVALID_PASSWORD");
+    expect(rejected.body).not.toContain("too short");
+
+    const restored = await app.inject({
+      method: "GET",
+      url: "/v1/auth/session",
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(restored.statusCode).toBe(200);
+
+    const oldPassword = await app.inject({
+      method: "POST",
+      url: "/v1/auth/login",
+      payload: { username: "policyme", password },
+    });
+    expect(oldPassword.statusCode).toBe(200);
+
+    await app.close();
+    context.db.close();
+  });
+
+  it("requires an accepted Cloud Session for password change", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-auth-change-unauth-"));
+    cleanup.push(dir);
+    const context = createTestAuth(join(dir, "auth.sqlite"));
+    const app = buildApp({ db: context.db, authService: context.service });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/auth/password",
+      payload: {
+        currentPassword: password,
+        newPassword: replacementPassword,
+      },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(authErrorEnvelopeSchema.parse(response.json())).toEqual({
+      error: {
+        code: "AUTH_REAUTH_REQUIRED",
+        message: "Re-authentication is required",
+      },
+    });
+
+    await app.close();
+    context.db.close();
+  });
+
   it("rejects malformed bearer credentials without exposing token material", async () => {
     const dir = mkdtempSync(join(tmpdir(), "mira-auth-bearer-"));
     cleanup.push(dir);
