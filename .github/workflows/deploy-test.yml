@@ -73,6 +73,6 @@ jobs:
             echo "::warning::test.cloud-auth.tomzlab.cn does not resolve; skipping public test smoke."
             exit 0
           fi
-          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
-          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Account"
-          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/account | grep -F "Mira Cloud Account"
+          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
+          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Account"
+          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/account | grep -F "Mira Cloud Account"
