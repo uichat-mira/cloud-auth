@@ -25,6 +25,8 @@ export interface CreateCloudAuthClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
+type AuthenticatedMethod = "GET" | "POST";
+
 export function createCloudAuthClient(
   options: CreateCloudAuthClientOptions = {},
 ): CloudAuthClient {
@@ -99,7 +101,7 @@ export function createCloudAuthClient(
 
   function requestSession<T>(
     path: string,
-    method: "GET" | "POST",
+    method: AuthenticatedMethod,
     sessionToken: string,
     schema: z.ZodType<T>,
   ): Promise<T> {
@@ -110,7 +112,7 @@ export function createCloudAuthClient(
 }
 
 function authenticatedRequest(
-  method: "GET" | "POST",
+  method: AuthenticatedMethod,
   sessionToken: string,
 ): RequestInit {
   return {
