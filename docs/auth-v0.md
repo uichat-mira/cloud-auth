@@ -95,7 +95,7 @@ These are implementation/security parameters, not product-visible constants. Run
 
 Run:
 
-`npm run benchmark:argon2 -- 5`
+`pnpm run benchmark:argon2 5`
 
 before environment promotion. The actual 2 vCPU / 2 GiB Mira server must be benchmarked before production use; CI/development measurements do not replace that environment evidence.
 
@@ -118,7 +118,7 @@ The closed pilot is administered from the service runtime/host through the CLI.
 
 Build first:
 
-`npm run build`
+`pnpm run build`
 
 Then, for example:
 
