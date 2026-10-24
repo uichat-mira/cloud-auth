@@ -2,6 +2,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  authErrorEnvelopeSchema,
+  cloudSessionSchema,
+  issuedCloudSessionSchema,
+} from "@uichat-mira/cloud-auth-contracts";
 import { buildApp } from "../../src/app.js";
 import { createTestAuth } from "../helpers/auth.js";
 
@@ -27,11 +32,7 @@ describe("Mira Cloud Account HTTP contract", () => {
       payload: { username: "alice", password },
     });
     expect(login.statusCode).toBe(200);
-    const loginBody = login.json() as {
-      sessionToken: string;
-      account: { id: string; username: string };
-      expiresAt: string;
-    };
+    const loginBody = issuedCloudSessionSchema.parse(login.json());
     expect(loginBody.sessionToken).toMatch(/^mcs_v1\./);
     expect(loginBody.account.username).toBe("Alice");
     expect(JSON.stringify(loginBody)).not.toContain(password);
@@ -42,7 +43,8 @@ describe("Mira Cloud Account HTTP contract", () => {
       headers: { authorization: `Bearer ${loginBody.sessionToken}` },
     });
     expect(restored.statusCode).toBe(200);
-    expect(restored.json()).toMatchObject({ account: loginBody.account });
+    const restoredBody = cloudSessionSchema.parse(restored.json());
+    expect(restoredBody.account).toEqual(loginBody.account);
 
     const renewed = await app.inject({
       method: "POST",
@@ -50,7 +52,7 @@ describe("Mira Cloud Account HTTP contract", () => {
       headers: { authorization: `Bearer ${loginBody.sessionToken}` },
     });
     expect(renewed.statusCode).toBe(200);
-    const renewedBody = renewed.json() as { sessionToken: string };
+    const renewedBody = issuedCloudSessionSchema.parse(renewed.json());
     expect(renewedBody.sessionToken).not.toBe(loginBody.sessionToken);
 
     const oldAfterRotation = await app.inject({
@@ -59,7 +61,7 @@ describe("Mira Cloud Account HTTP contract", () => {
       headers: { authorization: `Bearer ${loginBody.sessionToken}` },
     });
     expect(oldAfterRotation.statusCode).toBe(401);
-    expect(oldAfterRotation.json()).toMatchObject({ error: { code: "AUTH_REAUTH_REQUIRED" } });
+    expect(authErrorEnvelopeSchema.parse(oldAfterRotation.json()).error.code).toBe("AUTH_REAUTH_REQUIRED");
 
     const logout = await app.inject({
       method: "POST",
@@ -115,7 +117,7 @@ describe("Mira Cloud Account HTTP contract", () => {
     for (const payload of cases) {
       const response = await app.inject({ method: "POST", url: "/v1/auth/login", payload });
       expect(response.statusCode).toBe(401);
-      expect(response.json()).toEqual({
+      expect(authErrorEnvelopeSchema.parse(response.json())).toEqual({
         error: {
           code: "AUTH_INVALID_CREDENTIALS",
           message: "Invalid account or password",
@@ -217,7 +219,7 @@ describe("Mira Cloud Account HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(401);
-    expect(response.json()).toEqual({
+    expect(authErrorEnvelopeSchema.parse(response.json())).toEqual({
       error: { code: "AUTH_REAUTH_REQUIRED", message: "Re-authentication is required" },
     });
     expect(response.body).not.toContain("definitely-not-a-session");

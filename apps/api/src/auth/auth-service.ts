@@ -1,3 +1,4 @@
+import type { AccountIdentity, CloudSession, IssuedCloudSession } from "@uichat-mira/cloud-auth-contracts";
 import type { AuthRepository, AccountRecord } from "./auth-repository.js";
 import { normalizeUsername } from "./username.js";
 import type { PasswordHasher } from "../security/password.js";
@@ -28,18 +29,6 @@ export class AuthError extends Error {
   }
 }
 
-export interface SessionResponse {
-  account: {
-    id: string;
-    username: string;
-  };
-  expiresAt: string;
-}
-
-export interface IssuedSessionResponse extends SessionResponse {
-  sessionToken: string;
-}
-
 export interface AuthServiceOptions {
   sessionTtlSeconds: number;
 }
@@ -52,7 +41,7 @@ export class AuthService {
     private readonly options: AuthServiceOptions,
   ) {}
 
-  async login(username: string, password: string, ip: string): Promise<IssuedSessionResponse> {
+  async login(username: string, password: string, ip: string): Promise<IssuedCloudSession> {
     let usernameNormalized: string;
     try {
       usernameNormalized = normalizeUsername(username);
@@ -115,7 +104,7 @@ export class AuthService {
     }
   }
 
-  getSession(token: string): SessionResponse {
+  getSession(token: string): CloudSession {
     const authenticated = this.requireSession(token);
     this.repository.touchSession(authenticated.session.id, new Date().toISOString());
     return {
@@ -124,7 +113,7 @@ export class AuthService {
     };
   }
 
-  renewSession(token: string): IssuedSessionResponse {
+  renewSession(token: string): IssuedCloudSession {
     const authenticated = this.requireSession(token);
     const now = new Date();
     const nowIso = now.toISOString();
@@ -219,7 +208,7 @@ export class AuthService {
   }
 }
 
-function publicAccount(account: AccountRecord): { id: string; username: string } {
+function publicAccount(account: AccountRecord): AccountIdentity {
   return { id: account.id, username: account.username };
 }
 
