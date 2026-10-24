@@ -1,3 +1,19 @@
 cloud-auth.tomzlab.cn {
-  reverse_proxy 127.0.0.1:8788
+  @api path /health /ready /v1/*
+  handle @api {
+    reverse_proxy 127.0.0.1:8788
+  }
+
+  handle {
+    root * /opt/cloud-auth/web
+    try_files {path} /index.html
+    header {
+      Cache-Control "no-store"
+      Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'"
+      Referrer-Policy "same-origin"
+      X-Content-Type-Options "nosniff"
+      X-Frame-Options "DENY"
+    }
+    file_server
+  }
 }

@@ -19,7 +19,9 @@ if docker compose -f docker-compose.prod.yml ps --status running --services 2>/d
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "backups/$stamp"
   chown "$APP_UID:$APP_GID" "backups/$stamp"
-  docker compose -f docker-compose.prod.yml exec -T     -e MIRA_AUTH_BACKUP_DIR="/backups/$stamp"     cloud-auth node scripts/backup.mjs
+  docker compose -f docker-compose.prod.yml exec -T \
+    -e MIRA_AUTH_BACKUP_DIR="/backups/$stamp" \
+    cloud-auth node scripts/backup.mjs
 fi
 
 # The production service owns loopback port 8788. Stop the temporary test service first.
@@ -39,10 +41,13 @@ until curl -fsS http://127.0.0.1:8788/ready >/dev/null; do
   sleep 1
 done
 
+sh /opt/cloud-auth/scripts/publish-web-artifact.sh mira-cloud-auth:prod /opt/cloud-auth/web
 sh /opt/cloud-auth/scripts/install-caddy-prod-route.sh
 
 curl -fsS http://127.0.0.1:8788/health
 printf '\n'
+test -s /opt/cloud-auth/web/index.html
+grep -Fq "Mira Cloud Account" /opt/cloud-auth/web/index.html
 docker compose -f docker-compose.prod.yml exec -T cloud-auth node scripts/benchmark-argon2.mjs 5
 printf '%s\n' "${DEPLOY_SHA:-unknown}" > /opt/cloud-auth/.deployed-sha
 
