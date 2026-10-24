@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { verifySessionSecretHash } from "../security/session-token.js";
 
 export interface AccountRecord {
   id: string;
@@ -68,6 +69,29 @@ export interface SessionDeviceBinding {
   installationId: string;
   platform: "desktop" | "mobile";
 }
+
+export interface ServiceCredentialAuthority {
+  accountId: string;
+  deviceId: string;
+}
+
+export type ServiceCredentialAuthorityFailure = "unauthorized" | "device_required";
+
+export type ServiceCredentialAuthorityResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; reason: ServiceCredentialAuthorityFailure };
+
+type ServiceCredentialAuthorityRow = {
+  account_id: string;
+  device_id: string | null;
+  secret_hash: string;
+  expires_at: string;
+  revoked_at: string | null;
+  is_allowed: number;
+  disabled_at: string | null;
+  device_account_id: string | null;
+  device_revoked_at: string | null;
+};
 
 export class AuthRepository {
   constructor(private readonly db: DatabaseSync) {}
@@ -179,6 +203,72 @@ export class AuthRepository {
       this.revokeAllSessions(accountId, "password_changed", now);
       this.db.exec("COMMIT;");
       return true;
+    } catch (error) {
+      this.db.exec("ROLLBACK;");
+      throw error;
+    }
+  }
+
+  /**
+   * Re-verifies the complete account/device/session authority inside one
+   * BEGIN IMMEDIATE transaction. The action runs while the write lock is held,
+   * so a concurrent logout, rotate, device revoke, or account disable cannot
+   * interleave between the final authority check and credential signing.
+   *
+   * Legacy `device_id IS NULL` Web sessions are valid for normal login/restore
+   * but cannot obtain service credentials.
+   */
+  issueWithinActiveDeviceSession<T>(
+    sessionId: string,
+    expectedSecretHash: string,
+    now: string,
+    action: (authority: ServiceCredentialAuthority) => T,
+  ): ServiceCredentialAuthorityResult<T> {
+    this.db.exec("BEGIN IMMEDIATE;");
+    try {
+      const row = this.db
+        .prepare(
+          `SELECT
+             s.account_id, s.device_id, s.secret_hash, s.expires_at, s.revoked_at,
+             a.is_allowed, a.disabled_at,
+             d.account_id AS device_account_id, d.revoked_at AS device_revoked_at
+           FROM sessions s
+           JOIN accounts a ON a.id = s.account_id
+           LEFT JOIN devices d ON d.id = s.device_id
+           WHERE s.id = ?`,
+        )
+        .get(sessionId) as ServiceCredentialAuthorityRow | undefined;
+
+      const expiresAt = row ? Date.parse(row.expires_at) : Number.NaN;
+      if (
+        !row ||
+        !Number.isFinite(expiresAt) ||
+        expiresAt <= Date.parse(now) ||
+        !verifySessionSecretHash(row.secret_hash, expectedSecretHash) ||
+        row.revoked_at !== null ||
+        row.is_allowed !== 1 ||
+        row.disabled_at !== null
+      ) {
+        this.db.exec("ROLLBACK;");
+        return { ok: false, reason: "unauthorized" };
+      }
+
+      if (row.device_id === null) {
+        this.db.exec("ROLLBACK;");
+        return { ok: false, reason: "device_required" };
+      }
+
+      if (
+        row.device_account_id !== row.account_id ||
+        row.device_revoked_at !== null
+      ) {
+        this.db.exec("ROLLBACK;");
+        return { ok: false, reason: "unauthorized" };
+      }
+
+      const value = action({ accountId: row.account_id, deviceId: row.device_id });
+      this.db.exec("COMMIT;");
+      return { ok: true, value };
     } catch (error) {
       this.db.exec("ROLLBACK;");
       throw error;

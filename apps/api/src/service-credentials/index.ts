@@ -1,11 +1,22 @@
 export {
   ServiceCredentialIssuanceError,
+  ServiceCredentialRequestError,
   ServiceCredentialVerificationError,
 } from "./errors.js";
 export type {
   ServiceCredentialIssuanceErrorCode,
+  ServiceCredentialRequestErrorCode,
   ServiceCredentialVerificationErrorCode,
 } from "./errors.js";
+export {
+  createServiceCredentialKeyRing,
+} from "./keyring.js";
+export type {
+  ServiceCredentialKeyMaterialConfig,
+  ServiceCredentialKeyRing,
+  ServiceCredentialRetiringKeyMaterial,
+} from "./keyring.js";
+export { ServiceCredentialService } from "./service.js";
 export {
   DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS,
   MAX_SERVICE_CREDENTIAL_TTL_SECONDS,

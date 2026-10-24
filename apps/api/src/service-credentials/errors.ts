@@ -1,3 +1,5 @@
+import type { ServiceCredentialErrorCode } from "@uichat-mira/cloud-auth-contracts";
+
 export type ServiceCredentialVerificationErrorCode =
   | "MALFORMED_TOKEN"
   | "INVALID_HEADER"
@@ -20,6 +22,23 @@ export class ServiceCredentialVerificationError extends Error {
     super(message);
     this.name = "ServiceCredentialVerificationError";
     this.code = code;
+  }
+}
+
+export type ServiceCredentialRequestErrorCode = Exclude<
+  ServiceCredentialErrorCode,
+  "SERVICE_CREDENTIAL_INTERNAL_ERROR"
+>;
+
+export class ServiceCredentialRequestError extends Error {
+  readonly code: ServiceCredentialRequestErrorCode;
+  readonly statusCode: number;
+
+  constructor(code: ServiceCredentialRequestErrorCode, statusCode: number, message: string) {
+    super(message);
+    this.name = "ServiceCredentialRequestError";
+    this.code = code;
+    this.statusCode = statusCode;
   }
 }
 
