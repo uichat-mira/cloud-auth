@@ -25,7 +25,7 @@ jobs:
             snippet=/etc/caddy/mira-cloud-auth.caddy
             backup=/etc/caddy/mira-cloud-auth.caddy.before-bind-fix-20261024
             bind_ip="$(awk '/^mira-ai[.]tomzlab[.]cn[[:space:]]*[{]/ {inside=1; next} inside && /^[[:space:]]*bind[[:space:]]/ {print $2;exit} inside && /^}/ {exit}' "$caddyfile")"
-            printf '%s' "$bind_ip" | grep -Eq '^[0-9]+(\\.[0-9]+){3}$' || { echo 'Cannot identify safe shared Caddy bind address'; exit 1; }
+            python3 -c 'import ipaddress,sys;ipaddress.IPv4Address(sys.argv[1])' "$bind_ip" || { echo 'Cannot identify safe shared Caddy bind address'; exit 1; }
             echo '=== BEFORE: private-interface ingress ==='
             curl --noproxy '*' -sSi --resolve "cloud-auth.tomzlab.cn:443:$bind_ip" --max-time 8 "https://cloud-auth.tomzlab.cn/health" | head -16
             echo '=== BACKUP AND INSTALL ==='
