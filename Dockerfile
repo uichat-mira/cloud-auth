@@ -3,7 +3,10 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/package.json
-RUN pnpm install --frozen-lockfile --filter @uichat-mira/cloud-auth-api
+COPY packages/contracts/package.json ./packages/contracts/package.json
+RUN pnpm install --frozen-lockfile --filter @uichat-mira/cloud-auth-api...
+COPY packages/contracts ./packages/contracts
+RUN pnpm --filter @uichat-mira/cloud-auth-contracts run build
 COPY apps/api ./apps/api
 RUN pnpm --filter @uichat-mira/cloud-auth-api run build
 
@@ -13,8 +16,10 @@ WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/package.json
-RUN pnpm install --frozen-lockfile --prod --filter @uichat-mira/cloud-auth-api
+COPY packages/contracts/package.json ./packages/contracts/package.json
+RUN pnpm install --frozen-lockfile --prod --filter @uichat-mira/cloud-auth-api...
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/packages/contracts/dist ./packages/contracts/dist
 COPY apps/api/migrations ./apps/api/migrations
 COPY apps/api/scripts ./apps/api/scripts
 WORKDIR /app/apps/api
