@@ -78,6 +78,21 @@ describe("Mira Device HTTP contract", () => {
     expect(desktopAgain.statusCode).toBe(200);
     expect(miraDeviceSchema.parse(desktopAgain.json()).id).toBe(desktopDevice.id);
 
+    const desktopBeforeConflict = miraDeviceSchema.parse(desktopAgain.json());
+    const platformMismatch = await register(alice.sessionToken, {
+      installationId: aliceDesktopInstallation,
+      platform: "mobile",
+      clientName: "Mira Mobile",
+      clientVersion: "99.0.0",
+    });
+    expect(platformMismatch.statusCode).toBe(409);
+    expect(deviceErrorEnvelopeSchema.parse(platformMismatch.json())).toEqual({
+      error: {
+        code: "DEVICE_PLATFORM_MISMATCH",
+        message: "Mira Device platform cannot change",
+      },
+    });
+
     const mobile = await register(alice.sessionToken, {
       installationId: aliceMobileInstallation,
       platform: "mobile",
@@ -105,6 +120,9 @@ describe("Mira Device HTTP contract", () => {
     expect(aliceDevices.map((device) => device.id)).not.toContain(bobDeviceBody.id);
     expect(aliceDevices.find((device) => device.id === desktopDevice.id)?.clientVersion).toBe(
       "1.0.1",
+    );
+    expect(aliceDevices.find((device) => device.id === desktopDevice.id)).toEqual(
+      desktopBeforeConflict,
     );
 
     const bobList = await app.inject({
@@ -152,6 +170,8 @@ describe("Mira Device HTTP contract", () => {
     const attempts = [
       { platform: "desktop" },
       { installationId: "not-a-uuid", platform: "desktop" },
+      { installationId: "550e8400-e29b-11d4-a716-446655440000", platform: "desktop" },
+      { installationId: "01890f6e-4f3c-7cc8-9dbc-55116c2f3a8a", platform: "mobile" },
       { installationId, platform: "server" },
       { installationId, platform: "desktop", accountId: aliceAccount.id },
       { installationId, platform: "desktop", extra: true },

@@ -42,7 +42,7 @@ type DeviceRow = {
 export class DeviceRepository {
   constructor(private readonly db: DatabaseSync) {}
 
-  registerDevice(input: RegisterDeviceInput): DeviceRecord | null {
+  registerDevice(input: RegisterDeviceInput): DeviceRecord | null | "platform_mismatch" {
     this.db.exec("BEGIN IMMEDIATE;");
     try {
       const existing = this.findByInstallation(input.accountId, input.installationId);
@@ -50,15 +50,19 @@ export class DeviceRepository {
         this.db.exec("ROLLBACK;");
         return null;
       }
+      if (existing && existing.platform !== input.platform) {
+        this.db.exec("ROLLBACK;");
+        return "platform_mismatch";
+      }
 
       if (existing) {
         this.db
           .prepare(
             `UPDATE devices
-                SET platform = ?, client_name = ?, client_version = ?, last_seen_at = ?
+                SET client_name = ?, client_version = ?, last_seen_at = ?
               WHERE id = ?`,
           )
-          .run(input.platform, input.clientName, input.clientVersion, input.now, existing.id);
+          .run(input.clientName, input.clientVersion, input.now, existing.id);
       } else {
         this.db
           .prepare(

@@ -37,13 +37,13 @@ export const issuedCloudSessionSchema = cloudSessionSchema
 export const devicePlatformSchema = z.enum(["desktop", "mobile"]);
 
 const installationIdPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const registerDeviceRequestSchema = z
   .object({
     installationId: z
       .string()
-      .regex(installationIdPattern, "installationId must be a randomly generated UUID"),
+      .regex(installationIdPattern, "installationId must be a randomly generated UUIDv4"),
     platform: devicePlatformSchema,
     clientName: z.string().min(1).max(80).regex(/\S/, "clientName must not be blank").optional(),
     clientVersion: z
@@ -76,6 +76,7 @@ export const deviceListResponseSchema = z
 export const deviceErrorCodeSchema = z.enum([
   "DEVICE_INVALID_REQUEST",
   "DEVICE_REVOKED",
+  "DEVICE_PLATFORM_MISMATCH",
   "DEVICE_INTERNAL_ERROR",
 ]);
 

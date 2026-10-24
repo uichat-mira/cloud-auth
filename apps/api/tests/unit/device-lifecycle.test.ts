@@ -52,6 +52,27 @@ describe("Mira Device lifecycle model", () => {
     expect(aliceDesktopAgain.createdAt).toBe(aliceDesktop.createdAt);
     expect(aliceDesktopAgain.clientVersion).toBe("1.0.1");
 
+    expect(() =>
+      context.deviceService.register(alice.sessionToken, {
+        installationId: desktopInstallation,
+        platform: "mobile",
+        clientName: "Mira Mobile",
+        clientVersion: "99.0.0",
+      }),
+    ).toThrowError(DeviceError);
+    try {
+      context.deviceService.register(alice.sessionToken, {
+        installationId: desktopInstallation,
+        platform: "mobile",
+      });
+      throw new Error("Expected conflicting platform to be rejected");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "DEVICE_PLATFORM_MISMATCH", statusCode: 409 });
+    }
+    expect(
+      context.deviceService.list(alice.sessionToken).find((device) => device.id === aliceDesktop.id),
+    ).toEqual(aliceDesktopAgain);
+
     const aliceMobile = context.deviceService.register(alice.sessionToken, {
       installationId: mobileInstallation,
       platform: "mobile",

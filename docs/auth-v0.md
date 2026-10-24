@@ -91,7 +91,7 @@ The database stores only SHA-256 of the high-entropy secret, domain-separated fo
 
 ## Mira Device (OPS-007 first slice)
 
-A Mira Device represents one Mira Desktop or Mira Mobile installation owned by a Mira Cloud Account. It is not a hardware identity: `installation_id` is a client-generated random UUID created for one installation, and a reinstall or new installation reports a new UUID and therefore becomes a distinct Mira Device. No IMEI, MAC address, serial number, hardware fingerprint, Push provider token, or Remote V1 credential is stored.
+A Mira Device represents one Mira Desktop or Mira Mobile installation owned by a Mira Cloud Account. It is not a hardware identity: `installation_id` is a client-generated random UUIDv4 created for one installation, and a reinstall or new installation reports a new UUID and therefore becomes a distinct Mira Device. No IMEI, MAC address, serial number, hardware fingerprint, Push provider token, or Remote V1 credential is stored.
 
 The additive `devices` migration persists:
 
@@ -102,7 +102,7 @@ The additive `devices` migration persists:
 - nullable `public_key` reserved for a later proof-of-possession design;
 - `created_at`, `last_seen_at`, `revoked_at`, and `revoke_reason`.
 
-Both device endpoints require an existing accepted Cloud Session. The acting account is derived from that session; the request cannot name another account. Repeated registration of the same installation under the same account is idempotent and refreshes `last_seen_at` and support metadata.
+Both device endpoints require an existing accepted Cloud Session. The acting account is derived from that session; the request cannot name another account. Repeated registration of the same installation under the same account is idempotent and refreshes `last_seen_at` and support metadata. The installation's platform is immutable: changing desktop to mobile (or vice versa) returns `409 DEVICE_PLATFORM_MISMATCH` without modifying the device.
 
 ### POST /v1/devices
 
@@ -110,14 +110,14 @@ Requires `Authorization: Bearer <Cloud Session>`.
 
 ```json
 {
-  "installationId": "random-uuid",
+  "installationId": "random-uuidv4",
   "platform": "desktop",
   "clientName": "Mira Desktop",
   "clientVersion": "1.0.0"
 }
 ```
 
-`clientName` and `clientVersion` are optional. Unknown fields, malformed installation IDs, and unknown platforms are rejected.
+`clientName` and `clientVersion` are optional. The installation ID must be a random UUIDv4 (not a hardware-derived UUIDv1). Unknown fields, malformed IDs, and unknown platforms are rejected.
 
 Success returns the caller's device metadata without internal account, installation, or key material. The same request from another account creates that account's own device record and does not reveal or reuse the first account's device.
 

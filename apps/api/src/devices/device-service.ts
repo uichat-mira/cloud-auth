@@ -5,7 +5,7 @@ import type {
 import type { AuthService } from "../auth/auth-service.js";
 import type { DeviceRecord, DeviceRepository } from "./device-repository.js";
 
-export type DeviceErrorCode = "DEVICE_REVOKED";
+export type DeviceErrorCode = "DEVICE_REVOKED" | "DEVICE_PLATFORM_MISMATCH";
 
 export class DeviceError extends Error {
   constructor(
@@ -33,6 +33,14 @@ export class DeviceService {
       clientVersion: request.clientVersion?.trim() ?? null,
       now: new Date().toISOString(),
     });
+
+    if (device === "platform_mismatch") {
+      throw new DeviceError(
+        "DEVICE_PLATFORM_MISMATCH",
+        409,
+        "Mira Device platform cannot change",
+      );
+    }
 
     if (!device) {
       throw new DeviceError(
