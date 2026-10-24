@@ -72,6 +72,14 @@ The database stores only SHA-256 of the high-entropy secret, domain-separated fo
 
 `sessions.device_id` is intentionally nullable in OPS-006. OPS-007 owns Mira Device registration/binding and will attach the session to the canonical device record without redefining the session credential.
 
+### Web Account Portal client
+
+The Account Portal uses the shared OPS-006 contracts to validate auth responses and errors at runtime. Route components call login, restore, renewal, and logout operations through the auth state layer; they do not issue raw HTTP requests or read bearer tokens.
+
+Browser persistence is behind a `SessionStorageAdapter`. The current Portal implementation uses `sessionStorage`, but the adapter boundary keeps native secure-storage implementations from inheriting browser-only assumptions. Zustand holds only client auth/UI state such as status, current account identity, expiry, pending operations, and stable failure state.
+
+A `401` invalidates and clears the local Cloud Session. Network, `503`, and malformed-response failures preserve a stored session and surface a retryable state instead of presenting the user as logged out. `429` and malformed responses become stable user-facing failures rather than uncaught exceptions.
+
 ## Password policy and hashing
 
 V0 is password-only root authentication and has no MFA yet.
