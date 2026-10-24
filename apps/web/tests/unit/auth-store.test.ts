@@ -47,6 +47,20 @@ async function createAuthenticatedLogoutStore(
   return { store, storage, stored };
 }
 
+function createRestoreFailureStore(
+  storage: ReturnType<typeof createMemoryStorage>,
+  kind: "reauth_required" | "service_unavailable",
+): AuthStore {
+  return createAuthStore({
+    client: createClient({
+      getSession: async () => {
+        throw new CloudAuthError(createAuthFailure(kind));
+      },
+    }),
+    storage,
+  });
+}
+
 describe("auth store", () => {
   it("stores the issued session after login without exposing token in state", async () => {
     const storage = createMemoryStorage();
@@ -92,14 +106,7 @@ describe("auth store", () => {
       sessionToken: "token-1",
       expiresAt,
     });
-    const store = createAuthStore({
-      client: createClient({
-        getSession: async () => {
-          throw new CloudAuthError(createAuthFailure("reauth_required"));
-        },
-      }),
-      storage,
-    });
+    const store = createRestoreFailureStore(storage, "reauth_required");
 
     await store.getState().restore();
 
@@ -115,14 +122,7 @@ describe("auth store", () => {
   it("preserves the stored session when restore is transiently unavailable", async () => {
     const stored = { sessionToken: "token-1", expiresAt };
     const storage = createMemoryStorage(stored);
-    const store = createAuthStore({
-      client: createClient({
-        getSession: async () => {
-          throw new CloudAuthError(createAuthFailure("service_unavailable"));
-        },
-      }),
-      storage,
-    });
+    const store = createRestoreFailureStore(storage, "service_unavailable");
 
     await store.getState().restore();
 
