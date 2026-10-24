@@ -1,35 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { routes } from "@/app/routes";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { AuthProvider } from "@/lib/auth/context";
-import type {
-  PersistedCloudSession,
-  SessionStorageAdapter,
-} from "@/lib/auth/session-storage";
 import { createAuthStore } from "@/lib/auth/store";
+import { createMemoryStorage } from "../helpers/session-storage";
 
 const account = { id: "account-1", username: "pilot" };
 const expiresAt = "2026-11-01T00:00:00.000Z";
 
-function createMemoryStorage() {
-  let current: PersistedCloudSession | null = null;
-  return {
-    load: () => current,
-    save: (session: PersistedCloudSession) => {
-      current = session;
-    },
-    clear: () => {
-      current = null;
-    },
-  } satisfies SessionStorageAdapter;
-}
-
 describe("auth-backed route components", () => {
   it("submits login through the session store and logs out without touching fetch or tokens", async () => {
-    const user = userEvent.setup();
     const storage = createMemoryStorage();
     const loginCalls: Array<{ username: string; password: string }> = [];
     let logoutToken: string | null = null;
@@ -63,9 +45,13 @@ describe("auth-backed route components", () => {
       </AuthProvider>,
     );
 
-    await user.type(screen.getByLabelText("账号"), "pilot");
-    await user.type(screen.getByLabelText("密码"), "correct horse battery staple");
-    await user.click(screen.getByRole("button", { name: "登录" }));
+    fireEvent.change(screen.getByLabelText("账号"), {
+      target: { value: "pilot" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/account");
@@ -76,7 +62,7 @@ describe("auth-backed route components", () => {
     ]);
     expect(storage.load()?.sessionToken).toBe("token-1");
 
-    await user.click(screen.getByRole("button", { name: "退出登录" }));
+    fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
 
     expect(logoutToken).toBe("token-1");
     expect(storage.load()).toBeNull();
