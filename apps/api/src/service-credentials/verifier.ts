@@ -36,7 +36,7 @@ export interface ServiceCredentialVerifierConfig {
   /** Allowed clock skew for temporal checks. Defaults to zero. */
   clockSkewSeconds?: number;
   now?: () => Date;
-  /** Optional expected connection context, only valid for Relay transport tickets. */
+  /** Required for Relay transport tickets; invalid for other audiences. */
   expectedRelay?: ExpectedRelayContext;
 }
 
@@ -97,6 +97,9 @@ function validateConfig(config: ServiceCredentialVerifierConfig): number {
     );
   }
 
+  if (config.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE && config.expectedRelay === undefined) {
+    fail("INVALID_VERIFIER_CONFIG", "Relay verifier must specify the expected room and role");
+  }
   if (config.expectedRelay !== undefined) {
     if (config.audience !== CLOUD_RELAY_TRANSPORT_AUDIENCE) {
       fail("INVALID_VERIFIER_CONFIG", "Expected Relay context is only valid for Relay tickets");
@@ -177,6 +180,9 @@ export function verifyServiceCredential(
   }
 
   const nowSeconds = Math.floor((config.now?.() ?? new Date()).getTime() / 1000);
+  if (!Number.isFinite(nowSeconds)) {
+    fail("INVALID_VERIFIER_CONFIG", "Verifier clock must provide a valid time");
+  }
   const clockSkew = config.clockSkewSeconds ?? 0;
 
   if (claims.iat > nowSeconds + clockSkew) {
