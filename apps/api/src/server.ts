@@ -28,7 +28,6 @@ const app = buildApp({
   db,
   authService,
   trustProxy: true,
-  acceptanceUi: config.acceptanceUi,
   logger: {
     level: config.logLevel,
     redact: {

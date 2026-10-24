@@ -10,7 +10,6 @@ export interface AppConfig {
   argon2MemoryKiB: number;
   argon2Passes: number;
   argon2Parallelism: number;
-  acceptanceUi: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -22,7 +21,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const argon2MemoryKiB = readInteger(env, "MIRA_AUTH_ARGON2_MEMORY_KIB", 19_456, 19_456, 262_144);
   const argon2Passes = readInteger(env, "MIRA_AUTH_ARGON2_PASSES", 2, 2, 10);
   const argon2Parallelism = readInteger(env, "MIRA_AUTH_ARGON2_PARALLELISM", 1, 1, 4);
-  const acceptanceUi = readBoolean(env, "MIRA_AUTH_ACCEPTANCE_UI", false);
 
   return {
     host: env.HOST ?? "0.0.0.0",
@@ -36,7 +34,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     argon2MemoryKiB,
     argon2Passes,
     argon2Parallelism,
-    acceptanceUi,
   };
 }
 
@@ -54,10 +51,3 @@ function readInteger(
   return value;
 }
 
-function readBoolean(env: NodeJS.ProcessEnv, key: string, fallback: boolean): boolean {
-  const raw = env[key];
-  if (raw === undefined) return fallback;
-  if (raw === "true") return true;
-  if (raw === "false") return false;
-  throw new Error(`${key} must be true or false`);
-}
