@@ -89,6 +89,64 @@ The database stores only SHA-256 of the high-entropy secret, domain-separated fo
 
 `sessions.device_id` is intentionally nullable in OPS-006. OPS-007 owns Mira Device registration/binding and will attach the session to the canonical device record without redefining the session credential.
 
+## Mira Device (OPS-007 first slice)
+
+A Mira Device represents one Mira Desktop or Mira Mobile installation owned by a Mira Cloud Account. It is not a hardware identity: `installation_id` is a client-generated random UUID created for one installation, and a reinstall or new installation reports a new UUID and therefore becomes a distinct Mira Device. No IMEI, MAC address, serial number, hardware fingerprint, Push provider token, or Remote V1 credential is stored.
+
+The additive `devices` migration persists:
+
+- canonical server-generated device `id`;
+- owning `account_id`;
+- unique `(account_id, installation_id)` installation identity;
+- `platform` (`desktop` or `mobile`) plus optional `client_name` and `client_version` for support;
+- nullable `public_key` reserved for a later proof-of-possession design;
+- `created_at`, `last_seen_at`, `revoked_at`, and `revoke_reason`.
+
+Both device endpoints require an existing accepted Cloud Session. The acting account is derived from that session; the request cannot name another account. Repeated registration of the same installation under the same account is idempotent and refreshes `last_seen_at` and support metadata.
+
+### POST /v1/devices
+
+Requires `Authorization: Bearer <Cloud Session>`.
+
+```json
+{
+  "installationId": "random-uuid",
+  "platform": "desktop",
+  "clientName": "Mira Desktop",
+  "clientVersion": "1.0.0"
+}
+```
+
+`clientName` and `clientVersion` are optional. Unknown fields, malformed installation IDs, and unknown platforms are rejected.
+
+Success returns the caller's device metadata without internal account, installation, or key material. The same request from another account creates that account's own device record and does not reveal or reuse the first account's device.
+
+### GET /v1/devices
+
+Requires `Authorization: Bearer <Cloud Session>`.
+
+```json
+{
+  "devices": [
+    {
+      "id": "...",
+      "platform": "desktop",
+      "clientName": "Mira Desktop",
+      "clientVersion": "1.0.0",
+      "createdAt": "...",
+      "lastSeenAt": "...",
+      "revokedAt": null
+    }
+  ]
+}
+```
+
+The list is scoped to the authenticated account. It never returns password hashes, Cloud Session secret material, installation IDs, public keys, Remote V1 credentials, Provider secrets, or Push tokens.
+
+### Deferred device lifecycle work
+
+This first OPS-007 slice implements persistence, registration, and own-device listing. Binding new Cloud Sessions to a `device_id`, enforcing device revocation during session renewal/issuance, and exposing an independent revoke operation remain deferred to the second OPS-007 implementation slice. The persisted `revoked_at` state already prevents a revoked installation from silently re-registering, but Cloud Session enforcement is not claimed here.
+
 ### Web Account Portal client
 
 The Account Portal uses the shared OPS-006 contracts to validate auth responses and errors at runtime. Route components call login, restore, renewal, and logout operations through the auth state layer; they do not issue raw HTTP requests or read bearer tokens.

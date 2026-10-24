@@ -226,6 +226,11 @@ export class AuthService {
     return guard;
   }
 
+  requireAccountIdentity(token: string): AccountIdentity {
+    const authenticated = this.requireSession(token);
+    return publicAccount(authenticated.account);
+  }
+
   private requireSession(token: string) {
     const parsed = parseSessionToken(token);
     if (!parsed) throw reauthRequired();
