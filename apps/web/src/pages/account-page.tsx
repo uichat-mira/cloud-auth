@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { AuthFailureAlert } from "@/components/auth-failure-alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -42,14 +43,7 @@ export function AccountPage() {
         </span>
       </header>
 
-      {failure ? (
-        <p
-          role="alert"
-          className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {failure.message}
-        </p>
-      ) : null}
+      <AuthFailureAlert failure={failure} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
