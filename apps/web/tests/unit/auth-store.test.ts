@@ -6,7 +6,7 @@ import type {
   PersistedCloudSession,
   SessionStorageAdapter,
 } from "@/lib/auth/session-storage";
-import { createAuthStore } from "@/lib/auth/store";
+import { createAuthStore, type AuthStore } from "@/lib/auth/store";
 
 const account = { id: "account-1", username: "pilot" };
 const expiresAt = "2026-11-01T00:00:00.000Z";
@@ -40,6 +40,26 @@ function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient
     logout: async () => undefined,
     ...overrides,
   };
+}
+
+async function createAuthenticatedLogoutStore(
+  logout: CloudAuthClient["logout"] = async () => undefined,
+): Promise<{
+  store: AuthStore;
+  storage: ReturnType<typeof createMemoryStorage>;
+  stored: PersistedCloudSession;
+}> {
+  const storage = createMemoryStorage();
+  const store = createAuthStore({
+    client: createClient({ logout }),
+    storage,
+  });
+
+  await store.getState().login("pilot", "password");
+  const stored = storage.load();
+  if (!stored) throw new Error("Expected login to persist a Cloud Session");
+
+  return { store, storage, stored };
 }
 
 describe("auth store", () => {
@@ -148,17 +168,8 @@ describe("auth store", () => {
 
   it("clears the stored session after an explicit logout", async () => {
     let logoutToken: string | null = null;
-    const storage = createMemoryStorage({
-      sessionToken: "token-1",
-      expiresAt,
-    });
-    const store = createAuthStore({
-      client: createClient({
-        logout: async (token) => {
-          logoutToken = token;
-        },
-      }),
-      storage,
+    const { store, storage } = await createAuthenticatedLogoutStore(async (token) => {
+      logoutToken = token;
     });
 
     await store.getState().logout();
@@ -175,22 +186,13 @@ describe("auth store", () => {
   });
 
   it("clears the stored session when logout reports re-authentication required", async () => {
-    const storage = createMemoryStorage({
-      sessionToken: "token-1",
-      expiresAt,
-    });
-    const store = createAuthStore({
-      client: createClient({
-        logout: async () => {
-          throw new CloudAuthError(
-            createAuthFailure("reauth_required", {
-              status: 401,
-              code: "AUTH_REAUTH_REQUIRED",
-            }),
-          );
-        },
-      }),
-      storage,
+    const { store, storage } = await createAuthenticatedLogoutStore(async () => {
+      throw new CloudAuthError(
+        createAuthFailure("reauth_required", {
+          status: 401,
+          code: "AUTH_REAUTH_REQUIRED",
+        }),
+      );
     });
 
     await store.getState().logout();
@@ -213,20 +215,12 @@ describe("auth store", () => {
   ] as const)(
     "preserves the stored session and surfaces a retryable failure when logout fails with %s",
     async (kind) => {
-      const storage = createMemoryStorage();
       const failure = createAuthFailure(kind);
-      const store = createAuthStore({
-        client: createClient({
-          logout: async () => {
-            throw new CloudAuthError(failure);
-          },
-        }),
-        storage,
-      });
-
-      await store.getState().login("pilot", "password");
-      const stored = storage.load();
-      expect(stored).not.toBeNull();
+      const { store, storage, stored } = await createAuthenticatedLogoutStore(
+        async () => {
+          throw new CloudAuthError(failure);
+        },
+      );
 
       await store.getState().logout();
 
