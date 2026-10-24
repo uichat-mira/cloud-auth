@@ -46,7 +46,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASSWORD }}
           port: ${{ secrets.DEPLOY_PORT || '22' }}
-          source: "docker-compose.test.yml,scripts/deploy-test.sh,scripts/install-caddy-test-route.sh,deploy/mira-cloud-auth-test.caddy,mira-cloud-auth-test-image.tar.gz"
+          source: "docker-compose.test.yml,scripts/deploy-test.sh,scripts/install-caddy-test-route.sh,scripts/publish-web-artifact.sh,deploy/mira-cloud-auth-test.caddy,mira-cloud-auth-test-image.tar.gz"
           target: "/opt/cloud-auth-test"
           overwrite: true
 
@@ -63,7 +63,7 @@ jobs:
           envs: DEPLOY_SHA
           script: |
             set -eu
-            chmod +x /opt/cloud-auth-test/scripts/deploy-test.sh /opt/cloud-auth-test/scripts/install-caddy-test-route.sh
+            chmod +x /opt/cloud-auth-test/scripts/deploy-test.sh /opt/cloud-auth-test/scripts/install-caddy-test-route.sh /opt/cloud-auth-test/scripts/publish-web-artifact.sh
             /opt/cloud-auth-test/scripts/deploy-test.sh
 
       - name: Public test smoke
@@ -73,5 +73,6 @@ jobs:
             echo "::warning::test.cloud-auth.tomzlab.cn does not resolve; skipping public test smoke."
             exit 0
           fi
-          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
-          curl --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Auth"
+          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
+          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Account"
+          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/account | grep -F "Mira Cloud Account"
