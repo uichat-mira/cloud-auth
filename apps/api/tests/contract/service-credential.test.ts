@@ -83,6 +83,7 @@ function relayVerifier(
     issuer: SERVICE_CREDENTIAL_ISSUER,
     audience: CLOUD_RELAY_TRANSPORT_AUDIENCE,
     publicKeys: new Map([[KEY_ID, publicKey]]),
+    expectedRelay: { room: "room-7f3a", role: "client" },
     now: () => FIXED_NOW,
     ...overrides,
   };
@@ -438,6 +439,23 @@ describe("service credential verification contract", () => {
           issueRelayToken(),
           relayVerifier({ expectedRelay: { room: "room-1", role: "owner" as "client" } }),
         ),
+      "INVALID_VERIFIER_CONFIG",
+    );
+
+    // A Relay ticket must never be accepted as connection eligibility
+    // without verifying the actual requested room and peer role.
+    expectVerificationError(
+      () => verifyServiceCredential(issueRelayToken(), relayVerifier({ expectedRelay: undefined })),
+      "INVALID_VERIFIER_CONFIG",
+    );
+
+    // An invalid injected clock must not turn every expiry comparison into false.
+    expectVerificationError(
+      () => verifyServiceCredential(issueShiyanToken(), shiyanVerifier({ now: () => new Date(NaN) })),
+      "INVALID_VERIFIER_CONFIG",
+    );
+    expectVerificationError(
+      () => verifyServiceCredential(issueRelayToken(), relayVerifier({ now: () => new Date(NaN) })),
       "INVALID_VERIFIER_CONFIG",
     );
   });
