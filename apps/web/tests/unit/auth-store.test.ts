@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CloudSession, IssuedCloudSession } from "@uichat-mira/cloud-auth-contracts";
+import type { CloudSession } from "@uichat-mira/cloud-auth-contracts";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
 import type { PersistedCloudSession } from "@/lib/auth/session-storage";
@@ -9,12 +9,9 @@ import {
   expiresAt,
   expectLoggedOutState,
   expectUnavailableState,
+  issuedSession,
 } from "../helpers/auth-fixtures";
 import { createAuthStore, type AuthStore } from "@/lib/auth/store";
-
-function issued(token: string): IssuedCloudSession {
-  return { sessionToken: token, account, expiresAt };
-}
 
 function cloudSession(): CloudSession {
   return { account, expiresAt };
@@ -22,9 +19,9 @@ function cloudSession(): CloudSession {
 
 function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient {
   return {
-    login: async () => issued("token-1"),
+    login: async () => issuedSession("token-1"),
     getSession: async () => cloudSession(),
-    renewSession: async () => issued("token-2"),
+    renewSession: async () => issuedSession("token-2"),
     logout: async () => undefined,
     ...overrides,
   };
