@@ -32,6 +32,20 @@ export function LoginPage() {
         <p className="max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
           使用 Mira Cloud 账号访问跨设备账户与云端服务。登录后会建立可恢复、可续期的 Cloud Session。
         </p>
+        <ul className="grid max-w-xl gap-2 text-sm leading-6 text-muted-foreground">
+          <li>
+            <span className="font-medium text-foreground">本地优先：</span>
+            本地、直连与 Tailscale 功能不需要 Mira Cloud 登录。
+          </li>
+          <li>
+            <span className="font-medium text-foreground">云端身份：</span>
+            Mira Cloud Account 只用于 Mira 运营的云端服务与会话。
+          </li>
+          <li>
+            <span className="font-medium text-foreground">尚未接入：</span>
+            Mira Device、Cloud Shiyan、Hosted Relay 仍在建设中。
+          </li>
+        </ul>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <span className="rounded-full border px-3 py-1">Cloud Account</span>
           <span className="rounded-full border px-3 py-1">Cloud Session</span>

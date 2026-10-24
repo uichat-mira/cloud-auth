@@ -25,6 +25,7 @@ async function startAuthServer() {
   let activeToken: string | null = null;
   let tokenSequence = 0;
   let unavailable = false;
+  let loginRateLimited = false;
   let logoutFailure: LogoutFailure = "none";
   const requests: string[] = [];
 
@@ -37,6 +38,17 @@ async function startAuthServer() {
     }
 
     if (request.method === "POST" && request.url === "/v1/auth/login") {
+      if (loginRateLimited) {
+        sendAuthError(
+          response,
+          429,
+          "AUTH_RATE_LIMITED",
+          "Too many login attempts",
+          { "retry-after": "30" },
+        );
+        return;
+      }
+
       const body = await readJson(request);
       if (body.username !== "pilot" || body.password !== password) {
         sendAuthError(response, 401, "AUTH_INVALID_CREDENTIALS", "Invalid account or password");
@@ -101,8 +113,14 @@ async function startAuthServer() {
     setUnavailable(value: boolean) {
       unavailable = value;
     },
+    setLoginRateLimited(value: boolean) {
+      loginRateLimited = value;
+    },
     setLogoutFailure(value: LogoutFailure) {
       logoutFailure = value;
+    },
+    expireSessions() {
+      activeToken = null;
     },
     requests,
     async close() {
@@ -242,6 +260,62 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
     expectAuthenticated(store);
     expect(storage.load()).toEqual(issued);
   });
+
+  it("treats an expired session as re-authentication required and clears it", async () => {
+    const { server, storage, store } = await createAuthenticatedHarness();
+
+    server.expireSessions();
+    await store.getState().restore();
+
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      failure: { kind: "reauth_required", code: "AUTH_REAUTH_REQUIRED" },
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+  });
+
+  it("clears an expired session when renewal is rejected", async () => {
+    const { server, storage, store } = await createAuthenticatedHarness();
+
+    server.expireSessions();
+    await store.getState().renew();
+
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      failure: { kind: "reauth_required" },
+      notice: null,
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+  });
+
+  it("surfaces login rate limiting with retry-after without storing a session", async () => {
+    const server = await startAuthServer();
+    const storage = createMemoryStorage();
+    const store = createAuthStore({
+      client: createCloudAuthClient({ baseUrl: server.url }),
+      storage,
+    });
+
+    server.setLoginRateLimited(true);
+    await store.getState().login("pilot", password);
+
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      failure: {
+        kind: "rate_limited",
+        status: 429,
+        code: "AUTH_RATE_LIMITED",
+        retryAfterSeconds: 30,
+      },
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+  });
 });
 
 function bearerToken(request: IncomingMessage): string | null {
@@ -273,11 +347,20 @@ function sendAuthError(
   status: number,
   code: string,
   message: string,
+  headers: Record<string, string> = {},
 ): void {
-  sendJson(response, status, { error: { code, message } });
+  sendJson(response, status, { error: { code, message } }, headers);
 }
 
-function sendJson(response: ServerResponse, status: number, body: unknown): void {
-  response.writeHead(status, { "content-type": "application/json" });
+function sendJson(
+  response: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): void {
+  response.writeHead(status, {
+    "content-type": "application/json",
+    ...headers,
+  });
   response.end(JSON.stringify(body));
 }

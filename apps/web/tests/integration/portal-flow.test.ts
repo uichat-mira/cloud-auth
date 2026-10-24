@@ -1,0 +1,256 @@
+import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { chromium, type Browser, type Page } from "playwright-core";
+import { createServer, type ViteDevServer } from "vite";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+const webRoot = fileURLToPath(new URL("../..", import.meta.url));
+const screenshotDir = join(webRoot, "coverage", "screenshots");
+const password = "correct horse battery staple";
+const account = { id: "account-1", username: "pilot" } as const;
+const expiresAt = "2026-11-01T00:00:00.000Z";
+
+const viewports = [
+  { name: "desktop", width: 1440, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+] as const;
+
+let authServer: AuthServer;
+let server: ViteDevServer;
+let browser: Browser;
+let baseUrl: string;
+
+beforeAll(async () => {
+  mkdirSync(screenshotDir, { recursive: true });
+  authServer = await startAuthServer();
+
+  server = await createServer({
+    root: webRoot,
+    server: {
+      host: "127.0.0.1",
+      port: 0,
+      strictPort: false,
+      proxy: {
+        "/v1": {
+          target: authServer.url,
+          changeOrigin: true,
+        },
+      },
+    },
+    logLevel: "error",
+  });
+  await server.listen();
+
+  const localUrl = server.resolvedUrls?.local[0];
+  if (!localUrl) {
+    throw new Error("Vite dev server did not expose a local URL");
+  }
+  baseUrl = localUrl.replace(/\/$/, "");
+
+  browser = await chromium.launch(
+    process.env.CHROME_PATH
+      ? { executablePath: process.env.CHROME_PATH }
+      : { channel: "chrome" },
+  );
+}, 60_000);
+
+afterAll(async () => {
+  await browser?.close();
+  await server?.close();
+  await authServer?.close();
+});
+
+for (const viewport of viewports) {
+  describe(`${viewport.name} portal flow`, () => {
+    it("captures logged-out, restored, renewed, logged-out, and expired states", async () => {
+      const page = await browser.newPage({
+        viewport: { width: viewport.width, height: viewport.height },
+      });
+
+      try {
+        await page.goto(`${baseUrl}/login`, { waitUntil: "load" });
+        await page
+          .getByRole("heading", { level: 1, name: "登录 Mira Cloud" })
+          .waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "logged-out", viewport.name);
+
+        await page.getByLabel("账号").fill("pilot");
+        await page.getByLabel("密码").fill(password);
+        await page.getByRole("button", { name: "登录" }).click();
+        await page.waitForURL("**/account");
+        await page.getByText("pilot").waitFor();
+        await page.getByText("Cloud Session").first().waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "logged-in", viewport.name);
+
+        await page.reload({ waitUntil: "load" });
+        await page
+          .getByRole("heading", { level: 1, name: "账户概览" })
+          .waitFor();
+        await page.getByText("pilot").waitFor();
+
+        await page.getByRole("button", { name: "续期 Session" }).click();
+        await page.getByRole("status").waitFor();
+        expect(await page.getByRole("status").textContent()).toContain(
+          "Cloud Session 已续期",
+        );
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "renewed", viewport.name);
+
+        await page.getByRole("button", { name: "退出登录" }).click();
+        await page.getByRole("link", { name: "前往登录" }).waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "logged-out-after-logout", viewport.name);
+
+        await page.getByRole("link", { name: "前往登录" }).click();
+        await page.getByLabel("账号").fill("pilot");
+        await page.getByLabel("密码").fill(password);
+        await page.getByRole("button", { name: "登录" }).click();
+        await page.waitForURL("**/account");
+        await page.getByText("pilot").waitFor();
+
+        authServer.expireSessions();
+        await page.reload({ waitUntil: "load" });
+        await page.getByRole("alert").waitFor();
+        expect(await page.getByRole("alert").textContent()).toContain(
+          "登录状态已失效或已过期，请重新登录。",
+        );
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "expired", viewport.name);
+      } finally {
+        await page.close();
+      }
+    }, 60_000);
+  });
+}
+
+async function screenshot(
+  page: Page,
+  state: string,
+  viewport: string,
+): Promise<void> {
+  await page.screenshot({
+    path: join(screenshotDir, `portal-${state}-${viewport}.png`),
+    fullPage: true,
+  });
+}
+
+async function expectNoHorizontalOverflow(
+  page: Page,
+): Promise<void> {
+  const hasOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth,
+  );
+  expect(hasOverflow).toBe(false);
+}
+
+interface AuthServer {
+  url: string;
+  expireSessions(): void;
+  close(): Promise<void>;
+}
+
+async function startAuthServer(): Promise<AuthServer> {
+  let activeToken: string | null = null;
+  let tokenSequence = 0;
+
+  const server = createHttpServer(async (request, response) => {
+    if (request.method === "POST" && request.url === "/v1/auth/login") {
+      const body = await readJson(request);
+      if (body.username !== "pilot" || body.password !== password) {
+        sendAuthError(response, 401, "AUTH_INVALID_CREDENTIALS");
+        return;
+      }
+      activeToken = issueSession(response, (tokenSequence += 1));
+      return;
+    }
+
+    const token = bearerToken(request);
+    if (!token || token !== activeToken) {
+      sendAuthError(response, 401, "AUTH_REAUTH_REQUIRED");
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/v1/auth/session") {
+      sendJson(response, 200, { account, expiresAt });
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/v1/auth/session/renew") {
+      activeToken = issueSession(response, (tokenSequence += 1));
+      return;
+    }
+
+    if (request.method === "POST" && request.url === "/v1/auth/logout") {
+      activeToken = null;
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+
+    sendAuthError(response, 404, "AUTH_INTERNAL_ERROR");
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Mock auth server did not expose a TCP port");
+  }
+
+  return {
+    url: `http://127.0.0.1:${address.port}`,
+    expireSessions() {
+      activeToken = null;
+    },
+    async close() {
+      if (!server.listening) return;
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+}
+
+function bearerToken(request: IncomingMessage): string | null {
+  const authorization = request.headers.authorization;
+  const match = authorization ? /^Bearer\s+(.+)$/i.exec(authorization) : null;
+  return match?.[1] ?? null;
+}
+
+async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+}
+
+function issueSession(response: ServerResponse, sequence: number): string {
+  const sessionToken = `mcs_v1.portal-${sequence}.secret`;
+  sendJson(response, 200, { sessionToken, account, expiresAt });
+  return sessionToken;
+}
+
+function sendAuthError(
+  response: ServerResponse,
+  status: number,
+  code: string,
+): void {
+  sendJson(response, status, {
+    error: { code, message: "Portal test auth error" },
+  });
+}
+
+function sendJson(
+  response: ServerResponse,
+  status: number,
+  body: unknown,
+): void {
+  response.writeHead(status, { "content-type": "application/json" });
+  response.end(JSON.stringify(body));
+}
