@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
+import { FutureServices } from "@/components/future-services";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,12 +21,21 @@ const sessionLabels: Record<AuthStatus, string> = {
 };
 
 export function AccountPage() {
-  const { status, account, expiresAt, failure, pending, restore, renew, logout } =
-    useAuthSession();
+  const {
+    status,
+    account,
+    expiresAt,
+    failure,
+    notice,
+    pending,
+    restore,
+    renew,
+    logout,
+  } = useAuthSession();
   const isAuthenticated = status === "authenticated";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
@@ -35,7 +45,8 @@ export function AccountPage() {
             账户概览
           </h1>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            这里将展示 Mira Cloud 账号、Cloud Session 与关联服务状态。
+            Mira 保持本地优先：本地、直连与 Tailscale 功能不需要登录；Cloud
+            Account 仅用于访问 Mira 运营的云端服务。
           </p>
         </div>
         <span className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
@@ -45,12 +56,23 @@ export function AccountPage() {
 
       <AuthFailureAlert failure={failure} />
 
+      {notice === "session_renewed" ? (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-600/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          Cloud Session 已续期，当前登录状态保持不变。
+        </p>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>账号</CardTitle>
+            <CardTitle>Mira Cloud 身份</CardTitle>
             <CardDescription>
-              {account ? "当前浏览器使用的 Mira Cloud 账号。" : "当前没有可展示的账号信息。"}
+              {account
+                ? "当前浏览器正在使用的 Mira Cloud 账号。"
+                : "当前没有可展示的账号信息。"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -58,7 +80,9 @@ export function AccountPage() {
               <dt className="text-muted-foreground">账号</dt>
               <dd className="font-medium">{account?.username ?? "—"}</dd>
               <dt className="text-muted-foreground">Account ID</dt>
-              <dd className="font-mono text-xs sm:text-sm">{account?.id ?? "—"}</dd>
+              <dd className="break-all font-mono text-xs sm:text-sm">
+                {account?.id ?? "—"}
+              </dd>
               <dt className="text-muted-foreground">登录状态</dt>
               <dd className="font-medium">{sessionLabels[status]}</dd>
             </dl>
@@ -70,8 +94,8 @@ export function AccountPage() {
             <CardTitle>Cloud Session</CardTitle>
             <CardDescription>
               {isAuthenticated
-                ? "Cloud Session 已建立，可续期或退出当前会话。"
-                : "登录后这里会显示当前 Session 状态。"}
+                ? "刷新页面会自动恢复此 Session；续期会轮换凭据并延长有效期。"
+                : "登录后这里会显示当前 Session 状态与到期时间。"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -121,6 +145,8 @@ export function AccountPage() {
           </CardContent>
         </Card>
       </div>
+
+      <FutureServices />
     </div>
   );
 }

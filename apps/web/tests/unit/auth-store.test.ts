@@ -143,6 +143,7 @@ describe("auth store", () => {
       status: "authenticated",
       account,
       expiresAt,
+      notice: "session_renewed",
     });
     expect(storage.load()).toEqual({ sessionToken: "token-2", expiresAt });
   });

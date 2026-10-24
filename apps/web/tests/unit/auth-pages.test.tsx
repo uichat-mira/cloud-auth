@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { routes } from "@/app/routes";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { AuthProvider } from "@/lib/auth/context";
+import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
 import { createAuthStore } from "@/lib/auth/store";
 import { createMemoryStorage } from "../helpers/session-storage";
 import {
@@ -11,6 +12,38 @@ import {
   expiresAt,
   issuedSession,
 } from "../helpers/auth-fixtures";
+
+function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient {
+  return {
+    login: async () => issuedSession("token-1"),
+    getSession: async () => ({ account, expiresAt }),
+    renewSession: async () => issuedSession("token-2"),
+    logout: async () => undefined,
+    ...overrides,
+  };
+}
+
+function renderWithClient({
+  client,
+  initialSession = null,
+  path,
+}: {
+  client: CloudAuthClient;
+  initialSession?: { sessionToken: string; expiresAt: string } | null;
+  path: string;
+}) {
+  const storage = createMemoryStorage(initialSession);
+  const store = createAuthStore({ client, storage });
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
+
+  render(
+    <AuthProvider store={store}>
+      <RouterProvider router={router} />
+    </AuthProvider>,
+  );
+
+  return { storage, store, router };
+}
 
 describe("auth-backed route components", () => {
   it("submits login through the session store and logs out without touching fetch or tokens", async () => {
@@ -66,5 +99,130 @@ describe("auth-backed route components", () => {
       "href",
       "/login",
     );
+  });
+
+  it("explains the local-first boundary and future integrations before login", () => {
+    renderWithClient({ client: createClient(), path: "/login" });
+
+    expect(screen.getByText(/本地、直连与 Tailscale 功能不需要/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Mira Device、Cloud Shiyan、Hosted Relay 仍在建设中/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the restored identity, session, and not-yet-connected services", async () => {
+    renderWithClient({
+      client: createClient(),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    expect(await screen.findByText("pilot")).toBeInTheDocument();
+    expect(screen.getByText("account-1")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "关联服务" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("尚未接入")).toHaveLength(3);
+    expect(screen.getByText("Mira Device")).toBeInTheDocument();
+    expect(screen.getByText("Cloud Shiyan")).toBeInTheDocument();
+    expect(screen.getByText("Hosted Relay")).toBeInTheDocument();
+  });
+
+  it("confirms an explicit session renewal without leaving the account view", async () => {
+    const { storage } = renderWithClient({
+      client: createClient({
+        renewSession: async () => issuedSession("token-2"),
+      }),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    await screen.findByText("pilot");
+    fireEvent.click(screen.getByRole("button", { name: "续期 Session" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Cloud Session 已续期",
+    );
+    await waitFor(() => {
+      expect(storage.load()?.sessionToken).toBe("token-2");
+    });
+    expect(
+      screen.getByRole("heading", { level: 1, name: "账户概览" }),
+    ).toBeInTheDocument();
+  });
+
+  it("returns to the logged-out account view with an expired-session explanation", async () => {
+    const { storage } = renderWithClient({
+      client: createClient({
+        getSession: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("reauth_required", {
+              status: 401,
+              code: "AUTH_REAUTH_REQUIRED",
+            }),
+          );
+        },
+      }),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    expect(
+      await screen.findByText("登录状态已失效或已过期，请重新登录。"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(storage.load()).toBeNull();
+  });
+
+  it("renders rate limiting with a retry hint", async () => {
+    const { storage } = renderWithClient({
+      client: createClient({
+        login: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("rate_limited", { retryAfterSeconds: 30 }),
+          );
+        },
+      }),
+      path: "/login",
+    });
+
+    fireEvent.change(screen.getByLabelText("账号"), {
+      target: { value: "pilot" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "wrong" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "尝试次数过多，请稍后再试。（约 30 秒后可重试）",
+    );
+    expect(storage.load()).toBeNull();
+  });
+
+  it("renders a distinct service-unavailable failure", async () => {
+    renderWithClient({
+      client: createClient({
+        login: async () => {
+          throw new CloudAuthError(createAuthFailure("service_unavailable"));
+        },
+      }),
+      path: "/login",
+    });
+
+    fireEvent.change(screen.getByLabelText("账号"), {
+      target: { value: "pilot" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
+
+    expect(
+      await screen.findByText("认证服务暂时不可用，请稍后重试。"),
+    ).toBeInTheDocument();
   });
 });
