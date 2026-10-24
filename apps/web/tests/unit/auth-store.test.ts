@@ -2,27 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { CloudSession, IssuedCloudSession } from "@uichat-mira/cloud-auth-contracts";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
-import type {
-  PersistedCloudSession,
-  SessionStorageAdapter,
-} from "@/lib/auth/session-storage";
+import type { PersistedCloudSession } from "@/lib/auth/session-storage";
+import { createMemoryStorage } from "../helpers/session-storage";
 import { createAuthStore, type AuthStore } from "@/lib/auth/store";
 
 const account = { id: "account-1", username: "pilot" };
 const expiresAt = "2026-11-01T00:00:00.000Z";
-
-function createMemoryStorage(initial: PersistedCloudSession | null = null) {
-  let current = initial;
-  return {
-    load: () => current,
-    save: (session: PersistedCloudSession) => {
-      current = session;
-    },
-    clear: () => {
-      current = null;
-    },
-  } satisfies SessionStorageAdapter;
-}
 
 function issued(token: string): IssuedCloudSession {
   return { sessionToken: token, account, expiresAt };
