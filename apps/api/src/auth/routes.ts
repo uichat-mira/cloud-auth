@@ -1,22 +1,13 @@
+import { loginRequestJsonSchema, type LoginRequest } from "@uichat-mira/cloud-auth-contracts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AuthError, type AuthService } from "./auth-service.js";
 
-type LoginBody = { username: string; password: string };
-
 export function registerAuthRoutes(app: FastifyInstance, authService: AuthService): void {
-  app.post<{ Body: LoginBody }>(
+  app.post<{ Body: LoginRequest }>(
     "/v1/auth/login",
     {
       schema: {
-        body: {
-          type: "object",
-          additionalProperties: false,
-          required: ["username", "password"],
-          properties: {
-            username: { type: "string", minLength: 1, maxLength: 128 },
-            password: { type: "string", minLength: 1, maxLength: 256 },
-          },
-        },
+        body: loginRequestJsonSchema,
       },
     },
     async (request, reply) => {
