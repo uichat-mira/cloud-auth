@@ -15,7 +15,7 @@
     "typecheck": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-contracts run typecheck && pnpm --filter @uichat-mira/cloud-auth-api run typecheck && pnpm --filter @uichat-mira/cloud-auth-web run typecheck",
     "test": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test && pnpm --filter @uichat-mira/cloud-auth-web run test",
     "test:unit": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test:unit && pnpm --filter @uichat-mira/cloud-auth-web run test:unit",
-    "test:contract": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test:contract",
+    "test:contract": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test:contract && pnpm --filter @uichat-mira/cloud-auth-web run test:contract",
     "test:integration": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test:integration && pnpm --filter @uichat-mira/cloud-auth-web run test:integration",
     "check": "pnpm run typecheck && pnpm run test",
     "db:migrate": "pnpm --filter @uichat-mira/cloud-auth-api run db:migrate",

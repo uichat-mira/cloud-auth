@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { SessionPlaceholderProvider } from "./session-placeholder";
+import { AuthProvider } from "@/lib/auth/context";
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  return <SessionPlaceholderProvider>{children}</SessionPlaceholderProvider>;
+  return <AuthProvider>{children}</AuthProvider>;
 }

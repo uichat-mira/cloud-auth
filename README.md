@@ -36,7 +36,7 @@ Run workspace commands from the repository root; API package-local source, tests
 - Docker / Docker Compose
 - Caddy TLS, API reverse proxy, and static SPA delivery on the Mira self-managed server
 
-The web application is a separate Vite build that currently provides the `/login`, `/account`, and not-found route shells. It does not depend on the API runtime and is not yet served by the Cloud Auth container.
+The web application is a separate Vite build providing the `/login`, `/account`, and not-found routes. Route components use a typed Cloud Auth client and session state layer; `apps/web/src/lib/auth` owns HTTP transport, contract validation, session persistence, and auth state so route components never handle bearer tokens directly.
 
 OPS-001 intentionally provides only the service boundary, persistence/migration substrate, health/readiness, backup procedure, and CI/runtime evidence. Account/password, device lifecycle, and service credential behavior belong to follow-up work items.
 
