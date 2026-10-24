@@ -1,6 +1,6 @@
 # Mira Cloud Account / Session V0
 
-This document describes the implemented OPS-006 contract. It is not a public-registration or service-credential specification.
+This document describes the implemented OPS-006 account/session contract and the OPS-015 authenticated password-change flow. It is not a public-registration or service-credential specification.
 
 ## User-facing contract
 
@@ -64,6 +64,23 @@ The previous token becomes invalid after successful rotation.
 
 Requires the current Cloud Session and revokes it.
 
+### POST /v1/auth/password
+
+Requires the current Cloud Session.
+
+Request:
+
+```json
+{
+  "currentPassword": "...",
+  "newPassword": "..."
+}
+```
+
+Success returns `204` with no body. The new password is validated through the same policy and hashed with the same Argon2id path as account provisioning. A successful change increments the account password version and revokes all Cloud Sessions for the account, including the session that performed the change (`revoke_reason = password_changed`).
+
+An incorrect current password returns `401 AUTH_INVALID_CREDENTIALS` without changing credentials or revoking any session. A new password that fails the policy returns `400 AUTH_INVALID_PASSWORD`, also without changing credentials or sessions.
+
 ## Cloud Session storage
 
 The token format is opaque to clients. V0 currently uses a versioned session id plus 256-bit random secret.
@@ -79,6 +96,8 @@ The Account Portal uses the shared OPS-006 contracts to validate auth responses 
 Browser persistence is behind a `SessionStorageAdapter`. The current Portal implementation uses `sessionStorage`, but the adapter boundary keeps native secure-storage implementations from inheriting browser-only assumptions. Zustand holds only client auth/UI state such as status, current account identity, expiry, pending operations, and stable failure state.
 
 A `401` invalidates and clears the local Cloud Session. Network, `503`, and malformed-response failures preserve a stored session and surface a retryable state instead of presenting the user as logged out. `429` and malformed responses become stable user-facing failures rather than uncaught exceptions. Logout clears the local Cloud Session only after a `204` or an explicit `401 AUTH_REAUTH_REQUIRED`; transient logout failures preserve the stored session so the operation can be retried.
+
+The `/account` Portal exposes a focused password-change form for the signed-in account. Wrong-current-password and password-policy failures keep the local session usable. A successful change clears the local Cloud Session and presents a forced re-login confirmation, matching the server-side revocation of every Cloud Session.
 
 ## Password policy and hashing
 

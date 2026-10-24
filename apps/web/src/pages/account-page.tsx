@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
+import { ChangePasswordCard } from "@/components/change-password-card";
 import { FutureServices } from "@/components/future-services";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +63,15 @@ export function AccountPage() {
           className="rounded-md border border-emerald-600/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
         >
           Cloud Session 已续期，当前登录状态保持不变。
+        </p>
+      ) : null}
+
+      {notice === "password_changed" ? (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-600/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          密码已修改，请重新登录。
         </p>
       ) : null}
 
@@ -145,6 +155,8 @@ export function AccountPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isAuthenticated ? <ChangePasswordCard /> : null}
 
       <FutureServices />
     </div>
