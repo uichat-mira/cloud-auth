@@ -124,9 +124,10 @@ Verification rejects a credential when:
 - the audience does not equal the verifier's single configured audience;
 - the scope is missing or unexpected (schema rejection);
 - `iat` is in the future, `nbf` is not yet reached, `exp` has passed, or the lifetime exceeds the verifier limit;
-- a Relay ticket's room or role does not match the connection context the verifier was asked to accept.
+- a Relay verifier omits the required expected room/role, or the ticket's room or role does not match that connection context;
+- the verifier is given an invalid clock value (including an invalid Date), so expiry cannot be checked safely.
 
-Verification does not trust token-declared `alg`, `kid`, issuer, audience, or scope as authority, and does not fetch keys or call Cloud Auth. A Relay consumer must pass the expected room and role when accepting a connection; otherwise the ticket's context is only structurally validated.
+Verification does not trust token-declared `alg`, `kid`, issuer, audience, or scope as authority, and does not fetch keys or call Cloud Auth. A Relay consumer must pass the expected room and role when accepting a connection; omitting them fails closed with `INVALID_VERIFIER_CONFIG` rather than only checking the ticket's structure.
 
 ## Revocation limitation
 
