@@ -129,6 +129,10 @@ jobs:
       base_branch: dev
       timeout_minutes: 60
       verification_command: |
+        NODE_BIN="$(find /opt/hostedtoolcache/node -path '*/24.*/x64/bin/node' -print | sort -V | tail -n 1)"
+        test -n "$NODE_BIN"
+        export PATH="$(dirname "$NODE_BIN"):$PATH"
+        node --version
         corepack enable
         pnpm install --frozen-lockfile
         pnpm check
