@@ -64,8 +64,10 @@ describe("auth-backed route components", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
 
-    expect(logoutToken).toBe("token-1");
-    expect(storage.load()).toBeNull();
+    await waitFor(() => {
+      expect(logoutToken).toBe("token-1");
+      expect(storage.load()).toBeNull();
+    });
     expect(await screen.findByRole("link", { name: "前往登录" })).toHaveAttribute(
       "href",
       "/login",
