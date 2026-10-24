@@ -20,15 +20,15 @@ function renderAt(path: string) {
 }
 
 describe("web route shell", () => {
-  it("renders the login shell with disabled placeholder fields", () => {
+  it("renders the login form ready for auth operations", () => {
     renderAt("/login");
 
     expect(
       screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("账号")).toBeDisabled();
-    expect(screen.getByLabelText("密码")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "登录" })).toBeDisabled();
+    expect(screen.getByLabelText("账号")).toBeEnabled();
+    expect(screen.getByLabelText("密码")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "登录" })).toBeEnabled();
   });
 
   it("redirects the root route to login", async () => {
@@ -42,13 +42,13 @@ describe("web route shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the account shell from the placeholder session", () => {
+  it("renders the account shell without a stored session", async () => {
     renderAt("/account");
 
     expect(
       screen.getByRole("heading", { level: 1, name: "账户概览" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("未登录").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("未登录")).length).toBeGreaterThan(0);
     expect(
       screen.getByRole("link", { name: "前往登录" }),
     ).toHaveAttribute("href", "/login");
