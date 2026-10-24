@@ -10,15 +10,15 @@
 cloud-auth.tomzlab.cn (DNS)
   → 服务器公网入口/NAT
   → Caddy 所绑定的主机内网网卡 :443
-  → reverse_proxy 127.0.0.1:8788
-  → Docker: cloud-auth / Fastify
+  ├─ /health、/ready、/v1/* → reverse_proxy 127.0.0.1:8788 → Docker: Fastify API
+  └─ 其他路径 → /opt/cloud-auth/web → React Account Portal（SPA fallback）
   → 持久化 SQLite WAL (/opt/cloud-auth/data)
 ```
 
 - Cloud Auth 负责 Mira Cloud Account、Cloud Session 相关认证，不替代 Desktop 本地身份、Remote Host 授权或模型服务。
 - 生产目录：`/opt/cloud-auth`；Compose 文件：`docker-compose.prod.yml`；生产容器镜像：`mira-cloud-auth:prod`。
 - 应用端口仅发布到服务器回环 `127.0.0.1:8788`，**不要**向互联网开放 8788。Caddy 负责 HTTPS。
-- 当前生产服务只保证 API。`GET /health`（进程健康）、`GET /ready`（包含 SQLite 就绪）可用于验收；正式 Account Portal 由 [OPS-014](https://github.com/uichat-mira/cloud-auth/issues/26) 集成。未接入 Portal 前，打开根路径 `/` 不应作为服务健康判断。
+- 生产交付物由同一 Docker build 产生 API 与 Account Portal。容器运行 Fastify API；部署脚本从同一镜像提取 `apps/web/dist` 到 `/opt/cloud-auth/web`，由宿主 Caddy 直接提供静态页面。
 - MiraAI/New API 是同一宿主机上的**其他服务**，不是 Cloud Auth 的上游；这份指南不负责部署或改动它们。
 - 规范来源：[环境模型](https://github.com/uichat-mira/.github/blob/main/docs/engineering/environment-model.md)、[测试标准](https://github.com/uichat-mira/.github/blob/main/docs/engineering/testing-standard.md)、[Cloud Auth 设计](https://github.com/uichat-mira/.github/blob/main/docs/engineering/mira-cloud-auth.md)。
 
@@ -64,12 +64,12 @@ feat/* → dev → test → prod
 
 以当前 `prod` 工作流、[`scripts/deploy-prod.sh`](../scripts/deploy-prod.sh) 和 [`scripts/install-caddy-prod-route.sh`](../scripts/install-caddy-prod-route.sh) 为准：
 
-1. GitHub Runner 从目标 `prod` commit 构建并打包 `mira-cloud-auth:prod`。
+1. GitHub Runner 从目标 `prod` commit 构建并打包 `mira-cloud-auth:prod`；该镜像同时包含 Fastify API build 与 `apps/web/dist`。
 2. SSH/SCP 将镜像包、Compose、部署脚本、Caddy 路由模板上传至 `/opt/cloud-auth`。
 3. 若旧生产容器在运行，先执行 `scripts/backup.mjs` 生成一致的 SQLite 快照至 `/opt/cloud-auth/backups/<UTC时间戳>/`。这是**服务器本地**备份；还需要按基础设施策略另存到受控的外部备份位置。
 4. 停止可能仍运行的临时测试服务，再用 Compose 重建生产容器，等待回环 `/ready`。
-5. 安装 Caddy 站点片段、验证 Caddyfile、热重载；执行 `/health` 和 Argon2 benchmark。
-6. 写入 `/opt/cloud-auth/.deployed-sha`，并回收临时测试镜像资源。
+5. 从**同一镜像**提取并校验 Web build，发布到 `/opt/cloud-auth/web`；随后安装 Caddy 站点片段、验证 Caddyfile、热重载。
+6. 执行 API `/health`、Web build 标识检查和 Argon2 benchmark，写入 `/opt/cloud-auth/.deployed-sha`，并回收临时测试镜像资源。
 
 **不要**手动删除 `/opt/cloud-auth/data`，也不要将测试 SQLite 数据库拷贝进生产。生产 Compose 把数据、备份目录作为持久卷映射，容器重建不等于清空数据库。
 
@@ -82,7 +82,17 @@ feat/* → dev → test → prod
 ```caddyfile
 cloud-auth.tomzlab.cn {
     bind <与现有公网 Caddy 站点相同的主机内网地址>
-    reverse_proxy 127.0.0.1:8788
+
+    @api path /health /ready /v1/*
+    handle @api {
+        reverse_proxy 127.0.0.1:8788
+    }
+
+    handle {
+        root * /opt/cloud-auth/web
+        try_files {path} /index.html
+        file_server
+    }
 }
 ```
 
@@ -134,7 +144,7 @@ curl --noproxy '*' -sS -o /dev/null -w '%{http_code} tls=%{ssl_verify_result}\n'
   https://mira-ai.tomzlab.cn/
 ```
 
-通过条件：目标生产 SHA 正确、容器 healthy、`/ready` 正常、Caddy 证书验证成功，公网/NAT 入口 `GET /health` 返回 **HTTP 200、`Content-Type: application/json`、43 字节 JSON 正文**。`HEAD` 或 `curl -I` 不构成正文验收。若接口日后演进，按新的契约判断，不将 43 作为永久业务常量。
+通过条件：目标生产 SHA 正确、容器 healthy、`/ready` 正常、Caddy 证书验证成功，公网/NAT 入口 `GET /health` 返回正确 JSON 正文；同时 `GET /` 与直接刷新 `GET /account` 均应返回 Account Portal 的 HTML shell。API 与 Portal 两条路径都要验，不用 `HEAD` 或 `curl -I` 代替正文验收。
 
 GitHub-hosted Runner 对中国内地入口可能报 TLS reset，而浏览器或服务器自测正常。当前生产工作流对此仅发出 warning，**不会使作业失败**：绿灯证明部署步骤完成，不等于公网 T5 通过。请记录实际测试位置、时间、SHA 和正文结果；有疑义再从独立网络/真实客户端复核。
 
@@ -146,7 +156,7 @@ GitHub-hosted Runner 对中国内地入口可能报 TLS reset，而浏览器或�
 | 应用 `/ready` 失败或 503 | 查容器健康、SQLite 权限、迁移和只读文件系统配置；先保护数据 |
 | Caddy 返回 502 | 查 `127.0.0.1:8788` 监听和容器日志；与域名证书问题分开 |
 | HTTPS 握手失败 | 比较相同来源网络下两个域名的 SNI、证书与 TLS；查 `journalctl -u caddy`，不要直接认定是备案或域名供应商 |
-| `/` 404 或空白，但 `/health` 有正确 JSON | 当前 V0 可能是正常 API-only 行为；检查 Portal 是否已按 OPS-014 发布 |
+| `/` 或 `/account` 404/空白，但 `/health` 有正确 JSON | API 正常但 Portal 静态交付/Caddy fallback 异常；检查 `/opt/cloud-auth/web/index.html`、Caddy root/try_files 和部署 SHA |
 | Runner 请求连接重置而服务器侧正常 | 记录源网络差异和警告，增加浏览器或其他实际客户端验收；不要因 CI 网络错误就改 DNS/证书 |
 
 ```bash

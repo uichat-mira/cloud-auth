@@ -31,10 +31,10 @@ Run workspace commands from the repository root; API package-local source, tests
 ## Bootstrap runtime
 
 - Node.js 24 LTS + TypeScript
-- Fastify
-- SQLite WAL
+- Fastify API + SQLite WAL
+- Vite/React Account Portal
 - Docker / Docker Compose
-- Caddy TLS/reverse proxy on the Mira self-managed server
+- Caddy TLS, API reverse proxy, and static SPA delivery on the Mira self-managed server
 
 The web application is a separate Vite build that currently provides the `/login`, `/account`, and not-found route shells. It does not depend on the API runtime and is not yet served by the Cloud Auth container.
 
