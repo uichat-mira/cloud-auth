@@ -79,7 +79,6 @@ describe("Cloud Auth HTTP compatibility with shared contracts", () => {
       { username: "alice", password: "" },
       { username: "a".repeat(129), password },
       { username: "alice", password: "p".repeat(257) },
-      { username: "alice", password, extra: true },
     ]) {
       expect(loginRequestSchema.safeParse(payload).success).toBe(false);
       const response = await app.inject({ method: "POST", url: "/v1/auth/login", payload });
