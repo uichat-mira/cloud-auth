@@ -39,47 +39,66 @@ export function createCloudAuthClient(
     }
   }
 
-  async function login(request: LoginRequest): Promise<IssuedCloudSession> {
-    const response = await send("/v1/auth/login", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(request),
-    });
-
+  async function requestJson<T>(
+    path: string,
+    init: RequestInit,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    const response = await send(path, init);
     if (response.status !== 200) throw await failureFor(response);
-    return parseBody(response, issuedCloudSessionSchema);
+    return parseBody(response, schema);
   }
 
-  async function getSession(sessionToken: string): Promise<CloudSession> {
-    const response = await send("/v1/auth/session", {
-      method: "GET",
-      headers: bearerHeaders(sessionToken),
-    });
-
-    if (response.status !== 200) throw await failureFor(response);
-    return parseBody(response, cloudSessionSchema);
-  }
-
-  async function renewSession(sessionToken: string): Promise<IssuedCloudSession> {
-    const response = await send("/v1/auth/session/renew", {
-      method: "POST",
-      headers: bearerHeaders(sessionToken),
-    });
-
-    if (response.status !== 200) throw await failureFor(response);
-    return parseBody(response, issuedCloudSessionSchema);
-  }
-
-  async function logout(sessionToken: string): Promise<void> {
-    const response = await send("/v1/auth/logout", {
-      method: "POST",
-      headers: bearerHeaders(sessionToken),
-    });
-
+  async function requestNoContent(
+    path: string,
+    init: RequestInit,
+  ): Promise<void> {
+    const response = await send(path, init);
     if (response.status !== 204) throw await failureFor(response);
+  }
+
+  function login(request: LoginRequest): Promise<IssuedCloudSession> {
+    return requestJson(
+      "/v1/auth/login",
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(request),
+      },
+      issuedCloudSessionSchema,
+    );
+  }
+
+  function getSession(sessionToken: string): Promise<CloudSession> {
+    return requestJson(
+      "/v1/auth/session",
+      {
+        method: "GET",
+        headers: bearerHeaders(sessionToken),
+      },
+      cloudSessionSchema,
+    );
+  }
+
+  function renewSession(sessionToken: string): Promise<IssuedCloudSession> {
+    return requestJson(
+      "/v1/auth/session/renew",
+      {
+        method: "POST",
+        headers: bearerHeaders(sessionToken),
+      },
+      issuedCloudSessionSchema,
+    );
+  }
+
+  function logout(sessionToken: string): Promise<void> {
+    return requestNoContent("/v1/auth/logout", {
+      method: "POST",
+      headers: bearerHeaders(sessionToken),
+    });
   }
 
   return { login, getSession, renewSession, logout };
