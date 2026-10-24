@@ -6,9 +6,11 @@ import type { CloudAuthClient } from "@/lib/auth/client";
 import { AuthProvider } from "@/lib/auth/context";
 import { createAuthStore } from "@/lib/auth/store";
 import { createMemoryStorage } from "../helpers/session-storage";
-
-const account = { id: "account-1", username: "pilot" };
-const expiresAt = "2026-11-01T00:00:00.000Z";
+import {
+  account,
+  expiresAt,
+  issuedSession,
+} from "../helpers/auth-fixtures";
 
 describe("auth-backed route components", () => {
   it("submits login through the session store and logs out without touching fetch or tokens", async () => {
@@ -19,18 +21,10 @@ describe("auth-backed route components", () => {
     const client: CloudAuthClient = {
       login: async (request) => {
         loginCalls.push(request);
-        return {
-          sessionToken: "token-1",
-          account,
-          expiresAt,
-        };
+        return issuedSession("token-1");
       },
       getSession: async () => ({ account, expiresAt }),
-      renewSession: async () => ({
-        sessionToken: "token-2",
-        account,
-        expiresAt,
-      }),
+      renewSession: async () => issuedSession("token-2"),
       logout: async (token) => {
         logoutToken = token;
       },
