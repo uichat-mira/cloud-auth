@@ -20,11 +20,14 @@ export type AuthStatus =
 
 export type AuthOperation = "login" | "restore" | "renew" | "logout";
 
+export type AuthNotice = "session_renewed";
+
 export interface AuthStoreState {
   status: AuthStatus;
   account: AccountIdentity | null;
   expiresAt: string | null;
   failure: AuthFailure | null;
+  notice: AuthNotice | null;
   pending: AuthOperation | null;
   login(username: string, password: string): Promise<void>;
   restore(): Promise<void>;
@@ -49,11 +52,12 @@ export function createAuthStore({
     account: null,
     expiresAt: null,
     failure: null,
+    notice: null,
     pending: null,
 
     async login(username, password) {
       if (get().pending !== null) return;
-      set({ pending: "login", failure: null });
+      set({ pending: "login", failure: null, notice: null });
 
       try {
         const issued = await client.login({ username, password });
@@ -78,7 +82,12 @@ export function createAuthStore({
         return;
       }
 
-      set({ status: "restoring", pending: "restore", failure: null });
+      set({
+        status: "restoring",
+        pending: "restore",
+        failure: null,
+        notice: null,
+      });
 
       await runSessionOperation(set, storage, async () => {
         const session = await client.getSession(persisted.sessionToken);
@@ -95,19 +104,23 @@ export function createAuthStore({
         return;
       }
 
-      set({ pending: "renew", failure: null });
+      set({ pending: "renew", failure: null, notice: null });
 
       await runSessionOperation(set, storage, async () => {
         const issued = await client.renewSession(persisted.sessionToken);
         return { sessionToken: issued.sessionToken, session: issued };
       });
+
+      if (get().status === "authenticated" && get().failure === null) {
+        set({ notice: "session_renewed" });
+      }
     },
 
     async logout() {
       if (get().pending === "logout") return;
 
       const persisted = storage.load();
-      set({ pending: "logout", failure: null });
+      set({ pending: "logout", failure: null, notice: null });
 
       if (!persisted) {
         clearLocalSession(set, storage);
@@ -156,6 +169,7 @@ function setUnauthenticated(
     account: null,
     expiresAt: null,
     failure,
+    notice: null,
     pending: null,
   });
 }
@@ -175,6 +189,7 @@ function applySession(
     account: session.account,
     expiresAt: session.expiresAt,
     failure: null,
+    notice: null,
     pending: null,
   });
 }
@@ -200,5 +215,5 @@ function applySessionFailure(
     return;
   }
 
-  set({ status: "unavailable", failure, pending: null });
+  set({ status: "unavailable", failure, notice: null, pending: null });
 }

@@ -22,7 +22,7 @@ export interface AuthFailure {
 
 const failureMessages: Record<AuthFailureKind, string> = {
   invalid_credentials: "账号或密码不正确。",
-  reauth_required: "登录状态已失效，请重新登录。",
+  reauth_required: "登录状态已失效或已过期，请重新登录。",
   rate_limited: "尝试次数过多，请稍后再试。",
   service_unavailable: "认证服务暂时不可用，请稍后重试。",
   network_unavailable: "无法连接认证服务，请检查网络后重试。",
