@@ -1,0 +1,42 @@
+name: Temporary Cloud Auth ingress diagnosis
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Read-only target host diagnosis
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          password: ${{ secrets.DEPLOY_PASSWORD }}
+          port: ${{ secrets.DEPLOY_PORT || '22' }}
+          command_timeout: 3m
+          script: |
+            set -u
+            echo '=== CADDY SERVICE ==='
+            systemctl is-active caddy || true
+            echo '=== CURRENT CADDY ROUTE IMPORTS ==='
+            grep -nE 'mira-cloud-auth|mira-ai|cloud-auth' /etc/caddy/Caddyfile || true
+            echo '=== CLOUD AUTH ROUTE SNIPPET ==='
+            if test -r /etc/caddy/mira-cloud-auth.caddy; then cat /etc/caddy/mira-cloud-auth.caddy; else echo 'not readable/missing'; fi
+            echo '=== CLOUD AUTH CONTAINER ==='
+            docker ps --filter name=cloud-auth --format '{{.Names}} {{.Status}}' || true
+            echo '=== APP LOCAL HEALTH ==='
+            curl --noproxy '*' -fsS --max-time 5 http://127.0.0.1:8788/health || true
+            echo
+            echo '=== HTTPS LOCAL SNI ==='
+            for host in cloud-auth.tomzlab.cn mira-ai.tomzlab.cn; do
+              echo "HOST=$host"
+              curl --noproxy '*' -skS --max-time 8 --resolve "$host:443:127.0.0.1" -o /dev/null -w 'HTTP=%{http_code} SSL_VERIFY=%{ssl_verify_result}\n' "https://$host/health" || true
+            done
+            echo '=== CADDY CERTIFICATE FILES ==='
+            sudo -n find /var/lib/caddy/.local/share/caddy/certificates -maxdepth 6 -type f \( -name '*cloud-auth.tomzlab.cn.crt' -o -name '*mira-ai.tomzlab.cn.crt' \) -print 2>/dev/null || true
+            echo '=== CADDY TLS LOGS LAST 48H (filtered) ==='
+            sudo -n journalctl -u caddy --since '48 hours ago' --no-pager -o cat 2>/dev/null | grep -Ei 'cloud-auth.tomzlab.cn|mira-ai.tomzlab.cn|acme|challenge|certificate|authorization failed' | tail -70 || true
