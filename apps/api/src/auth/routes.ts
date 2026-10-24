@@ -4,8 +4,10 @@ import {
   type ChangePasswordRequest,
   type LoginRequest,
 } from "@uichat-mira/cloud-auth-contracts";
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { AuthError, type AuthService } from "./auth-service.js";
+import type { FastifyInstance } from "fastify";
+import { readBearerToken } from "../http/bearer.js";
+import { sendAuthError } from "../http/errors.js";
+import type { AuthService } from "./auth-service.js";
 
 export function registerAuthRoutes(app: FastifyInstance, authService: AuthService): void {
   app.post<{ Body: LoginRequest }>(
@@ -71,33 +73,4 @@ export function registerAuthRoutes(app: FastifyInstance, authService: AuthServic
       }
     },
   );
-}
-
-function readBearerToken(request: FastifyRequest): string {
-  const authorization = request.headers.authorization;
-  if (!authorization) throw new AuthError("AUTH_REAUTH_REQUIRED", 401, "Re-authentication is required");
-
-  const match = /^Bearer\s+(.+)$/i.exec(authorization);
-  if (!match?.[1]) throw new AuthError("AUTH_REAUTH_REQUIRED", 401, "Re-authentication is required");
-  return match[1];
-}
-
-function sendAuthError(reply: FastifyReply, error: unknown) {
-  if (error instanceof AuthError) {
-    if (error.retryAfterSeconds) reply.header("retry-after", String(error.retryAfterSeconds));
-    return reply.code(error.statusCode).send({
-      error: {
-        code: error.code,
-        message: error.message,
-      },
-    });
-  }
-
-  reply.log.error({ err: error }, "auth request failed");
-  return reply.code(500).send({
-    error: {
-      code: "AUTH_INTERNAL_ERROR",
-      message: "Authentication request failed",
-    },
-  });
 }

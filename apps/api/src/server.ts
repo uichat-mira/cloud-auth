@@ -1,6 +1,8 @@
 import { buildApp } from "./app.js";
 import { AuthRepository } from "./auth/auth-repository.js";
 import { AuthService } from "./auth/auth-service.js";
+import { DeviceRepository } from "./devices/device-repository.js";
+import { DeviceService } from "./devices/device-service.js";
 import { loadConfig } from "./config.js";
 import { LoginGuard } from "./security/login-guard.js";
 import { PasswordHasher } from "./security/password.js";
@@ -8,8 +10,9 @@ import { openDatabase } from "./storage/database.js";
 
 const config = loadConfig();
 const db = openDatabase({ databasePath: config.databasePath });
+const repository = new AuthRepository(db);
 const authService = new AuthService(
-  new AuthRepository(db),
+  repository,
   new PasswordHasher({
     memoryKiB: config.argon2MemoryKiB,
     passes: config.argon2Passes,
@@ -23,10 +26,12 @@ const authService = new AuthService(
   }),
   { sessionTtlSeconds: config.sessionTtlSeconds },
 );
+const deviceService = new DeviceService(new DeviceRepository(db), authService);
 
 const app = buildApp({
   db,
   authService,
+  deviceService,
   trustProxy: true,
   logger: {
     level: config.logLevel,
