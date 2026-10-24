@@ -24,6 +24,7 @@
     "backup": "node scripts/backup.mjs"
   },
   "dependencies": {
+    "@uichat-mira/cloud-auth-contracts": "workspace:*",
     "fastify": "^5.0.0"
   },
   "devDependencies": {
