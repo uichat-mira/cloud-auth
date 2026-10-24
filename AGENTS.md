@@ -14,7 +14,7 @@ cloud-auth owns Mira Cloud Account, Mira Device, Cloud Session, and service-cred
 
 ## Verification
 
-Use npm run test:unit for T1.
-Use npm run test:contract for T2.
-Use npm run test:integration for T3.
-Use npm run check as the fast repository gate.
+Use pnpm run test:unit for T1.
+Use pnpm run test:contract for T2.
+Use pnpm run test:integration for T3.
+Use pnpm run check as the fast repository gate.
