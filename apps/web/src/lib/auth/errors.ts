@@ -5,6 +5,7 @@ import {
 
 export type AuthFailureKind =
   | "invalid_credentials"
+  | "invalid_password"
   | "reauth_required"
   | "rate_limited"
   | "service_unavailable"
@@ -22,6 +23,7 @@ export interface AuthFailure {
 
 const failureMessages: Record<AuthFailureKind, string> = {
   invalid_credentials: "账号或密码不正确。",
+  invalid_password: "新密码不符合密码策略，请使用至少 15 个字符的新密码。",
   reauth_required: "登录状态已失效或已过期，请重新登录。",
   rate_limited: "尝试次数过多，请稍后再试。",
   service_unavailable: "认证服务暂时不可用，请稍后重试。",
@@ -95,5 +97,6 @@ function kindForErrorResponse(
   if (status === 503 || code === "AUTH_BUSY") return "service_unavailable";
   if (code === "AUTH_REAUTH_REQUIRED") return "reauth_required";
   if (code === "AUTH_INVALID_CREDENTIALS") return "invalid_credentials";
+  if (code === "AUTH_INVALID_PASSWORD") return "invalid_password";
   return "unexpected_response";
 }

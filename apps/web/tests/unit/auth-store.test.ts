@@ -22,6 +22,7 @@ function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient
     login: async () => issuedSession("token-1"),
     getSession: async () => cloudSession(),
     renewSession: async () => issuedSession("token-2"),
+    changePassword: async () => undefined,
     logout: async () => undefined,
     ...overrides,
   };
@@ -146,6 +147,184 @@ describe("auth store", () => {
       notice: "session_renewed",
     });
     expect(storage.load()).toEqual({ sessionToken: "token-2", expiresAt });
+  });
+
+  it("clears the local session and announces forced re-login after a password change", async () => {
+    const storage = createMemoryStorage({ sessionToken: "token-1", expiresAt });
+    const calls: Array<{
+      token: string;
+      currentPassword: string;
+      newPassword: string;
+    }> = [];
+    const store = createAuthStore({
+      client: createClient({
+        changePassword: async (token, request) => {
+          calls.push({ token, ...request });
+        },
+      }),
+      storage,
+    });
+    await store.getState().restore();
+
+    await store.getState().changePassword(
+      "correct horse battery staple",
+      "another strong replacement passphrase",
+    );
+
+    expect(calls).toEqual([
+      {
+        token: "token-1",
+        currentPassword: "correct horse battery staple",
+        newPassword: "another strong replacement passphrase",
+      },
+    ]);
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      expiresAt: null,
+      failure: null,
+      notice: "password_changed",
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+    expect(JSON.stringify(store.getState())).not.toContain(
+      "correct horse battery staple",
+    );
+  });
+
+  it("keeps the session usable when the current password is incorrect", async () => {
+    const storage = createMemoryStorage({ sessionToken: "token-1", expiresAt });
+    const store = createAuthStore({
+      client: createClient({
+        changePassword: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("invalid_credentials", {
+              status: 401,
+              code: "AUTH_INVALID_CREDENTIALS",
+            }),
+          );
+        },
+      }),
+      storage,
+    });
+    await store.getState().restore();
+
+    await store.getState().changePassword("wrong", "another strong replacement passphrase");
+
+    expect(store.getState()).toMatchObject({
+      status: "authenticated",
+      account,
+      expiresAt,
+      pending: null,
+      failure: { kind: "invalid_credentials" },
+    });
+    expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
+  });
+
+  it("keeps the session usable when the new password fails policy", async () => {
+    const storage = createMemoryStorage({ sessionToken: "token-1", expiresAt });
+    const store = createAuthStore({
+      client: createClient({
+        changePassword: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("invalid_password", {
+              status: 400,
+              code: "AUTH_INVALID_PASSWORD",
+            }),
+          );
+        },
+      }),
+      storage,
+    });
+    await store.getState().restore();
+
+    await store.getState().changePassword(
+      "correct horse battery staple",
+      "too short",
+    );
+
+    expect(store.getState()).toMatchObject({
+      status: "authenticated",
+      pending: null,
+      failure: { kind: "invalid_password" },
+    });
+    expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
+  });
+
+  it("clears the local session when password change reports re-authentication required", async () => {
+    const storage = createMemoryStorage({ sessionToken: "token-1", expiresAt });
+    const store = createAuthStore({
+      client: createClient({
+        changePassword: async () => {
+          throw new CloudAuthError(createAuthFailure("reauth_required"));
+        },
+      }),
+      storage,
+    });
+    await store.getState().restore();
+
+    await store.getState().changePassword(
+      "correct horse battery staple",
+      "another strong replacement passphrase",
+    );
+
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      account: null,
+      failure: { kind: "reauth_required" },
+      pending: null,
+    });
+    expect(storage.load()).toBeNull();
+  });
+
+  it("preserves the local session when password change is transiently unavailable", async () => {
+    const storage = createMemoryStorage({ sessionToken: "token-1", expiresAt });
+    const store = createAuthStore({
+      client: createClient({
+        changePassword: async () => {
+          throw new CloudAuthError(createAuthFailure("service_unavailable"));
+        },
+      }),
+      storage,
+    });
+    await store.getState().restore();
+
+    await store.getState().changePassword(
+      "correct horse battery staple",
+      "another strong replacement passphrase",
+    );
+
+    expect(store.getState()).toMatchObject({
+      status: "authenticated",
+      pending: null,
+      failure: { kind: "service_unavailable" },
+    });
+    expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
+  });
+
+  it("does not attempt a password change without a local session", async () => {
+    let called = false;
+    const storage = createMemoryStorage();
+    const store = createAuthStore({
+      client: createClient({
+        changePassword: async () => {
+          called = true;
+        },
+      }),
+      storage,
+    });
+
+    await store.getState().changePassword(
+      "correct horse battery staple",
+      "another strong replacement passphrase",
+    );
+
+    expect(called).toBe(false);
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      failure: { kind: "reauth_required" },
+      pending: null,
+    });
   });
 
   it("clears the stored session after an explicit logout", async () => {

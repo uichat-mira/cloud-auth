@@ -1,4 +1,9 @@
-import { loginRequestJsonSchema, type LoginRequest } from "@uichat-mira/cloud-auth-contracts";
+import {
+  changePasswordRequestJsonSchema,
+  loginRequestJsonSchema,
+  type ChangePasswordRequest,
+  type LoginRequest,
+} from "@uichat-mira/cloud-auth-contracts";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AuthError, type AuthService } from "./auth-service.js";
 
@@ -44,6 +49,28 @@ export function registerAuthRoutes(app: FastifyInstance, authService: AuthServic
       return sendAuthError(reply, error);
     }
   });
+
+  app.post<{ Body: ChangePasswordRequest }>(
+    "/v1/auth/password",
+    {
+      schema: {
+        body: changePasswordRequestJsonSchema,
+      },
+    },
+    async (request, reply) => {
+      try {
+        await authService.changePassword(
+          readBearerToken(request),
+          request.body.currentPassword,
+          request.body.newPassword,
+          request.ip,
+        );
+        return reply.code(204).send();
+      } catch (error) {
+        return sendAuthError(reply, error);
+      }
+    },
+  );
 }
 
 function readBearerToken(request: FastifyRequest): string {
