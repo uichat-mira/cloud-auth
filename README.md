@@ -22,6 +22,8 @@ Local, Direct, and Tailscale product paths remain independent from Mira Cloud Au
 ## Repository layout
 
 - `apps/api`: the Cloud Auth Fastify API package
+- `apps/web`: the Mira Cloud Account web application (Vite + React + TypeScript)
+- `packages/contracts`: browser-safe runtime contracts shared by clients
 - `pnpm-workspace.yaml` and `pnpm-lock.yaml`: authoritative workspace and lockfile
 
 Run workspace commands from the repository root; API package-local source, tests, migrations, and runtime scripts live under `apps/api`.
@@ -34,6 +36,8 @@ Run workspace commands from the repository root; API package-local source, tests
 - Docker / Docker Compose
 - Caddy TLS/reverse proxy on the Mira self-managed server
 
+The web application is a separate Vite build that currently provides the `/login`, `/account`, and not-found route shells. It does not depend on the API runtime and is not yet served by the Cloud Auth container.
+
 OPS-001 intentionally provides only the service boundary, persistence/migration substrate, health/readiness, backup procedure, and CI/runtime evidence. Account/password, device lifecycle, and service credential behavior belong to follow-up work items.
 
 ## Deployment and operations
@@ -45,8 +49,9 @@ OPS-001 intentionally provides only the service boundary, persistence/migration 
 1. pnpm install --frozen-lockfile
 2. pnpm run check
 3. pnpm run dev
+4. pnpm run dev:web
 
-The API default local database path is `./data/auth.sqlite` relative to `apps/api`.
+The API default local database path is `./data/auth.sqlite` relative to `apps/api`. The web app starts through Vite at `http://localhost:5173`; use `pnpm run build` to produce its production bundle under `apps/web/dist`.
 
 ## Endpoints
 
