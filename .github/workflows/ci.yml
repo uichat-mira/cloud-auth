@@ -97,6 +97,10 @@ jobs:
           done
           docker compose logs
           exit 1
+      - name: Verify packaged Web artifact
+        run: |
+          docker compose exec -T cloud-auth test -s /app/apps/web/dist/index.html
+          docker compose exec -T cloud-auth grep -Fq "Mira Cloud Account" /app/apps/web/dist/index.html
       - name: Stop runtime
         if: ${{ always() }}
         run: docker compose down -v
