@@ -1,4 +1,7 @@
-import type { AccountIdentity } from "@uichat-mira/cloud-auth-contracts";
+import type {
+  AccountIdentity,
+  IssuedCloudSession,
+} from "@uichat-mira/cloud-auth-contracts";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { CloudAuthClient } from "./client";
 import {
@@ -54,17 +57,7 @@ export function createAuthStore({
 
       try {
         const issued = await client.login({ username, password });
-        storage.save({
-          sessionToken: issued.sessionToken,
-          expiresAt: issued.expiresAt,
-        });
-        set({
-          status: "authenticated",
-          account: issued.account,
-          expiresAt: issued.expiresAt,
-          failure: null,
-          pending: null,
-        });
+        applyIssuedSession(set, storage, issued);
       } catch (error) {
         const failure = toAuthFailure(error);
         set((state) => ({
@@ -130,17 +123,7 @@ export function createAuthStore({
 
       try {
         const issued = await client.renewSession(persisted.sessionToken);
-        storage.save({
-          sessionToken: issued.sessionToken,
-          expiresAt: issued.expiresAt,
-        });
-        set({
-          status: "authenticated",
-          account: issued.account,
-          expiresAt: issued.expiresAt,
-          failure: null,
-          pending: null,
-        });
+        applyIssuedSession(set, storage, issued);
       } catch (error) {
         applySessionFailure(set, storage, error);
       }
@@ -175,6 +158,24 @@ export function createAuthStore({
       set({ failure: null });
     },
   }));
+}
+
+function applyIssuedSession(
+  set: StoreApi<AuthStoreState>["setState"],
+  storage: SessionStorageAdapter,
+  issued: IssuedCloudSession,
+): void {
+  storage.save({
+    sessionToken: issued.sessionToken,
+    expiresAt: issued.expiresAt,
+  });
+  set({
+    status: "authenticated",
+    account: issued.account,
+    expiresAt: issued.expiresAt,
+    failure: null,
+    pending: null,
+  });
 }
 
 function clearLocalSession(
