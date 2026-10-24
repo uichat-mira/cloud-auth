@@ -114,11 +114,9 @@ function bearerHeaders(sessionToken: string): Record<string, string> {
 async function failureFor(response: Response): Promise<CloudAuthError> {
   let body: unknown;
   try {
-    body = await response.json();
-  } catch {
-    return new CloudAuthError(
-      createAuthFailure("malformed_response", { status: response.status }),
-    );
+    body = await readJsonBody(response);
+  } catch (error) {
+    return error as CloudAuthError;
   }
 
   return new CloudAuthError(
@@ -134,15 +132,7 @@ async function parseBody<T>(
   response: Response,
   schema: z.ZodType<T>,
 ): Promise<T> {
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch {
-    throw new CloudAuthError(
-      createAuthFailure("malformed_response", { status: response.status }),
-    );
-  }
-
+  const body = await readJsonBody(response);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     throw new CloudAuthError(
@@ -150,4 +140,14 @@ async function parseBody<T>(
     );
   }
   return parsed.data;
+}
+
+async function readJsonBody(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new CloudAuthError(
+      createAuthFailure("malformed_response", { status: response.status }),
+    );
+  }
 }
