@@ -5,7 +5,7 @@ import type {
   PersistedCloudSession,
   SessionStorageAdapter,
 } from "@/lib/auth/session-storage";
-import { createAuthStore } from "@/lib/auth/store";
+import { createAuthStore, type AuthStore } from "@/lib/auth/store";
 
 const account = { id: "account-1", username: "pilot" };
 const expiresAt = "2026-11-01T00:00:00.000Z";
@@ -43,24 +43,14 @@ async function startAuthServer() {
     requests.push(`${request.method ?? "GET"} ${request.url ?? "/"}`);
 
     if (unavailable) {
-      sendJson(response, 503, {
-        error: {
-          code: "AUTH_BUSY",
-          message: "Authentication is temporarily busy",
-        },
-      });
+      sendAuthError(response, 503, "AUTH_BUSY", "Authentication is temporarily busy");
       return;
     }
 
     if (request.method === "POST" && request.url === "/v1/auth/login") {
       const body = await readJson(request);
       if (body.username !== "pilot" || body.password !== password) {
-        sendJson(response, 401, {
-          error: {
-            code: "AUTH_INVALID_CREDENTIALS",
-            message: "Invalid account or password",
-          },
-        });
+        sendAuthError(response, 401, "AUTH_INVALID_CREDENTIALS", "Invalid account or password");
         return;
       }
 
@@ -76,12 +66,7 @@ async function startAuthServer() {
 
     const token = bearerToken(request);
     if (!token || token !== activeToken) {
-      sendJson(response, 401, {
-        error: {
-          code: "AUTH_REAUTH_REQUIRED",
-          message: "Re-authentication is required",
-        },
-      });
+      sendAuthError(response, 401, "AUTH_REAUTH_REQUIRED", "Re-authentication is required");
       return;
     }
 
@@ -103,25 +88,13 @@ async function startAuthServer() {
 
     if (request.method === "POST" && request.url === "/v1/auth/logout") {
       if (logoutFailure === "reauth") {
-        sendJson(response, 401, {
-          error: {
-            code: "AUTH_REAUTH_REQUIRED",
-            message: "Re-authentication is required",
-          },
-        });
+        sendAuthError(response, 401, "AUTH_REAUTH_REQUIRED", "Re-authentication is required");
         return;
       }
-
       if (logoutFailure === "busy") {
-        sendJson(response, 503, {
-          error: {
-            code: "AUTH_BUSY",
-            message: "Authentication is temporarily busy",
-          },
-        });
+        sendAuthError(response, 503, "AUTH_BUSY", "Authentication is temporarily busy");
         return;
       }
-
       if (logoutFailure === "malformed") {
         sendJson(response, 200, { unexpected: true });
         return;
@@ -133,9 +106,7 @@ async function startAuthServer() {
       return;
     }
 
-    sendJson(response, 404, {
-      error: { code: "AUTH_INTERNAL_ERROR", message: "Not found" },
-    });
+    sendAuthError(response, 404, "AUTH_INTERNAL_ERROR", "Not found");
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -158,6 +129,7 @@ async function startAuthServer() {
     },
     requests,
     async close() {
+      if (!server.listening) return;
       await new Promise<void>((resolve) => server.close(() => resolve()));
     },
   };
@@ -165,44 +137,75 @@ async function startAuthServer() {
   return handle;
 }
 
+type AuthServer = Awaited<ReturnType<typeof startAuthServer>>;
+
+interface AuthHarness {
+  server: AuthServer;
+  storage: ReturnType<typeof createMemoryStorage>;
+  store: AuthStore;
+  issued: PersistedCloudSession;
+}
+
+async function createAuthenticatedHarness(): Promise<AuthHarness> {
+  const server = await startAuthServer();
+  const storage = createMemoryStorage();
+  const store = createAuthStore({
+    client: createCloudAuthClient({ baseUrl: server.url }),
+    storage,
+  });
+
+  await store.getState().login("pilot", password);
+  const issued = storage.load();
+  if (!issued) throw new Error("Expected login to persist a Cloud Session");
+
+  return { server, storage, store, issued };
+}
+
+function expectAuthenticated(
+  store: AuthStore,
+  failureKind: string | null = null,
+): void {
+  expect(store.getState()).toMatchObject({
+    status: "authenticated",
+    account,
+    expiresAt,
+    pending: null,
+    failure: failureKind ? { kind: failureKind } : null,
+  });
+}
+
+function expectLoggedOut(store: AuthStore): void {
+  expect(store.getState()).toMatchObject({
+    status: "unauthenticated",
+    account: null,
+    expiresAt: null,
+    failure: null,
+    pending: null,
+  });
+}
+
 describe("web Cloud Session flow with a mocked HTTP boundary", () => {
   it("logs in, restores, renews, and logs out through the client and store", async () => {
-    const server = await startAuthServer();
-    const storage = createMemoryStorage();
-    const store = createAuthStore({
-      client: createCloudAuthClient({ baseUrl: server.url }),
-      storage,
-    });
+    const { server, storage, store } = await createAuthenticatedHarness();
 
-    await store.getState().login("pilot", password);
-    expect(store.getState()).toMatchObject({
-      status: "authenticated",
-      account,
-      expiresAt,
-      failure: null,
-    });
+    expectAuthenticated(store);
     expect(storage.load()).toEqual({
       sessionToken: "mcs_v1.session-1.secret",
       expiresAt,
     });
 
     await store.getState().restore();
-    expect(store.getState().status).toBe("authenticated");
+    expectAuthenticated(store);
 
     await store.getState().renew();
-    expect(store.getState().status).toBe("authenticated");
+    expectAuthenticated(store);
     expect(storage.load()).toEqual({
       sessionToken: "mcs_v1.session-2.secret",
       expiresAt,
     });
 
     await store.getState().logout();
-    expect(store.getState()).toMatchObject({
-      status: "unauthenticated",
-      account: null,
-      expiresAt: null,
-      failure: null,
-    });
+    expectLoggedOut(store);
     expect(storage.load()).toBeNull();
     expect(server.requests).toEqual([
       "POST /v1/auth/login",
@@ -213,127 +216,53 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
   });
 
   it("clears the local session when logout returns explicit re-authentication required", async () => {
-    const server = await startAuthServer();
-    const storage = createMemoryStorage();
-    const store = createAuthStore({
-      client: createCloudAuthClient({ baseUrl: server.url }),
-      storage,
-    });
-
-    await store.getState().login("pilot", password);
-    expect(storage.load()).not.toBeNull();
+    const { server, storage, store } = await createAuthenticatedHarness();
 
     server.setLogoutFailure("reauth");
     await store.getState().logout();
 
-    expect(store.getState()).toMatchObject({
-      status: "unauthenticated",
-      account: null,
-      expiresAt: null,
-      failure: null,
-      pending: null,
-    });
+    expectLoggedOut(store);
     expect(storage.load()).toBeNull();
   });
 
   it("preserves the local session on a 503 logout and allows retrying", async () => {
-    const server = await startAuthServer();
-    const storage = createMemoryStorage();
-    const store = createAuthStore({
-      client: createCloudAuthClient({ baseUrl: server.url }),
-      storage,
-    });
-
-    await store.getState().login("pilot", password);
-    const issued = storage.load();
-    expect(issued).not.toBeNull();
+    const { server, storage, store, issued } = await createAuthenticatedHarness();
 
     server.setLogoutFailure("busy");
     await store.getState().logout();
 
-    expect(store.getState()).toMatchObject({
-      status: "authenticated",
-      account,
-      expiresAt,
-      failure: { kind: "service_unavailable" },
-      pending: null,
-    });
+    expectAuthenticated(store, "service_unavailable");
     expect(storage.load()).toEqual(issued);
 
     server.setLogoutFailure("none");
     await store.getState().logout();
 
-    expect(store.getState()).toMatchObject({
-      status: "unauthenticated",
-      account: null,
-      expiresAt: null,
-      failure: null,
-      pending: null,
-    });
+    expectLoggedOut(store);
     expect(storage.load()).toBeNull();
   });
 
   it("preserves the local session when logout returns a malformed response", async () => {
-    const server = await startAuthServer();
-    const storage = createMemoryStorage();
-    const store = createAuthStore({
-      client: createCloudAuthClient({ baseUrl: server.url }),
-      storage,
-    });
-
-    await store.getState().login("pilot", password);
-    const issued = storage.load();
-    expect(issued).not.toBeNull();
+    const { server, storage, store, issued } = await createAuthenticatedHarness();
 
     server.setLogoutFailure("malformed");
     await store.getState().logout();
 
-    expect(store.getState()).toMatchObject({
-      status: "authenticated",
-      account,
-      expiresAt,
-      failure: { kind: "malformed_response" },
-      pending: null,
-    });
+    expectAuthenticated(store, "malformed_response");
     expect(storage.load()).toEqual(issued);
   });
 
   it("preserves the local session when logout has a network failure", async () => {
-    const server = await startAuthServer();
-    const storage = createMemoryStorage();
-    const store = createAuthStore({
-      client: createCloudAuthClient({ baseUrl: server.url }),
-      storage,
-    });
-
-    await store.getState().login("pilot", password);
-    const issued = storage.load();
-    expect(issued).not.toBeNull();
+    const { server, storage, store, issued } = await createAuthenticatedHarness();
 
     await server.close();
     await store.getState().logout();
 
-    expect(store.getState()).toMatchObject({
-      status: "authenticated",
-      account,
-      expiresAt,
-      failure: { kind: "network_unavailable" },
-      pending: null,
-    });
+    expectAuthenticated(store, "network_unavailable");
     expect(storage.load()).toEqual(issued);
   });
 
   it("preserves the local session when restore hits transient unavailability", async () => {
-    const server = await startAuthServer();
-    const storage = createMemoryStorage();
-    const store = createAuthStore({
-      client: createCloudAuthClient({ baseUrl: server.url }),
-      storage,
-    });
-
-    await store.getState().login("pilot", password);
-    const issued = storage.load();
-    expect(issued).not.toBeNull();
+    const { server, storage, store, issued } = await createAuthenticatedHarness();
 
     server.setUnavailable(true);
     await store.getState().restore();
@@ -341,12 +270,13 @@ describe("web Cloud Session flow with a mocked HTTP boundary", () => {
     expect(store.getState()).toMatchObject({
       status: "unavailable",
       failure: { kind: "service_unavailable" },
+      pending: null,
     });
     expect(storage.load()).toEqual(issued);
 
     server.setUnavailable(false);
     await store.getState().restore();
-    expect(store.getState().status).toBe("authenticated");
+    expectAuthenticated(store);
     expect(storage.load()).toEqual(issued);
   });
 });
@@ -363,6 +293,15 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+}
+
+function sendAuthError(
+  response: ServerResponse,
+  status: number,
+  code: string,
+  message: string,
+): void {
+  sendJson(response, status, { error: { code, message } });
 }
 
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
