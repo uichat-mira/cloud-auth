@@ -10,15 +10,15 @@ import {
   type CreateCloudAuthClientOptions,
 } from "@/lib/auth/client";
 import { CloudAuthError, type AuthFailure } from "@/lib/auth/errors";
-
-const account = { id: "account-1", username: "pilot" };
-const expiresAt = "2026-11-01T00:00:00.000Z";
-
-const issued = issuedCloudSessionSchema.parse({
-  sessionToken: "mcs_v1.session.secret",
+import {
   account,
   expiresAt,
-});
+  issuedSession,
+} from "../helpers/auth-fixtures";
+
+const issued = issuedCloudSessionSchema.parse(
+  issuedSession("mcs_v1.session.secret"),
+);
 const restored = cloudSessionSchema.parse({ account, expiresAt });
 
 interface RecordedRequest {
