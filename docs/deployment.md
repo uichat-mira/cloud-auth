@@ -56,7 +56,7 @@ unset MIRA_PASSWORD
 
 The same CLI provides `reset-password`, `allow`, `deny`, `enable`, and `disable`.
 
-Run `npm run benchmark:argon2 -- 5` (or the equivalent command inside the Node 24 runtime) on the target server before production promotion. The initial configuration starts at Argon2id m=19456 KiB, t=2, p=1; target-server evidence may justify tuning upward but must not silently lower the reviewed V0 floor.
+Run `pnpm run benchmark:argon2 5` (or `node scripts/benchmark-argon2.mjs 5` inside the Node 24 runtime) on the target server before production promotion. The initial configuration starts at Argon2id m=19456 KiB, t=2, p=1; target-server evidence may justify tuning upward but must not silently lower the reviewed V0 floor.
 
 ## Backup
 

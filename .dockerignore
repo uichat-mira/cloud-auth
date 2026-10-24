@@ -1,6 +1,11 @@
 node_modules
+**/node_modules
 dist
+**/dist
 coverage
+**/coverage
+.pnpm-store
+**/.pnpm-store
 data
 backups
 .git

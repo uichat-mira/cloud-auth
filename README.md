@@ -19,6 +19,13 @@ It does not replace:
 
 Local, Direct, and Tailscale product paths remain independent from Mira Cloud Auth.
 
+## Repository layout
+
+- `apps/api`: the Cloud Auth Fastify API package
+- `pnpm-workspace.yaml` and `pnpm-lock.yaml`: authoritative workspace and lockfile
+
+Run workspace commands from the repository root; API package-local source, tests, migrations, and runtime scripts live under `apps/api`.
+
 ## Bootstrap runtime
 
 - Node.js 24 LTS + TypeScript
@@ -31,11 +38,11 @@ OPS-001 intentionally provides only the service boundary, persistence/migration 
 
 ## Development
 
-1. npm ci
-2. npm run check
-3. npm run dev
+1. pnpm install --frozen-lockfile
+2. pnpm run check
+3. pnpm run dev
 
-Default local database path is ./data/auth.sqlite.
+The API default local database path is `./data/auth.sqlite` relative to `apps/api`.
 
 ## Endpoints
 
