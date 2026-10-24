@@ -1,5 +1,32 @@
 import { z } from "zod";
 
+export {
+  CLOUD_RELAY_TRANSPORT_AUDIENCE,
+  CLOUD_SHIYAN_AUDIENCE,
+  RELAY_TRANSPORT_SCOPE,
+  SERVICE_CREDENTIAL_ISSUER,
+  SHIYAN_AUTHENTICATE_SCOPE,
+  relayConnectionRoleSchema,
+  relayServiceCredentialClaimsSchema,
+  relayTicketContextSchema,
+  serviceCredentialAudienceSchema,
+  serviceCredentialClaimsSchema,
+  serviceCredentialJwtHeaderSchema,
+  serviceCredentialScopeSchema,
+  shiyanServiceCredentialClaimsSchema,
+} from "./service-credential.js";
+
+export type {
+  RelayConnectionRole,
+  RelayServiceCredentialClaims,
+  RelayTicketContext,
+  ServiceCredentialAudience,
+  ServiceCredentialClaims,
+  ServiceCredentialJwtHeader,
+  ServiceCredentialScope,
+  ShiyanServiceCredentialClaims,
+} from "./service-credential.js";
+
 export const accountIdentitySchema = z
   .object({
     id: z.string().min(1),
