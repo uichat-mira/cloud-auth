@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   hostGrantErrorEnvelopeSchema,
+  hostGrantManagementListResponseSchema,
   hostGrantSnapshotSchema,
   hostMobileGrantSchema,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -58,6 +59,14 @@ function setPolicy(
     url: `/v1/hosts/${hostId}/grant-policy`,
     headers: auth(token),
     payload: { expectedRevision, scopes },
+  });
+}
+
+function management(testContext: TestOAuthContext, token: string) {
+  return testContext.app.inject({
+    method: "GET",
+    url: "/v1/hosts/grant-management",
+    headers: auth(token),
   });
 }
 
@@ -357,6 +366,12 @@ describe("Host grant SQLite persistence", () => {
       );
     }
 
+    const expiredLedger = hostGrantManagementListResponseSchema.parse(
+      (await management(testContext, portal.sessionToken)).json(),
+    );
+    expect(expiredLedger.hosts[0]?.host.availability).toBe("offline");
+    expect(expiredLedger.hosts[0]?.revision).toBe(1);
+
     // A still-authorized account owner must be able to narrow and revoke
     // durable permissions remotely without the Desktop signing in again.
     const mobileDeviceId = sessionDeviceId(testContext, mobile.sessionToken);
@@ -420,9 +435,34 @@ describe("Host grant SQLite persistence", () => {
     expect(hostRow.revoked_at).not.toBeNull();
     expect(hostRow.revoke_reason).toBe("host_session_revoked");
 
-    // No fresh grants on logout, but the still-signed-in owner can reduce
-    // durable authority without onsite confirmation or an active Desktop.
+    // Runtime discovery/snapshots stay fail-closed on logout. The distinct
+    // owner-only management ledger still exposes durable, revocable policy.
+    const discovery = await testContext.app.inject({
+      method: "GET", url: "/v1/hosts", headers: auth(portal.sessionToken),
+    });
+    expect(discovery.json().hosts).toEqual([]);
     expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
+    const adminResponse = await management(testContext, portal.sessionToken);
+    expect(adminResponse.statusCode).toBe(200);
+    const adminLedger = hostGrantManagementListResponseSchema.parse(adminResponse.json());
+    expect(adminLedger.hosts).toMatchObject([{
+      host: { id: host.id, availability: "offline" },
+      revision: 1,
+      policyConfigured: true,
+      grants: [{ mobileDeviceId, scopes: ["tools:read", "tools:invoke"] }],
+    }]);
+    expect(adminResponse.body).not.toContain("validUntil");
+    expect(adminResponse.body).not.toContain("issuedAt");
+    expect(adminResponse.body).not.toContain("relayRoom");
+    expect((await management(testContext, mobile.sessionToken)).statusCode).toBe(403);
+
+    await testContext.service.provisionAccount("bob", password);
+    const otherPortal = await testContext.service.login("bob", password, "127.0.0.7");
+    const otherLedger = hostGrantManagementListResponseSchema.parse(
+      (await management(testContext, otherPortal.sessionToken)).json(),
+    );
+    expect(otherLedger.hosts).toEqual([]);
+
     const narrowed = await patchGrant(
       testContext, portal.sessionToken, host.id, mobileDeviceId, 1, ["tools:read"],
     );
@@ -436,6 +476,10 @@ describe("Host grant SQLite persistence", () => {
     });
     expect(revoked.statusCode).toBe(200);
     expect(revoked.json()).toMatchObject({ revision: 3, status: "revoked", scopes: [] });
+    expect(hostGrantManagementListResponseSchema.parse(
+      (await management(testContext, portal.sessionToken)).json(),
+    ).hosts[0]?.grants).toEqual([{ mobileDeviceId, scopes: [], status: "revoked" }]);
+
 
     const relogin = await createFirstPartySession(testContext, {
       username: "alice", password, installationId,
@@ -459,6 +503,10 @@ describe("Host grant SQLite persistence", () => {
     expect((await patchGrant(
       testContext, portal.sessionToken, host.id, mobileDeviceId, 3, [],
     )).statusCode).toBe(404);
+    expect(hostGrantManagementListResponseSchema.parse(
+      (await management(testContext, portal.sessionToken)).json(),
+    ).hosts).toEqual([]);
+
 
     await testContext.app.close();
     testContext.db.close();
