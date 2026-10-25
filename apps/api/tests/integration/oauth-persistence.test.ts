@@ -104,7 +104,7 @@ describe("OAuth authorization code SQLite persistence", () => {
     await first.service.provisionAccount("alice", password);
     const login = await first.service.login("alice", password, "127.0.0.1");
 
-    const grant = first.oauthService.authorize(login.sessionToken, request);
+    const grant = await first.oauthService.authorizeWithPassword("alice", password, "127.0.0.1", request);
     expect(grant.expiresAt).toBe("2026-10-25T10:01:00.000Z");
     const parsed = parseAuthorizationCode(grant.code);
     const record = first.oauthRepository.findAuthorizationCode(parsed!.id);
