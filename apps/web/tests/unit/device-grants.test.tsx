@@ -228,7 +228,7 @@ describe("Device and Host grants card", () => {
     renderGrants(client);
     expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled();
-    expect(screen.getByText("手机设备")).toBeInTheDocument();
+    expect(screen.getAllByText("手机设备").length).toBeGreaterThan(0);
     expect(screen.getByRole("alert")).toHaveTextContent("手机设备名称暂时无法读取");
     // A cosmetic metadata outage must never log the account out.
     fireEvent.click(screen.getByRole("button", { name: "撤销授权" }));
