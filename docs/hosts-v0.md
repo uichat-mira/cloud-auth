@@ -131,9 +131,9 @@ hostService.resolveRoomOwnership(room):
 
 `null` means the room has no current owner (unknown, revoked Host, or revoked
 device). A non-null result with `availability = "offline"` still names the
-owner but must not be treated as online. OPS-019 remains responsible for its
-ticket entitlement decision; OPS-018 neither signs nor authorizes a Relay
-ticket.
+owner but must not be treated as online. OPS-019 uses this input for its ticket
+entitlement decision (see [service-credentials-v0.md](service-credentials-v0.md));
+OPS-018 neither signs nor authorizes a Relay ticket.
 
 ## Revocation and cleanup
 

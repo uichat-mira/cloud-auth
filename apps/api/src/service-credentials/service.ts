@@ -11,7 +11,15 @@ import type { AuthRepository } from "../auth/auth-repository.js";
 import { hashSessionSecret, parseSessionToken } from "../security/session-token.js";
 import { ServiceCredentialRequestError } from "./errors.js";
 import type { ServiceCredentialKeyRing } from "./keyring.js";
+import {
+  isRelayTicketAuthorized,
+  type RelayRoomOwnership,
+} from "./relay-admission.js";
 import { issueServiceCredential } from "./signer.js";
+
+export interface RelayRoomOwnershipResolver {
+  resolveRoomOwnership(relayRoom: string): RelayRoomOwnership | null;
+}
 
 function scopeForRequest(request: ServiceCredentialRequest): ServiceCredentialScope[] {
   return request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE
@@ -23,6 +31,7 @@ export class ServiceCredentialService {
   constructor(
     private readonly repository: AuthRepository,
     private readonly keyRing: ServiceCredentialKeyRing | null,
+    private readonly relayRoomOwnership: RelayRoomOwnershipResolver,
   ) {}
 
   issue(token: string, request: ServiceCredentialRequest): IssuedServiceCredential {
@@ -45,11 +54,32 @@ export class ServiceCredentialService {
     }
 
     const now = new Date();
+    const relay =
+      request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE ? request.relay : null;
     const issued = this.repository.issueWithinActiveDeviceSession(
       parsed.id,
       hashSessionSecret(parsed.secret),
       now.toISOString(),
-      ({ accountId, deviceId }) => {
+      ({ accountId, deviceId, devicePlatform }) => {
+        if (relay) {
+          // This query shares the issuance BEGIN IMMEDIATE transaction, so a
+          // Host lease, room binding, or device revoke cannot interleave.
+          const ownership = this.relayRoomOwnership.resolveRoomOwnership(relay.room);
+          if (
+            !isRelayTicketAuthorized(
+              relay,
+              { accountId, deviceId, devicePlatform },
+              ownership,
+            )
+          ) {
+            throw new ServiceCredentialRequestError(
+              "SERVICE_CREDENTIAL_RELAY_NOT_AUTHORIZED",
+              403,
+              "Relay transport ticket is not authorized for this device",
+            );
+          }
+        }
+
         const credential = issueServiceCredential(
           { ...keyRing.signer, now: () => now },
           {
@@ -57,9 +87,7 @@ export class ServiceCredentialService {
             deviceId,
             audience: request.audience,
             scope: scopeForRequest(request),
-            ...(request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE
-              ? { relay: request.relay }
-              : {}),
+            ...(relay ? { relay } : {}),
           },
         );
         return {

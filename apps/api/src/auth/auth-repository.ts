@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import type { DevicePlatform } from "@uichat-mira/cloud-auth-contracts";
 import { verifySessionSecretHash } from "../security/session-token.js";
 
 export interface AccountRecord {
@@ -73,6 +74,7 @@ export interface SessionDeviceBinding {
 export interface ServiceCredentialAuthority {
   accountId: string;
   deviceId: string;
+  devicePlatform: DevicePlatform;
 }
 
 export type ServiceCredentialAuthorityFailure = "unauthorized" | "device_required";
@@ -90,6 +92,7 @@ type ServiceCredentialAuthorityRow = {
   is_allowed: number;
   disabled_at: string | null;
   device_account_id: string | null;
+  device_platform: DevicePlatform | null;
   device_revoked_at: string | null;
 };
 
@@ -233,7 +236,8 @@ export class AuthRepository {
           `SELECT
              s.account_id, s.device_id, s.secret_hash, s.expires_at, s.revoked_at,
              a.is_allowed, a.disabled_at,
-             d.account_id AS device_account_id, d.revoked_at AS device_revoked_at
+             d.account_id AS device_account_id, d.platform AS device_platform,
+             d.revoked_at AS device_revoked_at
            FROM sessions s
            JOIN accounts a ON a.id = s.account_id
            LEFT JOIN devices d ON d.id = s.device_id
@@ -262,13 +266,18 @@ export class AuthRepository {
 
       if (
         row.device_account_id !== row.account_id ||
+        row.device_platform === null ||
         row.device_revoked_at !== null
       ) {
         this.db.exec("ROLLBACK;");
         return { ok: false, reason: "unauthorized" };
       }
 
-      const value = action({ accountId: row.account_id, deviceId: row.device_id });
+      const value = action({
+        accountId: row.account_id,
+        deviceId: row.device_id,
+        devicePlatform: row.device_platform,
+      });
       this.db.exec("COMMIT;");
       return { ok: true, value };
     } catch (error) {

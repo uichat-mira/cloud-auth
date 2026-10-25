@@ -128,17 +128,21 @@ export function createTestOAuthContext(
     sessionTtlSeconds: options.sessionTtlSeconds ?? 3600,
     now: options.now ?? (() => new Date()),
   });
-  const keyRing = options.serviceCredentialKeyMaterial === undefined
-    ? null
-    : createServiceCredentialKeyRing(options.serviceCredentialKeyMaterial);
-  const serviceCredentialService = keyRing
-    ? new ServiceCredentialService(auth.repository, keyRing)
-    : null;
   const hostRepository = new HostRepository(auth.db);
   const hostService = new HostService(hostRepository, auth.service, {
     leaseTtlSeconds: options.hostLeaseSeconds ?? 120,
     ...(options.now ? { now: options.now } : {}),
   });
+  const hasServiceCredentialConfig = Object.hasOwn(
+    options,
+    "serviceCredentialKeyMaterial",
+  );
+  const keyRing = hasServiceCredentialConfig
+    ? createServiceCredentialKeyRing(options.serviceCredentialKeyMaterial ?? null)
+    : null;
+  const serviceCredentialService = hasServiceCredentialConfig
+    ? new ServiceCredentialService(auth.repository, keyRing, hostService)
+    : null;
   const app = buildApp({
     db: auth.db,
     authService: auth.service,

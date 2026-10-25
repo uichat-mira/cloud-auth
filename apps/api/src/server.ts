@@ -43,6 +43,7 @@ const oauthService = new OAuthService(new OAuthRepository(db), authService, {
 const serviceCredentialService = new ServiceCredentialService(
   repository,
   createServiceCredentialKeyRing(config.serviceCredentials),
+  hostService,
 );
 
 const app = buildApp({

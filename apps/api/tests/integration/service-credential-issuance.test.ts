@@ -25,6 +25,7 @@ import {
   verifyServiceCredential,
   type ServiceCredentialVerifierConfig,
 } from "../../src/service-credentials/index.js";
+import { createFirstPartySession } from "../helpers/oauth.js";
 import {
   createTestServiceCredentialContext,
   createTestServiceCredentialKeyMaterial,
@@ -140,41 +141,67 @@ describe("authenticated service credential issuance", () => {
     await context.app.close();
   });
 
-  it("issues Relay transport tickets only for the requested room and role", async () => {
+  it("issues Relay transport tickets only for the authorized host room and role", async () => {
     const context = createContext();
     await context.service.provisionAccount("alice", password);
-    const login = await context.service.login("alice", password, "127.0.0.1");
-    const device = await registerDevice(context, login.sessionToken);
-
-    const response = await issue(context, login.sessionToken, {
-      audience: CLOUD_RELAY_TRANSPORT_AUDIENCE,
-      relay: { room: "room-7f3a", role: "host" },
+    const desktop = await createFirstPartySession(context, {
+      username: "alice",
+      password,
     });
-    expect(response.statusCode).toBe(200);
-    const issued = issuedServiceCredentialSchema.parse(response.json());
-    const verified = verifyServiceCredential(
-      issued.token,
-      relayVerifier(context, "room-7f3a", "host"),
+    const mobile = await createFirstPartySession(context, {
+      username: "alice",
+      password,
+      platform: "mobile",
+    });
+    const host = context.hostService.register(desktop.sessionToken);
+
+    const hostResponse = await issue(context, desktop.sessionToken, {
+      audience: CLOUD_RELAY_TRANSPORT_AUDIENCE,
+      relay: { room: host.relayRoom, role: "host" },
+    });
+    expect(hostResponse.statusCode).toBe(200);
+    const hostIssued = issuedServiceCredentialSchema.parse(hostResponse.json());
+    const hostVerified = verifyServiceCredential(
+      hostIssued.token,
+      relayVerifier(context, host.relayRoom, "host"),
     );
-    expect(verified.claims).toMatchObject({
-      sub: login.account.id,
-      device_id: device.id,
+    expect(hostVerified.claims).toMatchObject({
+      sub: desktop.account.id,
+      device_id: host.deviceId,
       aud: CLOUD_RELAY_TRANSPORT_AUDIENCE,
       scope: [RELAY_TRANSPORT_SCOPE],
-      relay: { room: "room-7f3a", role: "host" },
+      relay: { room: host.relayRoom, role: "host" },
     });
 
     expect(() =>
-      verifyServiceCredential(issued.token, relayVerifier(context, "room-other", "host")),
+      verifyServiceCredential(hostIssued.token, relayVerifier(context, "room-other", "host")),
     ).toThrow(/Relay ticket does not match/);
     expect(() =>
-      verifyServiceCredential(issued.token, relayVerifier(context, "room-7f3a", "client")),
+      verifyServiceCredential(hostIssued.token, relayVerifier(context, host.relayRoom, "client")),
     ).toThrow(/Relay ticket does not match/);
-    expect(() => verifyServiceCredential(issued.token, shiyanVerifier(context))).toThrow(
+    expect(() => verifyServiceCredential(hostIssued.token, shiyanVerifier(context))).toThrow(
       /audience/,
     );
 
-    const shiyan = await issue(context, login.sessionToken, {
+    const clientResponse = await issue(context, mobile.sessionToken, {
+      audience: CLOUD_RELAY_TRANSPORT_AUDIENCE,
+      relay: { room: host.relayRoom, role: "client" },
+    });
+    expect(clientResponse.statusCode).toBe(200);
+    const clientIssued = issuedServiceCredentialSchema.parse(clientResponse.json());
+    const clientVerified = verifyServiceCredential(
+      clientIssued.token,
+      relayVerifier(context, host.relayRoom, "client"),
+    );
+    expect(clientVerified.claims).toMatchObject({
+      sub: mobile.account.id,
+      aud: CLOUD_RELAY_TRANSPORT_AUDIENCE,
+      scope: [RELAY_TRANSPORT_SCOPE],
+      relay: { room: host.relayRoom, role: "client" },
+    });
+    expect(clientVerified.claims.device_id).not.toBe(host.deviceId);
+
+    const shiyan = await issue(context, desktop.sessionToken, {
       audience: CLOUD_SHIYAN_AUDIENCE,
     });
     expect(() =>

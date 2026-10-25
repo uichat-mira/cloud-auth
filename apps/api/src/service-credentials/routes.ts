@@ -52,6 +52,15 @@ export function registerServiceCredentialRoutes(
       }
       return reply.code(200).send(serviceCredentialService.issue(token, parsed.data));
     } catch (error) {
+      if (
+        error instanceof ServiceCredentialRequestError &&
+        error.code === "SERVICE_CREDENTIAL_RELAY_NOT_AUTHORIZED"
+      ) {
+        request.log.info(
+          { event: "relay_service_credential_denied" },
+          "relay service credential denied",
+        );
+      }
       return sendServiceCredentialError(reply, error);
     }
   });
