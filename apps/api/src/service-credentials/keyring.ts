@@ -44,8 +44,15 @@ function resolveEd25519PrivateKey(input: string): KeyObject | null {
 }
 
 function resolveEd25519PublicKey(input: string): KeyObject | null {
+  // createPublicKey() also accepts private PEM and derives its public part.
+  // These JWKS-only slots must never retain private signing material.
+  const pem = normalizePem(input).trim();
+  if (!pem.startsWith("-----BEGIN PUBLIC KEY-----") ||
+      !pem.endsWith("-----END PUBLIC KEY-----")) {
+    return null;
+  }
   try {
-    const key = createPublicKey(normalizePem(input));
+    const key = createPublicKey(pem);
     if (key.type !== "public" || key.asymmetricKeyType !== "ed25519") return null;
     return key;
   } catch {
