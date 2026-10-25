@@ -1,0 +1,94 @@
+import type {
+  MiraDevice,
+  RegisterDeviceRequest,
+} from "@uichat-mira/cloud-auth-contracts";
+import type { AuthService } from "../auth/auth-service.js";
+import type { DeviceRecord, DeviceRepository } from "./device-repository.js";
+
+export type DeviceErrorCode =
+  | "DEVICE_NOT_FOUND"
+  | "DEVICE_REVOKED"
+  | "DEVICE_PLATFORM_MISMATCH"
+  | "DEVICE_SESSION_MISMATCH";
+
+export class DeviceError extends Error {
+  constructor(
+    readonly code: DeviceErrorCode,
+    readonly statusCode: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export class DeviceService {
+  constructor(
+    private readonly repository: DeviceRepository,
+    private readonly authService: AuthService,
+  ) {}
+
+  register(token: string, request: RegisterDeviceRequest): MiraDevice {
+    const session = this.authService.requireSessionContext(token);
+    const device = this.repository.registerDevice({
+      accountId: session.account.id,
+      sessionId: session.sessionId,
+      installationId: request.installationId.toLowerCase(),
+      platform: request.platform,
+      clientName: request.clientName?.trim() ?? null,
+      clientVersion: request.clientVersion?.trim() ?? null,
+      now: new Date().toISOString(),
+    });
+
+    if (device === "platform_mismatch") {
+      throw new DeviceError(
+        "DEVICE_PLATFORM_MISMATCH",
+        409,
+        "Mira Device platform cannot change",
+      );
+    }
+
+    if (device === "session_device_mismatch") {
+      throw new DeviceError(
+        "DEVICE_SESSION_MISMATCH",
+        409,
+        "Cloud Session is already bound to another Mira Device",
+      );
+    }
+
+    if (!device) {
+      throw new DeviceError(
+        "DEVICE_REVOKED",
+        409,
+        "This Mira Device has been revoked",
+      );
+    }
+
+    return publicDevice(device);
+  }
+
+  list(token: string): MiraDevice[] {
+    const account = this.authService.requireAccountIdentity(token);
+    return this.repository.listDevicesByAccount(account.id).map(publicDevice);
+  }
+
+  revoke(token: string, deviceId: string): MiraDevice {
+    const account = this.authService.requireAccountIdentity(token);
+    const device = this.repository.revokeDevice(account.id, deviceId, new Date().toISOString());
+    if (!device) {
+      throw new DeviceError("DEVICE_NOT_FOUND", 404, "Mira Device not found");
+    }
+    return publicDevice(device);
+  }
+}
+
+function publicDevice(device: DeviceRecord): MiraDevice {
+  return {
+    id: device.id,
+    platform: device.platform,
+    clientName: device.clientName,
+    clientVersion: device.clientVersion,
+    createdAt: device.createdAt,
+    lastSeenAt: device.lastSeenAt,
+    revokedAt: device.revokedAt,
+  };
+}
