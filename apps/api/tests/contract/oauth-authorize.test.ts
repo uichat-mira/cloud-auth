@@ -42,7 +42,7 @@ function authorizeUrl(overrides: Record<string, string | null> = {}): string {
     if (value === null) delete parameters[key];
     else parameters[key] = value;
   }
-  return `/v1/oauth/authorize?${new URLSearchParams(parameters).toString()}`;
+  return "/v1/oauth/authorize?" + new URLSearchParams(parameters).toString();
 }
 
 function locationOf(response: { headers: Record<string, unknown> }): URL | null {
@@ -50,38 +50,62 @@ function locationOf(response: { headers: Record<string, unknown> }): URL | null 
   return typeof location === "string" ? new URL(location) : null;
 }
 
-async function login(context: ReturnType<typeof createTestOAuthContext>) {
-  await context.service.provisionAccount("alice", password);
-  return (await context.service.login("alice", password, "127.0.0.1")).sessionToken;
+async function browserAuthorize(
+  testContext: ReturnType<typeof createTestOAuthContext>,
+  url = authorizeUrl(),
+  username = "alice",
+  pass = password,
+  formOverrides: Record<string, string> = {},
+) {
+  const page = await testContext.app.inject({ method: "GET", url });
+  expect(page.statusCode).toBe(200);
+  expect(page.headers["content-type"]).toContain("text/html");
+  expect(page.body).not.toContain("Bearer");
+  const cookieHeader = page.headers["set-cookie"];
+  expect(typeof cookieHeader).toBe("string");
+  const csrfCookie = String(cookieHeader).split(";")[0]!;
+  const csrf = csrfCookie.split("=")[1]!;
+  const fields = new URLSearchParams(url.split("?")[1]);
+  fields.set("csrf_token", csrf);
+  fields.set("username", username);
+  fields.set("password", pass);
+  for (const [key, value] of Object.entries(formOverrides)) fields.set(key, value);
+  const response = await testContext.app.inject({
+    method: "POST",
+    url: "/v1/oauth/authorize",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      cookie: csrfCookie,
+    },
+    payload: fields.toString(),
+  });
+  return { page, response, csrfCookie, csrf };
 }
 
 describe("OAuth authorization/callback HTTP contract", () => {
-  it("issues a short-lived opaque code only to the registered desktop callback", async () => {
+  it("returns a browser form without a Bearer and only issues after password + CSRF submit", async () => {
     const testContext = context();
-    const token = await login(testContext);
-    const sessionsBefore = testContext.db
-      .prepare("SELECT COUNT(*) AS count FROM sessions")
-      .get() as { count: number };
+    await testContext.service.provisionAccount("alice", password);
 
-    const response = await testContext.app.inject({
-      method: "GET",
-      url: authorizeUrl(),
-      headers: { authorization: `Bearer ${token}` },
-    });
+    const initial = await testContext.app.inject({ method: "GET", url: authorizeUrl() });
+    expect(initial.statusCode).toBe(200);
+    expect(locationOf(initial)).toBeNull();
+    expect(initial.body).toContain('method="post"');
+    expect(initial.body).not.toContain(password);
+    expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get())
+      .toMatchObject({ count: 0 });
 
-    expect(response.statusCode).toBe(302);
+    const { response } = await browserAuthorize(testContext);
+    expect(response.statusCode).toBe(303);
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["referrer-policy"]).toBe("no-referrer");
     const location = locationOf(response);
-    expect(location).not.toBeNull();
     expect(location?.protocol).toBe("mira-desktop:");
     expect(location?.host).toBe("oauth");
     expect(location?.pathname).toBe("/callback");
-    expect(location?.searchParams.get("error")).toBeNull();
     expect(location?.searchParams.get("state")).toBe(state);
     const code = location?.searchParams.get("code") ?? "";
     expect(oauthAuthorizationCodeSchema.parse(code)).toBe(code);
-    expect(response.body).not.toContain(token);
     expect(response.body).not.toContain(password);
     expect(response.body).not.toContain(code);
 
@@ -99,228 +123,186 @@ describe("OAuth authorization/callback HTTP contract", () => {
     });
     expect(record?.secretHash).toMatch(/^[0-9a-f]{64}$/);
     expect(record?.secretHash).not.toBe(code);
-    expect(record?.accountId).toBe(
-      (testContext.db.prepare("SELECT id FROM accounts WHERE username_normalized = ?").get("alice") as {
-        id: string;
-      }).id,
-    );
-
-    expect(
-      testContext.db.prepare("SELECT COUNT(*) AS count FROM sessions").get(),
-    ).toEqual(sessionsBefore);
+    expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM sessions").get())
+      .toMatchObject({ count: 0 });
 
     await testContext.app.close();
     testContext.db.close();
   });
 
-  it("issues a code to the registered mobile callback for the mobile client", async () => {
+  it("issues only to the fixed Mobile callback", async () => {
     const testContext = context();
-    const token = await login(testContext);
-
-    const response = await testContext.app.inject({
-      method: "GET",
-      url: authorizeUrl({
-        client_id: MIRA_MOBILE_OAUTH_CLIENT_ID,
-        redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
-      }),
-      headers: { authorization: `Bearer ${token}` },
-    });
-
-    expect(response.statusCode).toBe(302);
+    await testContext.service.provisionAccount("alice", password);
+    const { response } = await browserAuthorize(testContext, authorizeUrl({
+      client_id: MIRA_MOBILE_OAUTH_CLIENT_ID,
+      redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
+    }));
+    expect(response.statusCode).toBe(303);
     const location = locationOf(response);
     expect(location?.protocol).toBe("mira-mobile:");
     expect(location?.searchParams.get("state")).toBe(state);
-    expect(oauthAuthorizationCodeSchema.safeParse(location?.searchParams.get("code")).success).toBe(
-      true,
-    );
-
+    expect(oauthAuthorizationCodeSchema.safeParse(location?.searchParams.get("code")).success).toBe(true);
     await testContext.app.close();
     testContext.db.close();
   });
 
-  it("denies unauthenticated, malformed, disabled and denied browser contexts", async () => {
+  it("cannot issue through a Cloud Session Bearer, missing CSRF or forged cookies", async () => {
     const testContext = context();
-    const token = await login(testContext);
+    await testContext.service.provisionAccount("alice", password);
+    const token = (await testContext.service.login("alice", password, "127.0.0.1")).sessionToken;
+    const page = await testContext.app.inject({
+      method: "GET",
+      url: authorizeUrl(),
+      headers: { authorization: "Bearer " + token },
+    });
+    expect(page.statusCode).toBe(200);
+    expect(locationOf(page)).toBeNull();
+    const fields = new URLSearchParams(authorizeUrl().split("?")[1]);
+    fields.set("username", "alice");
+    fields.set("password", password);
+    const headers = { "content-type": "application/x-www-form-urlencoded" };
 
-    for (const headers of [{}, { authorization: "Bearer not-a-cloud-session" }]) {
-      const response = await testContext.app.inject({
-        method: "GET",
-        url: authorizeUrl(),
-        headers,
-      });
-      expect(response.statusCode).toBe(401);
-      expect(locationOf(response)).toBeNull();
-      expect(oauthApiErrorEnvelopeSchema.parse(response.json())).toEqual({
-        error: {
-          code: "OAUTH_REAUTH_REQUIRED",
-          message: "Re-authentication is required",
-        },
-      });
-    }
+    const noCsrf = await testContext.app.inject({
+      method: "POST", url: "/v1/oauth/authorize", headers, payload: fields.toString(),
+    });
+    expect(noCsrf.statusCode).toBe(403);
+    fields.set("csrf_token", "A".repeat(43));
+    const forged = await testContext.app.inject({
+      method: "POST", url: "/v1/oauth/authorize",
+      headers: { ...headers, cookie: "mira_oauth_csrf=" + "B".repeat(43) },
+      payload: fields.toString(),
+    });
+    expect(forged.statusCode).toBe(403);
+    expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get())
+      .toMatchObject({ count: 0 });
+    await testContext.app.close();
+    testContext.db.close();
+  });
 
+  it("denies wrong credentials and accounts disabled or denied after the form GET", async () => {
+    const testContext = context();
+    await testContext.service.provisionAccount("alice", password);
+    const wrong = await browserAuthorize(testContext, authorizeUrl(), "alice", "wrong-password");
+    expect(wrong.response.statusCode).toBe(401);
+    expect(wrong.response.body).toContain("Invalid account or password");
+    expect(wrong.response.body).not.toContain("wrong-password");
+
+    const page = await testContext.app.inject({ method: "GET", url: authorizeUrl() });
+    const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
+    const fields = new URLSearchParams(authorizeUrl().split("?")[1]);
+    fields.set("csrf_token", cookie.split("=")[1]!);
+    fields.set("username", "alice");
+    fields.set("password", password);
     testContext.service.setDisabled("alice", true);
     const disabled = await testContext.app.inject({
-      method: "GET",
-      url: authorizeUrl(),
-      headers: { authorization: `Bearer ${token}` },
+      method: "POST", url: "/v1/oauth/authorize",
+      headers: { "content-type": "application/x-www-form-urlencoded", cookie },
+      payload: fields.toString(),
     });
     expect(disabled.statusCode).toBe(401);
-    expect(locationOf(disabled)).toBeNull();
-
     testContext.service.setDisabled("alice", false);
-    const freshToken = (await testContext.service.login("alice", password, "127.0.0.2"))
-      .sessionToken;
     testContext.service.setAllowed("alice", false);
     const denied = await testContext.app.inject({
-      method: "GET",
-      url: authorizeUrl(),
-      headers: { authorization: `Bearer ${freshToken}` },
+      method: "POST", url: "/v1/oauth/authorize",
+      headers: { "content-type": "application/x-www-form-urlencoded", cookie },
+      payload: fields.toString(),
     });
     expect(denied.statusCode).toBe(401);
-    expect(locationOf(denied)).toBeNull();
-
-    expect(
-      testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get(),
-    ).toMatchObject({ count: 0 });
-
+    expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get())
+      .toMatchObject({ count: 0 });
     await testContext.app.close();
     testContext.db.close();
   });
 
-  it("fails closed without open redirect for unregistered clients, callbacks and duplicates", async () => {
+  it("rejects forged POST clients, changed callback, duplicate fields and unknown fields", async () => {
     const testContext = context();
-    const token = await login(testContext);
+    await testContext.service.provisionAccount("alice", password);
+    for (const overrides of [
+      { redirect_uri: "https://evil.example/x" },
+      { client_id: "third-party" },
+      { code_challenge_method: "plain" },
+      { code_challenge: "invalid" },
+    ]) {
+      const { response } = await browserAuthorize(testContext, authorizeUrl(), "alice", password, overrides);
+      expect(response.statusCode).toBe(400);
+      expect(locationOf(response)).toBeNull();
+    }
 
+    const page = await testContext.app.inject({ method: "GET", url: authorizeUrl() });
+    const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
+    const fields = new URLSearchParams(authorizeUrl().split("?")[1]);
+    fields.set("csrf_token", cookie.split("=")[1]!);
+    fields.set("username", "alice");
+    fields.set("password", password);
+    const headers = { "content-type": "application/x-www-form-urlencoded", cookie };
+    for (const extra of ["&client_id=mira-desktop", "&consent=true"]) {
+      const duplicate = await testContext.app.inject({
+        method: "POST", url: "/v1/oauth/authorize", headers,
+        payload: fields.toString() + extra,
+      });
+      expect(duplicate.statusCode).toBe(400);
+    }
+    expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get())
+      .toMatchObject({ count: 0 });
+    await testContext.app.close();
+    testContext.db.close();
+  });
+
+  it("rejects unregistered GET clients/callbacks and duplicate query keys before any redirect", async () => {
+    const testContext = context();
     for (const url of [
       authorizeUrl({ client_id: null }),
       authorizeUrl({ redirect_uri: null }),
       authorizeUrl({ client_id: "third-party" }),
       authorizeUrl({ redirect_uri: "https://evil.example/callback" }),
       authorizeUrl({ redirect_uri: "javascript:alert(1)" }),
-      authorizeUrl({
-        client_id: MIRA_DESKTOP_OAUTH_CLIENT_ID,
-        redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
-      }),
-      `${authorizeUrl()}&client_id=${MIRA_DESKTOP_OAUTH_CLIENT_ID}`,
-      `${authorizeUrl()}&redirect_uri=${encodeURIComponent(MIRA_DESKTOP_OAUTH_REDIRECT_URI)}`,
+      authorizeUrl({ client_id: MIRA_DESKTOP_OAUTH_CLIENT_ID, redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI }),
+      authorizeUrl() + "&client_id=mira-desktop",
+      authorizeUrl() + "&redirect_uri=" + encodeURIComponent(MIRA_DESKTOP_OAUTH_REDIRECT_URI),
     ]) {
-      const response = await testContext.app.inject({
-        method: "GET",
-        url,
-        headers: { authorization: `Bearer ${token}` },
-      });
+      const response = await testContext.app.inject({ method: "GET", url });
       expect(response.statusCode).toBe(400);
       expect(locationOf(response)).toBeNull();
       expect(response.headers["cache-control"]).toBe("no-store");
       expect(oauthApiErrorEnvelopeSchema.safeParse(response.json()).success).toBe(true);
       expect(response.body).not.toContain("evil.example");
     }
-
-    expect(
-      testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get(),
-    ).toMatchObject({ count: 0 });
-
     await testContext.app.close();
     testContext.db.close();
   });
 
-  it("returns bounded callback errors for unsupported or malformed authorization queries", async () => {
+  it("returns bounded errors for unsupported and malformed GET parameters", async () => {
     const testContext = context();
-    const token = await login(testContext);
-
     const cases: Array<{ url: string; error: string; state?: string }> = [
-      {
-        url: authorizeUrl({ response_type: "token", state: null }),
-        error: "unsupported_response_type",
-      },
-      {
-        url: authorizeUrl({ response_type: "id_token" }),
-        error: "unsupported_response_type",
-        state,
-      },
-      {
-        url: authorizeUrl({ response_type: null }),
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: authorizeUrl({ code_challenge: null }),
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: authorizeUrl({ code_challenge: "short" }),
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: authorizeUrl({ code_challenge: "a".repeat(43) }),
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: authorizeUrl({ code_challenge_method: "plain" }),
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: authorizeUrl({ state: null }),
-        error: "invalid_request",
-      },
-      {
-        url: authorizeUrl({ state: "short" }),
-        error: "invalid_request",
-      },
-      {
-        url: authorizeUrl({ state: `${state}&code=injected` }),
-        error: "invalid_request",
-      },
-      {
-        url: authorizeUrl({ state: `${state}\r\nlocation: https://evil.example` }),
-        error: "invalid_request",
-      },
-      {
-        url: `${authorizeUrl()}&username=attacker`,
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: `${authorizeUrl()}&device_id=attacker-device`,
-        error: "invalid_request",
-        state,
-      },
-      {
-        url: `${authorizeUrl()}&account_id=attacker-account`,
-        error: "invalid_request",
-        state,
-      },
+      { url: authorizeUrl({ response_type: "token", state: null }), error: "unsupported_response_type" },
+      { url: authorizeUrl({ response_type: "id_token" }), error: "unsupported_response_type", state },
+      { url: authorizeUrl({ response_type: null }), error: "invalid_request", state },
+      { url: authorizeUrl({ code_challenge: null }), error: "invalid_request", state },
+      { url: authorizeUrl({ code_challenge: "short" }), error: "invalid_request", state },
+      { url: authorizeUrl({ code_challenge: "a".repeat(43) }), error: "invalid_request", state },
+      { url: authorizeUrl({ code_challenge_method: "plain" }), error: "invalid_request", state },
+      { url: authorizeUrl({ state: null }), error: "invalid_request" },
+      { url: authorizeUrl({ state: "short" }), error: "invalid_request" },
+      { url: authorizeUrl({ state: state + "&code=injected" }), error: "invalid_request" },
+      { url: authorizeUrl({ state: state + "\r\nlocation: https://evil.example" }), error: "invalid_request" },
+      { url: authorizeUrl() + "&username=attacker", error: "invalid_request", state },
+      { url: authorizeUrl() + "&device_id=attacker-device", error: "invalid_request", state },
+      { url: authorizeUrl() + "&account_id=attacker-account", error: "invalid_request", state },
     ];
-
     for (const testCase of cases) {
-      const response = await testContext.app.inject({
-        method: "GET",
-        url: testCase.url,
-        headers: { authorization: `Bearer ${token}` },
-      });
+      const response = await testContext.app.inject({ method: "GET", url: testCase.url });
       expect(response.statusCode).toBe(302);
       const location = locationOf(response);
-      expect(location).not.toBeNull();
       expect(location?.protocol).toBe("mira-desktop:");
       expect(location?.searchParams.get("code")).toBeNull();
-      const error = oauthAuthorizationCallbackErrorSchema.parse(
-        location?.searchParams.get("error"),
-      );
+      const error = oauthAuthorizationCallbackErrorSchema.parse(location?.searchParams.get("error"));
       expect(error).toBe(testCase.error);
       expect(location?.searchParams.get("state")).toBe(testCase.state ?? null);
       expect(response.body).not.toContain("\r");
       expect(response.body).not.toContain("\n");
-      expect(response.body).not.toContain(token);
     }
-
-    expect(
-      testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get(),
-    ).toMatchObject({ count: 0 });
-
+    expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get())
+      .toMatchObject({ count: 0 });
     await testContext.app.close();
     testContext.db.close();
   });
