@@ -11,6 +11,7 @@ import {
   serviceCredentialErrorEnvelopeSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 import { verifyServiceCredential } from "../../src/service-credentials/index.js";
+import { ServiceCredentialService } from "../../src/service-credentials/service.js";
 import {
   createFirstPartySession,
   createTestOAuthContext,
@@ -78,6 +79,39 @@ async function createFamily(context: TestOAuthContext, username = "alice") {
 }
 
 describe("Relay ticket authorization on SQLite", () => {
+  it("rejects a mismatched room even if a resolver returns a different valid owner", async () => {
+    const path = databasePath();
+    const testContext = context(path);
+    const family = await createFamily(testContext);
+
+    // Simulate a future resolver bug returning a real, available Host for the
+    // wrong requested room. The admission helper must reject the mismatch.
+    const mismatchedResolverService = new ServiceCredentialService(
+      testContext.repository,
+      testContext.keyRing,
+      {
+        resolveRoomOwnership: () =>
+          testContext.hostService.resolveRoomOwnership(family.host.relayRoom),
+      },
+    );
+
+    for (const [token, role] of [
+      [family.desktop.sessionToken, "host"],
+      [family.mobile.sessionToken, "client"],
+    ] as const) {
+      expect(() =>
+        mismatchedResolverService.issue(token, {
+          audience: CLOUD_RELAY_TRANSPORT_AUDIENCE,
+          relay: { room: "room_unrelated", role },
+        }),
+      ).toThrowError("Relay transport ticket is not authorized for this device");
+    }
+
+    await testContext.app.close();
+    testContext.db.close();
+  });
+
+
   it("persists room ownership and remains authorized across process restart", async () => {
     const path = databasePath();
     const fixedNow = new Date();
