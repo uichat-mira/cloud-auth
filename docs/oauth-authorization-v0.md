@@ -1,9 +1,10 @@
-# Mira Cloud Auth OAuth Authorization Code V0 (OPS-016)
+# Mira Cloud Auth OAuth Authorization Code + Token Exchange V0 (OPS-016/OPS-017)
 
 This document specifies the first-party OAuth 2.0 Authorization Code + PKCE S256
-authorization boundary implemented by OPS-016. It issues one short-lived,
-single-use authorization code to a registered native callback. It does **not**
-exchange that code for a token; that is OPS-017. It also does not grant Host,
+authorization boundary implemented by OPS-016 and the one-time token exchange
+implemented by OPS-017. It issues one short-lived, single-use authorization
+code to a registered native callback, then redeems it once for the existing
+revocable, device-bound Mira Cloud Session authority. It does not grant Host,
 Tool, Relay, or other business authorization.
 
 ## First-party client registry
@@ -138,10 +139,12 @@ JSON error envelope:
 }
 ```
 
-Current JSON codes are `OAUTH_INVALID_REQUEST`, `OAUTH_UNAUTHORIZED_CLIENT`,
-`OAUTH_REAUTH_REQUIRED`, and `OAUTH_INTERNAL_ERROR`. Invalid CSRF returns 403;
-invalid sign-in returns a fresh login form without disclosing the password.
-Callback error values are bounded by `oauthAuthorizationCallbackErrorSchema`.
+Authorization JSON codes are `OAUTH_INVALID_REQUEST`,
+`OAUTH_UNAUTHORIZED_CLIENT`, `OAUTH_REAUTH_REQUIRED`, and `OAUTH_INTERNAL_ERROR`.
+The token exchange adds `OAUTH_INVALID_GRANT` and
+`OAUTH_UNSUPPORTED_GRANT_TYPE`. Invalid CSRF returns 403; invalid sign-in returns
+a fresh login form without disclosing the password. Callback error values are
+bounded by `oauthAuthorizationCallbackErrorSchema`.
 
 ## Authorization code storage
 
@@ -154,8 +157,8 @@ Migration `005_oauth_authorization_codes.sql` adds
 - SHA-256 hash of the high-entropy code secret, domain-separated for
   authorization codes;
 - creation and expiry timestamps;
-- nullable one-use state (`consumed_at`, `consumed_by_session_id`,
-  `consume_reason`) reserved for OPS-017.
+- one-use state (`consumed_at`, `consumed_by_session_id`, `consume_reason`)
+  written by the OPS-017 exchange transaction.
 
 The raw code exists only in the redirect response and at the native client. It is
 not written to SQLite, logs, or error responses. Account passwords and Cloud Session material are not stored in this table.
@@ -163,35 +166,138 @@ not written to SQLite, logs, or error responses. Account passwords and Cloud Ses
 The default lifetime is 300 seconds (`MIRA_AUTH_OAUTH_CODE_TTL_SECONDS`), with a
 reviewed minimum of 60 and maximum of 600 seconds.
 
-## Exchange expectations for OPS-017
+## Token exchange (OPS-017)
 
-OPS-017 owns the token endpoint and must consume this record exactly once. Its
-exchange contract must:
+`POST /v1/oauth/token` consumes the OPS-016 code exactly once and returns the
+**existing** Cloud Session authority. It is deliberately not a general OAuth
+token or refresh platform.
 
-1. Parse the opaque `mca_v1.<id>.<secret>` code, look up `id`, and verify the
-   secret against the stored hash in constant time.
-2. Require `grant_type=authorization_code`, the same registered `client_id`, the
-   exact stored `redirect_uri`, and a `code_verifier` whose
-   `base64url(SHA-256(verifier))` equals the stored S256 `code_challenge`.
-3. Reject `plain`, missing, malformed, cross-client, redirect-swapped, expired,
-   already-consumed, and concurrently-consumed codes without issuing authority.
-4. Atomically mark the row consumed while binding the new Mira Device and
-   creating a normal revocable Cloud Session in one SQLite transaction, and
-   recheck current account admission/disable state at that boundary.
-5. Never return the browser Cloud Session or account password to the native
-   client. The exchanged session is its own device-bound Cloud Session and keeps
-   the existing renew/logout/device-revoke semantics.
-6. Never turn this authorization into Host, Tool, Agent, or Relay authority by
-   itself. OAuth authorization here does not grant `tools:invoke`.
+### Request
 
-The code record deliberately does not contain the Mira Device: the native client
-has not yet proven its installation at authorization time. OPS-017 binds the
-exchange to the concrete device through the existing server-authoritative device
-model.
+`application/x-www-form-urlencoded` is the canonical format. The same fields may
+also be sent as a flat JSON object for native-client convenience. In both cases
+the request is bounded and strict: every field is required, repeated fields are
+rejected, and unknown fields (including `code_challenge_method=plain`, `scope`,
+`account_id`, or `device_id`) are rejected.
+
+```http
+POST /v1/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&client_id=mira-desktop
+&code=mca_v1.<id>.<secret>
+&redirect_uri=mira-desktop%3A%2F%2Foauth%2Fcallback
+&code_verifier=<43-128-rfc7636-unreserved-characters>
+&installation_id=<random-uuidv4>
+&platform=desktop
+```
+
+| Field | Rule |
+| --- | --- |
+| `grant_type` | Exactly `authorization_code`. Other values return `OAUTH_UNSUPPORTED_GRANT_TYPE`. |
+| `client_id` | Must equal the registered client stored on the code (`mira-desktop` or `mira-mobile`). |
+| `code` | Opaque `mca_v1.<id>.<secret>`. The secret is verified against the stored SHA-256 hash. |
+| `redirect_uri` | Must exactly equal the URI stored on the code, which was already validated against the client registry. |
+| `code_verifier` | RFC 7636 `[A-Za-z0-9-._~]{43,128}`. `base64url(SHA-256(verifier))` must equal the stored S256 challenge. `plain` is never accepted. |
+| `installation_id` | Random UUIDv4 identifying the receiving installation. It is an **input identifier only**: ownership, platform and revocation are resolved server-side. |
+| `platform` | `desktop` or `mobile`. Must match an existing device's immutable platform. |
+
+### Success
+
+```json
+{
+  "sessionToken": "mcs_v1....",
+  "account": { "id": "...", "username": "..." },
+  "expiresAt": "2026-10-25T11:00:00.000Z"
+}
+```
+
+This is exactly `issuedCloudSessionSchema`: the response is a normal Cloud
+Session, not an OAuth access token with extra scopes. `Cache-Control: no-store`,
+`Pragma: no-cache` and `Referrer-Policy: no-referrer` are set. The raw code and
+verifier are never echoed, and no password or browser Cloud Session is returned.
+
+### Atomic device binding
+
+The exchange runs in one SQLite `BEGIN IMMEDIATE` transaction that re-reads:
+
+1. the code row, secret hash, expiry, consumed state, client and redirect;
+2. the stored S256 challenge against the submitted verifier;
+3. the account's current `is_allowed` and `disabled_at` state;
+4. the account-owned device identified by `(account_id, installation_id)`.
+
+If the device does not exist for the authorized account, the exchange creates it
+(the code proves account authentication; the installation identity is the same
+random UUID used by normal device registration). If the device exists it must be
+non-revoked and the same platform. A caller cannot supply a device id, owner
+account, scopes, or another account's identity. The same installation id under a
+different account is a separate device, so cross-account binding cannot be
+forged.
+
+On success the code row is marked consumed (`consumed_at`,
+`consumed_by_session_id`, `consume_reason = 'exchanged'`), the device is created
+or refreshed, and a session with `device_id` bound is inserted in the same
+transaction. A concurrent, replayed, expired, mismatched-verifier, wrong-client,
+redirect-swapped, revoked-device or disabled/denied-account attempt returns one
+bounded error and creates no session, device or authority.
+
+### Errors
+
+All invalid code/verifier/client/redirect/expiry/replay/account states return
+the same non-enumerating response:
+
+```json
+{ "error": { "code": "OAUTH_INVALID_GRANT", "message": "Authorization code cannot be exchanged" } }
+```
+
+Malformed or unexpected parameters return `OAUTH_INVALID_REQUEST`; a non-code
+grant returns `OAUTH_UNSUPPORTED_GRANT_TYPE`. Errors never contain the code,
+verifier, password, session token, redirect contents, or account/device details.
+
+### Native refresh and restore
+
+There is no refresh token. The returned `sessionToken` is the only native
+credential and should be stored with the platform OS secret store by the native
+client owner (DSK-005/MOB-078):
+
+- restore: `GET /v1/auth/session` with `Authorization: Bearer <sessionToken>`;
+- extend/rotate: `POST /v1/auth/session/renew` (old bearer invalid after rotate);
+- logout: `POST /v1/auth/logout`;
+- device revoke: `DELETE /v1/devices/:deviceId` revokes the device and every
+  session bound to it;
+- service credentials: use the session with the existing OPS-008
+  `POST /v1/service-credentials` endpoint.
+
+If renew/restore returns `401 AUTH_REAUTH_REQUIRED`, the native client starts a
+new browser authorization. It must not silently fall back to a browser/portal
+Cloud Session. A password reset, account deny/disable, or device revoke
+invalidates the native session through the existing checks.
+
+### Mobile/Desktop protocol fixture
+
+The reviewed fixture shared by both native clients is:
+
+1. native app generates a high-entropy `code_verifier` and
+   `code_challenge = base64url(SHA-256(verifier))`;
+2. open the OPS-016 `/v1/oauth/authorize` URL in the system browser with
+   `client_id`, exact `redirect_uri`, `state`, `code_challenge` and
+   `code_challenge_method=S256`;
+3. receive `code` and the same `state` at the registered callback;
+4. POST the token request above with the same verifier, client, redirect and its
+   own `installation_id`/`platform`;
+5. store only the returned `sessionToken` and use the existing Cloud Session
+   endpoints. Never store the browser password or a browser session.
+
+Negative fixtures covered by T2/T3: replayed code, expired code, concurrent
+double exchange, wrong verifier, `plain`/unknown request parameters,
+`client_credentials` grant, cross-client/redirect swap, revoked device,
+disabled/denied account, and a Cloud Session bearer presented instead of a code.
 
 ## Out of scope
 
-- Token exchange, refresh lifecycle, and native/browser end-to-end login UX.
+- Native/browser end-to-end login UX, browser callbacks and OS secure storage
+  (DSK-005/MOB-078), and any refresh-token platform.
 - OIDC, public clients beyond the two reviewed first-party entries, social
   providers, Passkeys, or a general OAuth framework.
 - G2 Host grants, G3 Desktop Remote Gateway, Relay room entitlements, Portal

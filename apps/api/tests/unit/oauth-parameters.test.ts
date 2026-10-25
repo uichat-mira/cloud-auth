@@ -11,6 +11,7 @@ import {
   oauthAuthorizationRequestSchema,
   oauthPkceCodeChallengeSchema,
   oauthStateSchema,
+  oauthTokenRequestSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 
 const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
@@ -160,6 +161,54 @@ describe("OAuth authorization request parameters", () => {
       `mca_v1.${"a".repeat(22)}`,
     ]) {
       expect(oauthAuthorizationCodeSchema.safeParse(invalid).success).toBe(false);
+    }
+  });
+});
+
+describe("OAuth token exchange parameters", () => {
+  const installationId = "01890f6e-4f3c-4cc8-9dbc-55116c2f3a8a";
+  function tokenRequest(overrides: Record<string, unknown> = {}) {
+    return {
+      grant_type: "authorization_code",
+      client_id: MIRA_DESKTOP_OAUTH_CLIENT_ID,
+      code: `mca_v1.${"a".repeat(22)}.${"b".repeat(43)}`,
+      redirect_uri: MIRA_DESKTOP_OAUTH_REDIRECT_URI,
+      code_verifier: "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
+      installation_id: installationId,
+      platform: "desktop",
+      ...overrides,
+    };
+  }
+
+  it("accepts the exact authorization_code + S256 device-binding exchange", () => {
+    expect(oauthTokenRequestSchema.parse(tokenRequest())).toEqual(tokenRequest());
+    expect(
+      oauthTokenRequestSchema.parse(
+        tokenRequest({
+          client_id: MIRA_MOBILE_OAUTH_CLIENT_ID,
+          redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
+          platform: "mobile",
+        }),
+      ).platform,
+    ).toBe("mobile");
+  });
+
+  it("rejects plain, unsupported grants, weak verifiers and caller-supplied ownership", () => {
+    for (const invalid of [
+      tokenRequest({ grant_type: "client_credentials" }),
+      tokenRequest({ grant_type: "refresh_token" }),
+      tokenRequest({ code_challenge_method: "plain" }),
+      tokenRequest({ scope: "openid" }),
+      tokenRequest({ account_id: "account-1" }),
+      tokenRequest({ device_id: "device-1" }),
+      tokenRequest({ code_verifier: "plain" }),
+      tokenRequest({ code_verifier: "a".repeat(43) + "!" }),
+      tokenRequest({ installation_id: "not-a-uuid" }),
+      tokenRequest({ platform: "server" }),
+      tokenRequest({ code: "mcs_v1.abc.def" }),
+      tokenRequest({ client_id: "third-party" }),
+    ]) {
+      expect(oauthTokenRequestSchema.safeParse(invalid).success).toBe(false);
     }
   });
 });
