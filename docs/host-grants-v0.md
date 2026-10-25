@@ -104,6 +104,23 @@ override.
 
 All endpoints use `Authorization: Bearer <Cloud Session>` and return JSON.
 
+### Portal grant-management read (OPS-021)
+
+`GET /v1/hosts/grant-management` returns a `hosts` array of stored grant
+administration records to an authenticated, device-less account Portal Session.
+Entries contain a public Host summary (id, display name, version, availability),
+account ID, policy configuration, revision, and per-Mobile effective scopes.
+Previously logged-out or expired Host Sessions remain visible as offline when
+the underlying desktop device is still active. Revoked desktop devices are
+excluded.
+
+This is an **administrative view**, not a capability snapshot. It does not
+contain an issue time, validity deadline, snapshot TTL, or Relay room. It
+cannot be used as a runtime Host execution authorization. The original
+`/v1/hosts` directory and `/v1/hosts/{hostId}/grants` runtime snapshot
+retain their strict Host Session checks. PATCH/DELETE still enforce versioned
+narrowing and revocation only.
+
 ### Desktop owner sets the ceiling (DSK-005)
 
 ```http
