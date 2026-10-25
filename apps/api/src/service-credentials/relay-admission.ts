@@ -7,6 +7,7 @@ export interface RelayAdmissionAuthority {
 }
 
 export interface RelayRoomOwnership {
+  relayRoom: string;
   accountId: string;
   deviceId: string;
   availability: "available" | "offline";
@@ -22,7 +23,11 @@ export function isRelayTicketAuthorized(
   authority: RelayAdmissionAuthority,
   ownership: RelayRoomOwnership | null,
 ): boolean {
-  if (!ownership || ownership.availability !== "available") return false;
+  if (
+    !ownership ||
+    ownership.relayRoom !== request.room ||
+    ownership.availability !== "available"
+  ) return false;
   if (ownership.accountId !== authority.accountId) return false;
 
   if (request.role === "host") {
