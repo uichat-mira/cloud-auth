@@ -71,6 +71,29 @@ async function startGrantsBackend() {
       return;
     }
 
+    if (request.method === "GET" && request.url === "/v1/hosts/grant-management") {
+      sendJson(response, 200, {
+        hosts: [{
+          host: {
+            id: grantHostId,
+            displayName: hostAvailable.displayName,
+            clientVersion: hostAvailable.clientVersion,
+            availability: "offline",
+          },
+          accountId: account.id,
+          policyConfigured: true,
+          policyScopes,
+          revision: state.revision,
+          grants: [{
+            mobileDeviceId: activeMobileId,
+            scopes: state.scopes,
+            status: state.status,
+          }],
+        }],
+      });
+      return;
+    }
+
     if (request.method === "GET" && request.url === "/v1/hosts") {
       sendJson(response, 200, { hosts: [hostAvailable] });
       return;
@@ -232,6 +255,14 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
     const grants = createHostGrantsClient({ baseUrl: backend.url });
 
     await expect(grants.listHosts(token)).resolves.toEqual([hostAvailable]);
+    // A logged-out Host is still manageable through the durable Portal route;
+    // no runtime /grants snapshot is needed to render or edit stored state.
+    await expect(grants.listManagement(token)).resolves.toMatchObject([{
+      host: { id: grantHostId, availability: "offline" },
+      revision: 4,
+      grants: [{ mobileDeviceId: activeMobileId, scopes: effectiveScopes }],
+    }]);
+
     await expect(grants.listDevices(token)).resolves.toEqual([mobileActive]);
 
     const initial = await grants.getSnapshot(token, grantHostId);
@@ -256,6 +287,11 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
       scopes: ["threads:read"],
       status: "active",
     });
+    await expect(grants.listManagement(token)).resolves.toMatchObject([{
+      revision: 5,
+      grants: [{ scopes: ["threads:read"], status: "active" }],
+    }]);
+
 
     await expect(
       grants.getSnapshot(token, grantHostId),
@@ -299,6 +335,11 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
       scopes: [],
       status: "revoked",
     });
+    await expect(grants.listManagement(token)).resolves.toMatchObject([{
+      revision: 6,
+      grants: [{ scopes: [], status: "revoked" }],
+    }]);
+
 
     await expect(
       grants.getSnapshot(token, grantHostId),
