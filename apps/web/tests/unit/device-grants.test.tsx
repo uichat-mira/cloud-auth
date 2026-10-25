@@ -219,6 +219,22 @@ describe("Device and Host grants card", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps grant revocation available when optional device labels fail", async () => {
+    const client = createFakeHostGrantsClient({
+      listDevices: async () => {
+        throw new HostGrantsError(createHostGrantsFailure("service_unavailable", { status: 503 }));
+      },
+    });
+    renderGrants(client);
+    expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled();
+    expect(screen.getByText("手机设备")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("手机设备名称暂时无法读取");
+    // A cosmetic metadata outage must never log the account out.
+    fireEvent.click(screen.getByRole("button", { name: "撤销授权" }));
+    expect(screen.getByRole("button", { name: "确认撤销" })).toBeEnabled();
+  });
+
   it("keeps the Cloud Session after a grants 401 and shows an expired-session message", async () => {
     const { store, storage } = renderGrants(
       createFakeHostGrantsClient({
