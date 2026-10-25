@@ -12,6 +12,7 @@ const authority: RelayAdmissionAuthority = {
 };
 
 const availableRoom: RelayRoomOwnership = {
+  relayRoom: "room_alice",
   accountId: "account-alice",
   deviceId: "device-host",
   availability: "available",
@@ -92,21 +93,21 @@ describe("Relay ticket admission matrix", () => {
     }
   });
 
-  it("does not derive authority from the requested room value", () => {
+  it("rejects requests whose room differs from the ownership record", () => {
     expect(
       isRelayTicketAuthorized(
         { room: "room_someone-else", role: "host" },
         authority,
         availableRoom,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isRelayTicketAuthorized(
         { room: "room_someone-else", role: "client" },
         { ...authority, devicePlatform: "mobile" },
         availableRoom,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isRelayTicketAuthorized(
         { room: "room_alice", role: "host" },
