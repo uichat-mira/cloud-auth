@@ -8,6 +8,8 @@ import {
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
+import { HostGrantRepository } from "../../src/grants/host-grant-repository.js";
+import { HostGrantService } from "../../src/grants/host-grant-service.js";
 import { HostRepository } from "../../src/hosts/host-repository.js";
 import { HostService } from "../../src/hosts/host-service.js";
 import { OAuthRepository } from "../../src/oauth/oauth-repository.js";
@@ -26,6 +28,8 @@ export interface TestOAuthContext extends TestAuthContext {
   oauthService: OAuthService;
   hostRepository: HostRepository;
   hostService: HostService;
+  hostGrantRepository: HostGrantRepository;
+  hostGrantService: HostGrantService;
   keyRing: ServiceCredentialKeyRing | null;
   serviceCredentialService: ServiceCredentialService | null;
 }
@@ -34,6 +38,7 @@ export interface TestOAuthOptions {
   codeTtlSeconds?: number;
   sessionTtlSeconds?: number;
   hostLeaseSeconds?: number;
+  hostGrantSnapshotTtlSeconds?: number;
   now?: () => Date;
   serviceCredentialKeyMaterial?: ServiceCredentialKeyMaterialConfig | null;
 }
@@ -133,6 +138,11 @@ export function createTestOAuthContext(
     leaseTtlSeconds: options.hostLeaseSeconds ?? 120,
     ...(options.now ? { now: options.now } : {}),
   });
+  const hostGrantRepository = new HostGrantRepository(auth.db);
+  const hostGrantService = new HostGrantService(hostGrantRepository, {
+    snapshotTtlSeconds: options.hostGrantSnapshotTtlSeconds ?? 300,
+    ...(options.now ? { now: options.now } : {}),
+  });
   const hasServiceCredentialConfig = Object.hasOwn(
     options,
     "serviceCredentialKeyMaterial",
@@ -148,6 +158,7 @@ export function createTestOAuthContext(
     authService: auth.service,
     deviceService: auth.deviceService,
     hostService,
+    hostGrantService,
     oauthService,
     ...(serviceCredentialService ? { serviceCredentialService } : {}),
   });
@@ -159,6 +170,8 @@ export function createTestOAuthContext(
     oauthService,
     hostRepository,
     hostService,
+    hostGrantRepository,
+    hostGrantService,
     keyRing,
     serviceCredentialService,
   };

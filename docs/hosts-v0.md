@@ -180,7 +180,7 @@ account admission state. No test or response claims real Host/Relay reachability
 ## Out of scope
 
 - Relay room-role ticket entitlement (OPS-019).
-- G2 Host Grant and `tools:invoke` authorization (OPS-020).
+- G2 Host Grant and `tools:invoke` authorization (OPS-020; see [host-grants-v0.md](host-grants-v0.md)).
 - Portal grant management (OPS-021).
 - Remote Gateway, Harness, transport service, or Relay connection changes.
 - Distributed heartbeat infrastructure, media/payload persistence, or reverse

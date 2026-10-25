@@ -12,6 +12,9 @@ const DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS = 300;
 const DEFAULT_HOST_LEASE_SECONDS = 120;
 const HOST_LEASE_MIN_SECONDS = 30;
 const HOST_LEASE_MAX_SECONDS = 3600;
+const DEFAULT_HOST_GRANT_SNAPSHOT_TTL_SECONDS = 300;
+const HOST_GRANT_SNAPSHOT_TTL_MIN_SECONDS = 30;
+const HOST_GRANT_SNAPSHOT_TTL_MAX_SECONDS = 3600;
 const OAUTH_AUTHORIZATION_CODE_MIN_TTL_SECONDS = 60;
 const SERVICE_CREDENTIAL_KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
@@ -23,6 +26,7 @@ export interface AppConfig {
   sessionTtlSeconds: number;
   oauthAuthorizationCodeTtlSeconds: number;
   hostLeaseSeconds: number;
+  hostGrantSnapshotTtlSeconds: number;
   passwordMaxConcurrency: number;
   loginPerUsernamePerMinute: number;
   loginPerIpPerMinute: number;
@@ -49,6 +53,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     HOST_LEASE_MIN_SECONDS,
     HOST_LEASE_MAX_SECONDS,
   );
+  const hostGrantSnapshotTtlSeconds = readInteger(
+    env,
+    "MIRA_AUTH_HOST_GRANT_SNAPSHOT_TTL_SECONDS",
+    DEFAULT_HOST_GRANT_SNAPSHOT_TTL_SECONDS,
+    HOST_GRANT_SNAPSHOT_TTL_MIN_SECONDS,
+    HOST_GRANT_SNAPSHOT_TTL_MAX_SECONDS,
+  );
   const passwordMaxConcurrency = readInteger(env, "MIRA_AUTH_PASSWORD_MAX_CONCURRENCY", 2, 1, 4);
   const loginPerUsernamePerMinute = readInteger(env, "MIRA_AUTH_LOGIN_PER_USERNAME_PER_MINUTE", 5, 1, 60);
   const loginPerIpPerMinute = readInteger(env, "MIRA_AUTH_LOGIN_PER_IP_PER_MINUTE", 20, 1, 300);
@@ -64,6 +75,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     sessionTtlSeconds,
     oauthAuthorizationCodeTtlSeconds,
     hostLeaseSeconds,
+    hostGrantSnapshotTtlSeconds,
     passwordMaxConcurrency,
     loginPerUsernamePerMinute,
     loginPerIpPerMinute,
