@@ -1,6 +1,7 @@
 import type {
   DesktopHost,
   HostGrantSnapshot,
+  HostGrantManagementEntry,
   HostMobileGrantMutationResponse,
   MiraDevice,
   RemoteDeviceScope,
@@ -124,7 +125,29 @@ export function mutationResponse(input: {
 export function createFakeHostGrantsClient(
   overrides: Partial<HostGrantsClient> = {},
 ): HostGrantsClient {
-  return {
+  // Legacy per-Host fake inputs are composed into the new Portal-only
+  // management response, so component regressions keep testing the same
+  // scope/revision interactions without issuing execution proofs.
+  const client: HostGrantsClient = {
+    listManagement: async (token) => {
+      const hosts = await client.listHosts(token);
+      return Promise.all(hosts.map(async (host): Promise<HostGrantManagementEntry> => {
+        const snapshot = await client.getSnapshot(token, host.id);
+        return {
+          host: {
+            id: host.id,
+            displayName: host.displayName,
+            clientVersion: host.clientVersion,
+            availability: host.availability,
+          },
+          accountId: snapshot.accountId,
+          policyConfigured: snapshot.policyConfigured,
+          policyScopes: snapshot.policyScopes,
+          revision: snapshot.revision,
+          grants: snapshot.grants,
+        };
+      }));
+    },
     listHosts: async () => [hostAvailable],
     listDevices: async () => [mobileActive],
     getSnapshot: async () => snapshotGranted,
@@ -146,6 +169,7 @@ export function createFakeHostGrantsClient(
       }),
     ...overrides,
   };
+  return client;
 }
 
 export function createFakeAuthClient(
