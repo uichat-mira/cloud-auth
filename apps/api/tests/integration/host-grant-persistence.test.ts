@@ -314,6 +314,69 @@ describe("Host grant SQLite persistence", () => {
     second.db.close();
   });
 
+  it("rejects fresh account and Mobile grants if the owning Host Session expires or is revoked", async () => {
+    const testContext = context(databasePath());
+    await testContext.service.provisionAccount("alice", password);
+    const desktop = await createFirstPartySession(testContext, {
+      username: "alice",
+      password,
+    });
+    const mobile = await createFirstPartySession(testContext, {
+      username: "alice",
+      password,
+      platform: "mobile",
+    });
+    const host = await registerHost(testContext, desktop.sessionToken);
+    expect(
+      (await setPolicy(testContext, desktop.sessionToken, host.id, 0, ["tools:invoke"]))
+        .statusCode,
+    ).toBe(200);
+    const portal = await testContext.service.login("alice", password, "127.0.0.1");
+    expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(200);
+    expect((await mobileGrant(testContext, mobile.sessionToken, host.id)).statusCode).toBe(200);
+
+    const desktopSessionId = desktop.sessionToken.split(".")[1]!;
+    const original = testContext.db
+      .prepare("SELECT expires_at FROM sessions WHERE id = ?")
+      .get(desktopSessionId) as { expires_at: string };
+
+    // The Portal and Mobile Sessions remain active. Only the Host-owning
+    // Desktop Session expires, without any stored revoked_at marker.
+    testContext.db.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").run(
+      new Date(Date.now() - 1000).toISOString(),
+      desktopSessionId,
+    );
+
+    for (const response of [
+      await snapshot(testContext, portal.sessionToken, host.id),
+      await mobileGrant(testContext, mobile.sessionToken, host.id),
+      await patchGrant(
+        testContext,
+        portal.sessionToken,
+        host.id,
+        sessionDeviceId(testContext, mobile.sessionToken),
+        1,
+        [],
+      ),
+    ]) {
+      expect(response.statusCode).toBe(404);
+      expect(hostGrantErrorEnvelopeSchema.parse(response.json()).error.code).toBe(
+        "HOST_GRANT_NOT_FOUND",
+      );
+    }
+
+    // An explicit revoke has the same fail-closed effect, even if the
+    // original expiry time is restored in storage.
+    testContext.db
+      .prepare("UPDATE sessions SET expires_at = ?, revoked_at = ? WHERE id = ?")
+      .run(original.expires_at, new Date().toISOString(), desktopSessionId);
+    expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
+    expect((await mobileGrant(testContext, mobile.sessionToken, host.id)).statusCode).toBe(404);
+
+    await testContext.app.close();
+    testContext.db.close();
+  });
+
   it("invalidates future authority on session, Host and account-session revocation", async () => {
     const path = databasePath();
     const testContext = context(path);
