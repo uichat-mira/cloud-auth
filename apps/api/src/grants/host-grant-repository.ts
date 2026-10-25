@@ -4,6 +4,7 @@ import {
   canonicalRemoteDeviceScopes,
   remoteDeviceScopeSchema,
   type DevicePlatform,
+  type HostGrantManagementEntry,
   type RemoteDeviceScope,
 } from "@uichat-mira/cloud-auth-contracts";
 import { verifySessionSecretHash } from "../security/session-token.js";
@@ -392,6 +393,92 @@ export class HostGrantRepository {
           grants,
         },
       };
+    }, false);
+  }
+
+  /**
+   * Administrative ledger read for a logged-in account owner. Not a grant
+   * snapshot: it never emits issuedAt/validUntil and cannot authorize Gateway
+   * execution. In particular, an expired or logged-out Host cannot mint a new
+   * positive runtime snapshot but its durable grants remain revocable in Portal.
+   */
+  listGrantManagement(
+    input: GrantActor & { now: string },
+  ): HostGrantResult<HostGrantManagementEntry[]> {
+    return this.transaction(() => {
+      const owner = this.readActiveSession(
+        input.sessionId,
+        input.sessionSecretHash,
+        input.now,
+      );
+      if (!owner) return { ok: false as const, reason: "unauthorized" as const };
+      if (owner.devicePlatform === "mobile") {
+        return { ok: false as const, reason: "not_allowed" as const };
+      }
+
+      const hosts = this.db.prepare(
+        `SELECT h.id, h.lease_expires_at, h.revoked_at,
+                d.client_name, d.client_version,
+                s.revoked_at AS session_revoked_at,
+                s.expires_at AS session_expires_at
+           FROM desktop_hosts h
+           JOIN devices d ON d.id = h.device_id AND d.account_id = h.account_id
+           JOIN sessions s ON s.id = h.session_id AND s.account_id = h.account_id
+          WHERE h.account_id = ?
+            AND d.platform = 'desktop'
+            AND d.revoked_at IS NULL
+            AND (h.revoked_at IS NULL OR h.revoke_reason = 'host_session_revoked')
+          ORDER BY h.created_at ASC, h.id ASC`,
+      ).all(owner.accountId) as unknown as Array<{
+        id: string;
+        lease_expires_at: string;
+        revoked_at: string | null;
+        client_name: string | null;
+        client_version: string | null;
+        session_revoked_at: string | null;
+        session_expires_at: string;
+      }>;
+
+      const mobiles = this.db.prepare(
+        `SELECT id FROM devices
+          WHERE account_id = ? AND platform = 'mobile' AND revoked_at IS NULL
+          ORDER BY created_at ASC, id ASC`,
+      ).all(owner.accountId) as unknown as MobileDeviceRow[];
+
+      const entries: HostGrantManagementEntry[] = hosts.map((host) => {
+        const policy = this.findPolicy(host.id);
+        const scopes = policy ? parseStoredScopes(policy.policy_scopes) : [];
+        const overrides = policy ? this.listOverrides(host.id) : new Map<string, GrantScopesOverride>();
+        return {
+          host: {
+            id: host.id,
+            displayName: host.client_name,
+            clientVersion: host.client_version,
+            availability:
+              host.revoked_at === null &&
+              host.session_revoked_at === null &&
+              host.session_expires_at > input.now &&
+              host.lease_expires_at > input.now
+                ? "available" as const
+                : "offline" as const,
+          },
+          accountId: owner.accountId,
+          policyConfigured: policy !== undefined,
+          policyScopes: scopes,
+          revision: policy?.revision ?? 0,
+          grants: policy
+            ? mobiles.map((mobile) => {
+                const override = overrides.get(mobile.id) ?? null;
+                return {
+                  mobileDeviceId: mobile.id,
+                  scopes: effectiveGrantScopes(scopes, override),
+                  status: override?.revokedAt ? "revoked" as const : "active" as const,
+                };
+              })
+            : [],
+        };
+      });
+      return { ok: true as const, value: entries };
     }, false);
   }
 
