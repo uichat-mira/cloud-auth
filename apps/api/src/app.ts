@@ -4,6 +4,8 @@ import type { AuthService } from "./auth/auth-service.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import type { DeviceService } from "./devices/device-service.js";
 import { registerDeviceRoutes } from "./devices/routes.js";
+import type { HostGrantService } from "./grants/host-grant-service.js";
+import { registerHostGrantRoutes } from "./grants/routes.js";
 import type { HostService } from "./hosts/host-service.js";
 import { registerHostRoutes } from "./hosts/routes.js";
 import type { OAuthService } from "./oauth/oauth-service.js";
@@ -16,6 +18,7 @@ export interface BuildAppOptions {
   authService?: AuthService;
   deviceService?: DeviceService;
   hostService?: HostService;
+  hostGrantService?: HostGrantService;
   oauthService?: OAuthService;
   serviceCredentialService?: ServiceCredentialService;
   logger?: boolean | object;
@@ -46,6 +49,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   if (options.authService) registerAuthRoutes(app, options.authService);
   if (options.deviceService) registerDeviceRoutes(app, options.deviceService);
   if (options.hostService) registerHostRoutes(app, options.hostService);
+  if (options.hostGrantService) registerHostGrantRoutes(app, options.hostGrantService);
   if (options.oauthService) registerOAuthRoutes(app, options.oauthService);
   if (options.serviceCredentialService) {
     registerServiceCredentialRoutes(app, options.serviceCredentialService);

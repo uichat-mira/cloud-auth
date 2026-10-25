@@ -105,6 +105,36 @@ export type {
   RegisterHostRequest,
 } from "./host.js";
 
+export {
+  REMOTE_DEVICE_SCOPES,
+  canonicalRemoteDeviceScopes,
+  hostGrantEntrySchema,
+  hostGrantErrorCodeSchema,
+  hostGrantErrorEnvelopeSchema,
+  hostGrantPolicyResponseSchema,
+  hostGrantSnapshotSchema,
+  hostMobileGrantMutationResponseSchema,
+  hostMobileGrantSchema,
+  hostMobileGrantStatusSchema,
+  remoteDeviceScopeSchema,
+  setHostGrantPolicyRequestSchema,
+  updateHostMobileGrantRequestSchema,
+} from "./host-grant.js";
+
+export type {
+  HostGrantEntry,
+  HostGrantErrorCode,
+  HostGrantErrorEnvelope,
+  HostGrantPolicyResponse,
+  HostGrantSnapshot,
+  HostMobileGrant,
+  HostMobileGrantMutationResponse,
+  HostMobileGrantStatus,
+  RemoteDeviceScope,
+  SetHostGrantPolicyRequest,
+  UpdateHostMobileGrantRequest,
+} from "./host-grant.js";
+
 export const accountIdentitySchema = z
   .object({
     id: z.string().min(1),
