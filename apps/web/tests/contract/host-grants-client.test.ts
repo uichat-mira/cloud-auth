@@ -79,6 +79,35 @@ describe("Host grants client contract", () => {
     expect(requests[1]?.url).toBe("/v1/devices");
   });
 
+  it("reads a durable owner-only management ledger without runtime grant proof fields", async () => {
+    const requests: RecordedRequest[] = [];
+    const entry = {
+      host: {
+        id: grantHostId,
+        displayName: hostAvailable.displayName,
+        clientVersion: hostAvailable.clientVersion,
+        availability: "offline",
+      },
+      accountId: snapshotGranted.accountId,
+      policyConfigured: true,
+      policyScopes: snapshotGranted.policyScopes,
+      revision: snapshotGranted.revision,
+      grants: snapshotGranted.grants,
+    };
+    const client = clientReturning(jsonResponse({ hosts: [entry] }), requests);
+    await expect(client.listManagement("token-1")).resolves.toEqual([entry]);
+    expect(requests[0]?.url).toBe("/v1/hosts/grant-management");
+    expect(requests[0]?.init?.headers).toMatchObject({
+      authorization: "Bearer token-1",
+    });
+    const leakedProof = clientReturning(
+      jsonResponse({ hosts: [{ ...entry, validUntil: snapshotGranted.validUntil }] }),
+      [],
+    );
+    const invalid = await captureFailure(leakedProof.listManagement("token-1"));
+    expect(invalid.kind).toBe("malformed_response");
+  });
+
   it("reads the authoritative Host grant snapshot", async () => {
     const requests: RecordedRequest[] = [];
     const client = clientReturning(jsonResponse(snapshotGranted), requests);
