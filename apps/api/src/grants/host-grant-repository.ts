@@ -465,7 +465,7 @@ export class HostGrantRepository {
                 : "offline" as const,
           },
           accountId: owner.accountId,
-          policyConfigured: policy !== undefined,
+          policyConfigured: policy !== null,
           policyScopes: scopes,
           revision: policy?.revision ?? 0,
           grants: policy
