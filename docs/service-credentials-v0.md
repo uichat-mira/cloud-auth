@@ -1,6 +1,6 @@
 # Mira Cloud Service Credentials V0
 
-This document describes the implemented OPS-008 run 1 and run 2 scope: the canonical service-credential contract, isolated Ed25519 signing/offline verification helpers, authenticated device-bound issuance, public verifier discovery, and the V0 signing-key overlap strategy.
+This document describes the implemented OPS-008 run 1 and run 2 scope: the canonical service-credential contract, isolated Ed25519 signing/offline verification helpers, authenticated device-bound issuance, public verifier discovery, and the V0 signing-key overlap strategy. It also covers the OPS-019 account-owned Relay room/role admission layered on the same ticket contract.
 
 Full OPS-008 remains open. Cross-repository consumer implementation and production verification are intentionally not part of this repository change.
 
@@ -23,6 +23,15 @@ A Cloud Session is accepted for credential issuance only when all of the followi
 The authority check and signing happen inside one SQLite `BEGIN IMMEDIATE` transaction. Logout, session renewal, device revocation, account disable, and other writer operations cannot interleave between the final check and signing. A legacy Web session with `device_id IS NULL` remains valid for normal web login/restore/renewal but cannot obtain a service credential; it receives `403 SERVICE_CREDENTIAL_DEVICE_REQUIRED`.
 
 The endpoint derives account id, device id, issuer, key id, and scope on the server. It never trusts client-supplied identity, issuer, key id, audience beyond the two supported values, or business permissions, and it never returns or forwards the original Cloud Session.
+
+### Relay ticket entitlement (OPS-019)
+
+A syntactically valid Relay room and role are not authorization. For the Relay transport audience, Cloud Auth resolves the requested room against the authoritative OPS-018 Desktop Host room association inside the same issuance transaction and derives the caller device and platform from the Cloud Session. The ticket is issued only when all of the following hold:
+
+- `role = "host"`: the session is bound to the Desktop device that owns the room, that device belongs to the same account, and the Host's registration, owning session and presence lease are currently `available`;
+- `role = "client"`: the session is bound to a Mobile device of the same account as the room's Host, and the room association is currently `available`.
+
+Unknown, old, revoked or offline rooms, foreign accounts, a non-owner Desktop claiming `host`, a Mobile claiming `host`, and a Desktop claiming `client` all fail closed with `403 SERVICE_CREDENTIAL_RELAY_NOT_AUTHORIZED`. The denial does not reveal whether the room exists or who owns it, and ticket issuance never creates a room. Request body fields such as `account_id`, `device_id`, `platform` or an alternate role cannot override the server-side association. This ticket is transport-only: it does not mean Relay accepted a connection, and it never grants Host `tools:invoke`.
 
 ## Contract
 
@@ -110,7 +119,7 @@ Hosted Relay transport ticket:
 
 ### POST /v1/service-credentials
 
-Requires `Authorization: Bearer <Cloud Session>` for a device-bound, non-revoked session.
+Requires `Authorization: Bearer <Cloud Session>` for a device-bound, non-revoked session. Relay requests additionally require the caller device/platform and requested room/role to satisfy the OPS-019 admission rules above.
 
 Shiyan request:
 
@@ -145,10 +154,13 @@ Error codes:
 | 400 | `SERVICE_CREDENTIAL_INVALID_REQUEST` |
 | 401 | `SERVICE_CREDENTIAL_REAUTH_REQUIRED` |
 | 403 | `SERVICE_CREDENTIAL_DEVICE_REQUIRED` |
+| 403 | `SERVICE_CREDENTIAL_RELAY_NOT_AUTHORIZED` |
 | 503 | `SERVICE_CREDENTIAL_UNAVAILABLE` |
 | 500 | `SERVICE_CREDENTIAL_INTERNAL_ERROR` |
 
 A missing or malformed bearer, unknown session, expired session, revoked session, rotated-away old session secret, revoked device, disabled account, or denied account all return `401 SERVICE_CREDENTIAL_REAUTH_REQUIRED` without leaking which check failed.
+
+A valid device-bound session that is not entitled to the requested Relay room/role returns `403 SERVICE_CREDENTIAL_RELAY_NOT_AUTHORIZED` with one bounded message regardless of whether the room is unknown, offline, revoked or owned by another account. The route logs only a non-secret denial event; it does not log the Cloud Session, room, role or account.
 
 ### GET /.well-known/jwks.json
 
@@ -260,7 +272,7 @@ The unit rotation test constructs a cached pre-switch JWKS, signs tokens with bo
 - Changes to Cloud Shiyan, hosted Relay, Desktop, or Mobile repositories.
 - Mobile/Desktop credential-acquisition UI or wiring.
 - Shiyan business-resource authorization.
-- Relay WebSocket frame authorization or Remote Host Browser/Terminal/Agent/Thread capabilities.
+- Relay WebSocket connection admission in the Relay service (REL-001) or Relay frame authorization/Remote Host Browser/Terminal/Agent/Thread capabilities.
 - Per-request Cloud Auth introspection or online revocation checks by consumers.
 - Universal service tokens.
 - Public registration, OAuth, Passkeys, self-service recovery, Redis, PostgreSQL, hardware identifiers, or device proof-of-possession.
