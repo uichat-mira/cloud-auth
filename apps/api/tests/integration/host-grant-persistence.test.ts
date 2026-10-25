@@ -350,14 +350,6 @@ describe("Host grant SQLite persistence", () => {
     for (const response of [
       await snapshot(testContext, portal.sessionToken, host.id),
       await mobileGrant(testContext, mobile.sessionToken, host.id),
-      await patchGrant(
-        testContext,
-        portal.sessionToken,
-        host.id,
-        sessionDeviceId(testContext, mobile.sessionToken),
-        1,
-        [],
-      ),
     ]) {
       expect(response.statusCode).toBe(404);
       expect(hostGrantErrorEnvelopeSchema.parse(response.json()).error.code).toBe(
@@ -365,13 +357,36 @@ describe("Host grant SQLite persistence", () => {
       );
     }
 
-    // An explicit revoke has the same fail-closed effect, even if the
+    // A still-authorized account owner must be able to narrow and revoke
+    // durable permissions remotely without the Desktop signing in again.
+    const mobileDeviceId = sessionDeviceId(testContext, mobile.sessionToken);
+    const narrowed = await patchGrant(
+      testContext,
+      portal.sessionToken,
+      host.id,
+      mobileDeviceId,
+      1,
+      [],
+    );
+    expect(narrowed.statusCode).toBe(200);
+    expect(narrowed.json()).toMatchObject({ revision: 2, scopes: [], status: "active" });
+    expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
+
+    // An explicit revoke has the same fail-closed snapshot effect, even if the
     // original expiry time is restored in storage.
     testContext.db
       .prepare("UPDATE sessions SET expires_at = ?, revoked_at = ? WHERE id = ?")
       .run(original.expires_at, new Date().toISOString(), desktopSessionId);
     expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
     expect((await mobileGrant(testContext, mobile.sessionToken, host.id)).statusCode).toBe(404);
+
+    const revoked = await testContext.app.inject({
+      method: "DELETE",
+      url: `/v1/hosts/${host.id}/grants/${mobileDeviceId}?expectedRevision=2`,
+      headers: auth(portal.sessionToken),
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json()).toMatchObject({ revision: 3, scopes: [], status: "revoked" });
 
     await testContext.app.close();
     testContext.db.close();
