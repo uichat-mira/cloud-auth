@@ -1,6 +1,6 @@
 # Mira Cloud Account / Session V0
 
-This document describes the implemented OPS-006 account/session contract, the OPS-015 authenticated password-change flow, and the OPS-007 Mira Device lifecycle. It is not a public-registration or service-credential specification. The run 1 OPS-008 service-credential protocol core is documented separately in [service-credentials-v0.md](service-credentials-v0.md).
+This document describes the implemented OPS-006 account/session contract, the OPS-015 authenticated password-change flow, and the OPS-007 Mira Device lifecycle. It is not a public-registration or service-credential specification. The run 1 OPS-008 service-credential protocol core is documented separately in [service-credentials-v0.md](service-credentials-v0.md). The OPS-016 first-party OAuth authorization-code/PKCE boundary is documented in [oauth-authorization-v0.md](oauth-authorization-v0.md).
 
 ## User-facing contract
 
