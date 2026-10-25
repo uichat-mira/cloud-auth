@@ -1,6 +1,6 @@
 import {
   canonicalRemoteDeviceScopes,
-  type DesktopHost,
+  type HostGrantManagementEntry,
   type MiraDevice,
   type RemoteDeviceScope,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -102,8 +102,8 @@ export function DeviceGrantsCard() {
           </CardHeader>
           <CardContent className="px-4">
             <p className="text-xs leading-5 text-muted-foreground">
-              此处只显示云端仍注册的 Host。Desktop
-              明确退出登录后，历史 Host 可能不会出现在列表中。
+              此处会保留仍属于本账号、设备尚未撤销的历史 Host 授权。
+              设备退出云账号或 Session 过期时也可管理已保存的权限。
             </p>
           </CardContent>
         </Card>
@@ -465,13 +465,13 @@ function GrantsNotice({ notice }: { notice: HostGrantsNotice }) {
   );
 }
 
-function hostLabel(host: DesktopHost): string {
+function hostLabel(host: HostGrantManagementEntry["host"]): string {
   const displayName = host.displayName?.trim();
   if (displayName) return displayName;
   return "Mira Desktop";
 }
 
-function hostDescription(host: DesktopHost): string {
+function hostDescription(host: HostGrantManagementEntry["host"]): string {
   const details = [
     host.clientVersion ? `客户端版本 ${host.clientVersion}` : null,
     host.availability === "available"
