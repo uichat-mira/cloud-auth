@@ -5,9 +5,10 @@ authoritative Host -> same-account Mobile capability ledger, the minimal
 management API, and the bounded, verifiable snapshot that Desktop can cache
 without asking Cloud Auth on every Tool call.
 
-It does not execute Remote Gateway tools, implement Desktop login UI, implement
-Portal UI, authorize Relay connections, or replace Remote V1 pairing for local
-and Tailscale paths.
+The grant authority itself does not execute Remote Gateway tools, implement
+Desktop login UI, authorize Relay connections, or replace Remote V1 pairing
+for local and Tailscale paths. The signed-in Portal grant-management UI is
+implemented by OPS-021 as a separate consumer of this authority.
 
 ## Authority boundaries
 
@@ -361,7 +362,7 @@ workspace content.
 
 - DSK-005 Desktop login-stage scope selection UI.
 - DSK-007 Host Gateway Tool enforcement.
-- OPS-021 Cloud Portal grant management UI.
+- Live cross-device Portal/Desktop/Mobile T4 acceptance (separate from the OPS-021 implementation).
 - Live Remote V1 pairing migration, hardware attestation, cryptographic offline
   grant tokens, Hosted Relay connection changes, and any Tool execution.
 - Reverse Mobile capability delegation or a general IAM/permission engine.
