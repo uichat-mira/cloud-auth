@@ -446,7 +446,7 @@ export class HostGrantRepository {
     const session = this.readActiveSession(input.sessionId, input.sessionSecretHash, input.now);
     if (!session) return { ok: false, reason: "unauthorized" };
 
-    if (!this.isHostActiveForAccount(hostId, session.accountId, input.now)) {
+    if (!this.isHostRegisteredForAccount(hostId, session.accountId)) {
       return { ok: false, reason: "not_found" };
     }
 
@@ -531,6 +531,30 @@ export class HostGrantRepository {
     };
   }
 
+  /**
+   * Account owners can narrow or revoke a durable Host grant even while that
+   * Host's Desktop Session is expired or logged out. Only a non-revoked Host
+   * registration and device ownership are required for an owner mutation;
+   * fresh positive snapshots have the stricter active-session gate below.
+   */
+  private isHostRegisteredForAccount(hostId: string, accountId: string): boolean {
+    const row = this.db
+      .prepare(
+        `SELECT 1 AS ok
+           FROM desktop_hosts h
+           JOIN devices d ON d.id = h.device_id
+          WHERE h.id = ?
+            AND h.account_id = ?
+            AND h.revoked_at IS NULL
+            AND d.account_id = h.account_id
+            AND d.platform = 'desktop'
+            AND d.revoked_at IS NULL`,
+      )
+      .get(hostId, accountId);
+    return row !== undefined;
+  }
+
+  /** No fresh grant proof may be issued after the Host-owning Session expires. */
   private isHostActiveForAccount(hostId: string, accountId: string, now: string): boolean {
     const row = this.db
       .prepare(
