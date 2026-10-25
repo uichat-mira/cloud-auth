@@ -1,7 +1,6 @@
 import {
   canonicalRemoteDeviceScopes,
-  type DesktopHost,
-  type HostGrantSnapshot,
+  type HostGrantManagementEntry,
   type HostMobileGrantMutationResponse,
   type MiraDevice,
   type RemoteDeviceScope,
@@ -16,7 +15,6 @@ import {
 } from "react";
 import {
   createHostGrantsFailure,
-  HostGrantsError,
   toHostGrantsFailure,
   type HostGrantsClient,
   type HostGrantsFailure,
@@ -29,7 +27,7 @@ export interface HostGrantItem {
 }
 
 export interface HostGrantView {
-  host: DesktopHost;
+  host: HostGrantManagementEntry["host"];
   revision: number;
   policyConfigured: boolean;
   policyScopes: RemoteDeviceScope[];
@@ -120,26 +118,17 @@ export function useDeviceGrants({
     setState((current) => ({ ...current, loadFailure: null, notice: null }));
 
     try {
-      const [hosts, devices] = await Promise.all([
-        client.listHosts(sessionToken),
+      const [managed, devices] = await Promise.all([
+        client.listManagement(sessionToken),
         client.listDevices(sessionToken),
       ]);
 
-      const hostViews = await Promise.all(
-        hosts.map(async (host) => {
-          try {
-            const snapshot = await client.getSnapshot(sessionToken, host.id);
-            if (snapshot.accountId !== accountId) {
-              throw new HostGrantsError(
-                createHostGrantsFailure("unexpected_response", { status: 200 }),
-              );
-            }
-            return toHostView(host, snapshot, null);
-          } catch (error) {
-            return toHostView(host, null, toHostGrantsFailure(error));
-          }
-        }),
-      );
+      // Management is account-owned state, not a runtime Host grant snapshot.
+      // The backend never attaches a TTL or current execution credential.
+      if (managed.some((entry) => entry.accountId !== accountId)) {
+        throw new Error("Cross-account grant-management response");
+      }
+      const hostViews = managed.map(toHostView);
 
       if (requestSequence !== sequence.current) return;
 
@@ -322,30 +311,14 @@ function applyMutation(
   });
 }
 
-function toHostView(
-  host: DesktopHost,
-  snapshot: HostGrantSnapshot | null,
-  failure: HostGrantsFailure | null,
-): HostGrantView {
-  if (!snapshot) {
-    return {
-      host,
-      revision: 0,
-      policyConfigured: false,
-      policyScopes: [],
-      validUntil: null,
-      grants: [],
-      failure,
-    };
-  }
-
+function toHostView(entry: HostGrantManagementEntry): HostGrantView {
   return {
-    host,
-    revision: snapshot.revision,
-    policyConfigured: snapshot.policyConfigured,
-    policyScopes: snapshot.policyScopes,
-    validUntil: snapshot.validUntil,
-    grants: snapshot.grants.map((grant) => ({
+    host: entry.host,
+    revision: entry.revision,
+    policyConfigured: entry.policyConfigured,
+    policyScopes: entry.policyScopes,
+    validUntil: null,
+    grants: entry.grants.map((grant) => ({
       mobileDeviceId: grant.mobileDeviceId,
       scopes: grant.scopes,
       status: grant.status,
