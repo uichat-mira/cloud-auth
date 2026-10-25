@@ -33,6 +33,7 @@ const authService = new AuthService(
 const deviceService = new DeviceService(new DeviceRepository(db), authService);
 const oauthService = new OAuthService(new OAuthRepository(db), authService, {
   codeTtlSeconds: config.oauthAuthorizationCodeTtlSeconds,
+  sessionTtlSeconds: config.sessionTtlSeconds,
 });
 const serviceCredentialService = new ServiceCredentialService(
   repository,

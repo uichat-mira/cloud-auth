@@ -1,15 +1,19 @@
 import {
   findFirstPartyOAuthClient,
   type FirstPartyOAuthClient,
+  type IssuedCloudSession,
   type OAuthAuthorizationRequest,
+  type OAuthTokenRequest,
 } from "@uichat-mira/cloud-auth-contracts";
 import type { AuthService } from "../auth/auth-service.js";
-import { issueAuthorizationCode } from "./authorization-code.js";
+import { issueSessionToken } from "../security/session-token.js";
+import { issueAuthorizationCode, parseAuthorizationCode } from "./authorization-code.js";
 import { OAuthError } from "./errors.js";
 import type { OAuthRepository } from "./oauth-repository.js";
 
 export interface OAuthServiceOptions {
   codeTtlSeconds: number;
+  sessionTtlSeconds: number;
   now?: () => Date;
 }
 
@@ -60,6 +64,52 @@ export class OAuthService {
     return this.issueForAccount(account.id, request);
   }
 
+  /**
+   * Redeem one authorization code as the receiving installation. The returned
+   * value is the existing Cloud Session authority, not a separate access or
+   * refresh token: renew, logout, device revoke and service credentials work
+   * through the same session/repository checks as password login.
+   *
+   * Every invalid condition maps to one bounded invalid_grant response so the
+   * endpoint does not reveal whether a code exists, expired, was consumed,
+   * belongs to another client/redirect, or failed PKCE verification.
+   */
+  exchangeAuthorizationCode(request: OAuthTokenRequest): IssuedCloudSession {
+    const parsed = parseAuthorizationCode(request.code);
+    if (!parsed) throw invalidGrant();
+
+    const now = this.now();
+    const nowIso = now.toISOString();
+    const expiresAt = new Date(
+      now.getTime() + this.options.sessionTtlSeconds * 1000,
+    ).toISOString();
+    const issued = issueSessionToken();
+
+    const exchanged = this.repository.exchangeAuthorizationCode({
+      codeId: parsed.id,
+      codeSecret: parsed.secret,
+      clientId: request.client_id,
+      redirectUri: request.redirect_uri,
+      codeVerifier: request.code_verifier,
+      installationId: request.installation_id.toLowerCase(),
+      platform: request.platform,
+      now: nowIso,
+      sessionId: issued.id,
+      sessionSecretHash: issued.secretHash,
+      sessionExpiresAt: expiresAt,
+    });
+    if (!exchanged.ok) throw invalidGrant();
+
+    return {
+      sessionToken: issued.token,
+      account: {
+        id: exchanged.value.accountId,
+        username: exchanged.value.accountUsername,
+      },
+      expiresAt,
+    };
+  }
+
   private issueForAccount(accountId: string, request: OAuthAuthorizationRequest): IssuedAuthorizationGrant {
     const client = this.resolveRegisteredClient(
       request.client_id,
@@ -106,4 +156,12 @@ export class OAuthService {
       expiresAt,
     };
   }
+}
+
+function invalidGrant(): OAuthError {
+  return new OAuthError(
+    "OAUTH_INVALID_GRANT",
+    400,
+    "Authorization code cannot be exchanged",
+  );
 }

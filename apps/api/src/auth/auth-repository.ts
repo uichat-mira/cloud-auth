@@ -150,6 +150,7 @@ export class AuthRepository {
         )
         .run(passwordHash, now, now, accountId);
       this.revokeAllSessions(accountId, revokeReason, now);
+      this.revokePendingOAuthAuthorizations(accountId, revokeReason, now);
       this.db.exec("COMMIT;");
     } catch (error) {
       this.db.exec("ROLLBACK;");
@@ -201,6 +202,7 @@ export class AuthRepository {
         return false;
       }
       this.revokeAllSessions(accountId, "password_changed", now);
+      this.revokePendingOAuthAuthorizations(accountId, "password_changed", now);
       this.db.exec("COMMIT;");
       return true;
     } catch (error) {
@@ -481,6 +483,21 @@ export class AuthRepository {
           WHERE id = ?`,
       )
       .run(now, reason, sessionId);
+  }
+
+  /**
+   * A password rotation invalidates pending browser authorization alongside
+   * existing Cloud Sessions. Keep both writes in the caller's transaction so
+   * no code can be exchanged between session revocation and code revocation.
+   */
+  private revokePendingOAuthAuthorizations(accountId: string, reason: string, now: string): void {
+    this.db
+      .prepare(
+        `UPDATE oauth_authorization_codes
+            SET consumed_at = ?, consume_reason = ?
+          WHERE account_id = ? AND consumed_at IS NULL`,
+      )
+      .run(now, reason, accountId);
   }
 
   private revokeAllSessions(accountId: string, reason: string, now: string): void {

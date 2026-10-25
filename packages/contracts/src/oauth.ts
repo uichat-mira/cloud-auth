@@ -12,6 +12,7 @@ export const MIRA_DESKTOP_OAUTH_REDIRECT_URI = "mira-desktop://oauth/callback";
 export const MIRA_MOBILE_OAUTH_REDIRECT_URI = "mira-mobile://oauth/callback";
 
 export const OAUTH_AUTHORIZATION_CODE_RESPONSE_TYPE = "code";
+export const OAUTH_AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
 export const OAUTH_PKCE_S256_METHOD = "S256";
 export const OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS = 300;
 export const OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS = 600;
@@ -49,6 +50,14 @@ export const oauthPkceCodeChallengeSchema = z
   );
 
 export const oauthCodeChallengeMethodSchema = z.literal(OAUTH_PKCE_S256_METHOD);
+
+/**
+ * RFC 7636 code verifier: 43-128 unreserved characters. The token endpoint
+ * only accepts this shape; `plain` and any other downgrade are rejected.
+ */
+export const oauthPkceCodeVerifierSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9\-._~]{43,128}$/, "code_verifier must be 43-128 RFC 7636 characters");
 
 export const oauthAuthorizationCodeSchema = z
   .string()
@@ -138,6 +147,8 @@ export const oauthAuthorizationErrorCallbackSchema = z
 export const oauthApiErrorCodeSchema = z.enum([
   "OAUTH_INVALID_REQUEST",
   "OAUTH_UNAUTHORIZED_CLIENT",
+  "OAUTH_INVALID_GRANT",
+  "OAUTH_UNSUPPORTED_GRANT_TYPE",
   "OAUTH_REAUTH_REQUIRED",
   "OAUTH_INTERNAL_ERROR",
 ]);

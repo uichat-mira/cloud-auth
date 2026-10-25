@@ -1,7 +1,9 @@
 import {
+  OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
   oauthAuthorizationCallbackErrorSchema,
   oauthAuthorizationRequestSchema,
   oauthStateSchema,
+  oauthTokenRequestSchema,
   type OAuthAuthorizationRequest,
   type FirstPartyOAuthClient,
   type OAuthAuthorizationCallbackError,
@@ -105,6 +107,15 @@ const FORM_FIELDS = new Set<string>([
   "password",
   CSRF_FIELD_NAME,
 ]);
+const TOKEN_FORM_FIELDS = new Set<string>([
+  "grant_type",
+  "client_id",
+  "code",
+  "redirect_uri",
+  "code_verifier",
+  "installation_id",
+  "platform",
+]);
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
@@ -180,13 +191,39 @@ function renderLoginForm(
     .send(page);
 }
 
-function parseForm(request: FastifyRequest): Record<string, string> | null {
+function parseForm(
+  request: FastifyRequest,
+  allowedFields: ReadonlySet<string> = FORM_FIELDS,
+): Record<string, string> | null {
   if (typeof request.body !== "string") return null;
   const values: Record<string, string> = {};
   const seen = new Set<string>();
   for (const [key, value] of new URLSearchParams(request.body)) {
-    if (!FORM_FIELDS.has(key) || seen.has(key)) return null;
+    if (!allowedFields.has(key) || seen.has(key)) return null;
     seen.add(key);
+    values[key] = value;
+  }
+  return values;
+}
+
+/**
+ * OAuth token requests are canonically form-encoded. Native clients may submit
+ * the same bounded field set as a flat JSON object; every value must still be
+ * a string and every unknown field is rejected.
+ */
+function parseTokenBody(request: FastifyRequest): Record<string, string> | null {
+  if (typeof request.body === "string") return parseForm(request, TOKEN_FORM_FIELDS);
+  if (
+    !request.body ||
+    typeof request.body !== "object" ||
+    Array.isArray(request.body)
+  ) {
+    return null;
+  }
+
+  const values: Record<string, string> = {};
+  for (const [key, value] of Object.entries(request.body as Record<string, unknown>)) {
+    if (!TOKEN_FORM_FIELDS.has(key) || typeof value !== "string") return null;
     values[key] = value;
   }
   return values;
@@ -315,4 +352,48 @@ export function registerOAuthRoutes(app: FastifyInstance, oauthService: OAuthSer
     }
   });
 
+  app.post("/v1/oauth/token", async (request, reply) => {
+    const form = parseTokenBody(request);
+    if (!form) {
+      return sendApiError(
+        reply,
+        400,
+        "OAUTH_INVALID_REQUEST",
+        "Malformed token request",
+      );
+    }
+
+    if (form.grant_type !== OAUTH_AUTHORIZATION_CODE_GRANT_TYPE) {
+      return form.grant_type === undefined
+        ? sendApiError(
+            reply,
+            400,
+            "OAUTH_INVALID_REQUEST",
+            "Token request is missing grant_type",
+          )
+        : sendApiError(
+            reply,
+            400,
+            "OAUTH_UNSUPPORTED_GRANT_TYPE",
+            "Only the authorization_code grant is supported",
+          );
+    }
+
+    const parsed = oauthTokenRequestSchema.safeParse(form);
+    if (!parsed.success) {
+      return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Invalid token request");
+    }
+
+    try {
+      return noStore(reply).code(200).send(
+        oauthService.exchangeAuthorizationCode(parsed.data),
+      );
+    } catch (error) {
+      if (error instanceof OAuthError) {
+        return sendApiError(reply, error.statusCode, error.code, error.message);
+      }
+      reply.log.error({ err: error }, "oauth token exchange failed");
+      return sendApiError(reply, 500, "OAUTH_INTERNAL_ERROR", "Token exchange failed");
+    }
+  });
 }

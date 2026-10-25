@@ -1,4 +1,11 @@
 import { z } from "zod";
+import {
+  OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
+  oauthAuthorizationCodeSchema,
+  oauthClientIdSchema,
+  oauthPkceCodeVerifierSchema,
+  oauthRedirectUriSchema,
+} from "./oauth.js";
 
 export {
   FIRST_PARTY_OAUTH_CLIENTS,
@@ -7,6 +14,7 @@ export {
   MIRA_MOBILE_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_REDIRECT_URI,
   OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
+  OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
   OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
   OAUTH_AUTHORIZATION_CODE_RESPONSE_TYPE,
   OAUTH_PKCE_S256_METHOD,
@@ -22,6 +30,7 @@ export {
   oauthClientIdSchema,
   oauthCodeChallengeMethodSchema,
   oauthPkceCodeChallengeSchema,
+  oauthPkceCodeVerifierSchema,
   oauthRedirectUriSchema,
   oauthStateSchema,
 } from "./oauth.js";
@@ -92,6 +101,27 @@ const installationIdPattern =
 const installationIdSchema = z
   .string()
   .regex(installationIdPattern, "installationId must be a randomly generated UUIDv4");
+
+/**
+ * First-party token exchange. Standard OAuth fields use snake_case because the
+ * endpoint consumes application/x-www-form-urlencoded. The installation
+ * identity is an input identifier only: ownership, platform and revocation are
+ * resolved server-side from the authorized account, never trusted from the
+ * client. Unknown or repeated parameters are rejected by the route.
+ */
+export const oauthTokenRequestSchema = z
+  .object({
+    grant_type: z.literal(OAUTH_AUTHORIZATION_CODE_GRANT_TYPE),
+    client_id: oauthClientIdSchema,
+    code: oauthAuthorizationCodeSchema,
+    redirect_uri: oauthRedirectUriSchema,
+    code_verifier: oauthPkceCodeVerifierSchema,
+    installation_id: installationIdSchema,
+    platform: devicePlatformSchema,
+  })
+  .strict();
+
+export type OAuthTokenRequest = z.infer<typeof oauthTokenRequestSchema>;
 
 export const deviceLoginContextSchema = z
   .object({
