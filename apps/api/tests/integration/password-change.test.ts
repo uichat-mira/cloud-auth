@@ -1,8 +1,10 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthError } from "../../src/auth/auth-service.js";
+import { PasswordHasher } from "../../src/security/password.js";
+import { randomUUID } from "node:crypto";
 import { createTestAuth, type TestAuthContext } from "../helpers/auth.js";
 
 const cleanup: string[] = [];
@@ -164,6 +166,60 @@ describe("self-service password change", () => {
     );
 
     context.db.close();
+  });
+
+  it("rejects a password change when its device is revoked during hashing", async () => {
+    const context = createContext();
+    await context.service.provisionAccount("race", password);
+    const sessionA = await context.service.login("race", password, "127.0.0.1");
+    const sessionB = await context.service.login("race", password, "127.0.0.2");
+    const deviceA = context.deviceService.register(sessionA.sessionToken, {
+      installationId: randomUUID(),
+      platform: "desktop",
+    });
+    context.deviceService.register(sessionB.sessionToken, {
+      installationId: randomUUID(),
+      platform: "mobile",
+    });
+    const before = accountRow(context, "race");
+
+    const replacementHash = await new PasswordHasher().hash(replacementPassword);
+    let releaseHash!: () => void;
+    let startHash!: () => void;
+    const gate = new Promise<void>((resolve) => { releaseHash = resolve; });
+    const entered = new Promise<void>((resolve) => { startHash = resolve; });
+    const hashSpy = vi.spyOn(PasswordHasher.prototype, "hash").mockImplementation(async (value) => {
+      if (value !== replacementPassword) throw new Error("Unexpected hash invocation");
+      startHash();
+      await gate;
+      return replacementHash;
+    });
+
+    try {
+      const pending = context.service.changePassword(
+        sessionA.sessionToken,
+        password,
+        replacementPassword,
+        "127.0.0.1",
+      );
+      await entered;
+      context.deviceService.revoke(sessionB.sessionToken, deviceA.id);
+      releaseHash();
+
+      await expectAuthError(pending, "AUTH_REAUTH_REQUIRED", 401);
+      expect(accountRow(context, "race")).toEqual(before);
+      expect(context.service.getSession(sessionB.sessionToken).account.username).toBe("race");
+      expect(sessionsFor(context, "race")).toEqual(
+        expect.arrayContaining([
+          { revoked_at: expect.any(String), revoke_reason: "device_revoked" },
+          { revoked_at: null, revoke_reason: null },
+        ]),
+      );
+    } finally {
+      releaseHash();
+      hashSpy.mockRestore();
+      context.db.close();
+    }
   });
 
   it("keeps the new password valid after the database is reopened", async () => {

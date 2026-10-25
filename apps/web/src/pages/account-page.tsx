@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
 import { ChangePasswordCard } from "@/components/change-password-card";
+import { DeviceGrantsCard } from "@/components/device-grants-card";
 import { FutureServices } from "@/components/future-services";
 import { Button } from "@/components/ui/button";
 import {
@@ -155,6 +156,8 @@ export function AccountPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isAuthenticated ? <DeviceGrantsCard /> : null}
 
       {isAuthenticated ? <ChangePasswordCard /> : null}
 
