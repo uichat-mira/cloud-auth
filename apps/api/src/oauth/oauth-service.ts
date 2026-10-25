@@ -42,12 +42,25 @@ export class OAuthService {
   }
 
   /**
-   * The Cloud Session is the only accepted authorization context. Callers
-   * cannot name an account, device, consent flag, or callback on their own:
-   * the account comes from the server-validated browser session and the
-   * callback must already be in the reviewed first-party registry.
+   * Only a successful, rate-limited account/password verification performed
+   * through the first-party browser form may issue a code. A caller-supplied
+   * Cloud Session bearer is not an OAuth authorization decision.
    */
-  authorize(token: string, request: OAuthAuthorizationRequest): IssuedAuthorizationGrant {
+  async authorizeWithPassword(
+    username: string,
+    password: string,
+    ip: string,
+    request: OAuthAuthorizationRequest,
+  ): Promise<IssuedAuthorizationGrant> {
+    const client = this.resolveRegisteredClient(request.client_id, request.redirect_uri);
+    if (!client) {
+      throw new OAuthError("OAUTH_UNAUTHORIZED_CLIENT", 400, "OAuth client or redirect URI is not registered");
+    }
+    const account = await this.authService.authenticate(username, password, ip);
+    return this.issueForAccount(account.id, request);
+  }
+
+  private issueForAccount(accountId: string, request: OAuthAuthorizationRequest): IssuedAuthorizationGrant {
     const client = this.resolveRegisteredClient(
       request.client_id,
       request.redirect_uri,
@@ -60,7 +73,6 @@ export class OAuthService {
       );
     }
 
-    const session = this.authService.requireSessionContext(token);
     const now = this.now();
     const nowIso = now.toISOString();
     const expiresAt = new Date(
@@ -70,7 +82,7 @@ export class OAuthService {
 
     const created = this.repository.createAuthorizationCodeIfAccountActive({
       id: issued.id,
-      accountId: session.account.id,
+      accountId,
       clientId: client.clientId,
       redirectUri: request.redirect_uri,
       codeChallenge: request.code_challenge,
