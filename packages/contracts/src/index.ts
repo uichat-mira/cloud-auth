@@ -109,6 +109,8 @@ export {
   REMOTE_DEVICE_SCOPES,
   canonicalRemoteDeviceScopes,
   hostGrantEntrySchema,
+  hostGrantManagementEntrySchema,
+  hostGrantManagementListResponseSchema,
   hostGrantErrorCodeSchema,
   hostGrantErrorEnvelopeSchema,
   hostGrantPolicyResponseSchema,
@@ -123,6 +125,8 @@ export {
 
 export type {
   HostGrantEntry,
+  HostGrantManagementEntry,
+  HostGrantManagementListResponse,
   HostGrantErrorCode,
   HostGrantErrorEnvelope,
   HostGrantPolicyResponse,
