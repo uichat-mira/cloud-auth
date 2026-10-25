@@ -255,8 +255,23 @@ describe("Host grant HTTP contract", () => {
       maxStalenessSeconds: 300,
     });
 
+    // A Mobile may read only its own grant; the Host-wide ledger exposes
+    // sibling device IDs and is reserved for Desktop / account Portal.
+    const deniedFullSnapshot = await getSnapshot(
+      testContext,
+      laterMobile.sessionToken,
+      host.id,
+    );
+    expect(deniedFullSnapshot.statusCode).toBe(403);
+    expect(hostGrantErrorEnvelopeSchema.parse(deniedFullSnapshot.json()).error.code)
+      .toBe("HOST_GRANT_NOT_ALLOWED");
+
     // A Desktop device row or a Portal/account session cannot mint the ceiling.
     const portal = await testContext.service.login("alice", password, "127.0.0.1");
+    const portalSnapshot = hostGrantSnapshotSchema.parse(
+      (await getSnapshot(testContext, portal.sessionToken, host.id)).json(),
+    );
+    expect(portalSnapshot.grants).toHaveLength(2);
     expect(
       (await setPolicy(testContext, firstMobile.sessionToken, host.id, {
         expectedRevision: 2,
