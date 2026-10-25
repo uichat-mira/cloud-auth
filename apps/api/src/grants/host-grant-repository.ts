@@ -336,7 +336,7 @@ export class HostGrantRepository {
       );
       if (!session) return { ok: false as const, reason: "unauthorized" as const };
 
-      if (!this.isHostActiveForAccount(input.hostId, session.accountId)) {
+      if (!this.isHostActiveForAccount(input.hostId, session.accountId, input.now)) {
         return { ok: false as const, reason: "not_found" as const };
       }
 
@@ -403,7 +403,7 @@ export class HostGrantRepository {
         return { ok: false as const, reason: "not_allowed" as const };
       }
 
-      if (!this.isHostActiveForAccount(input.hostId, session.accountId)) {
+      if (!this.isHostActiveForAccount(input.hostId, session.accountId, input.now)) {
         return { ok: false as const, reason: "not_found" as const };
       }
 
@@ -446,7 +446,7 @@ export class HostGrantRepository {
     const session = this.readActiveSession(input.sessionId, input.sessionSecretHash, input.now);
     if (!session) return { ok: false, reason: "unauthorized" };
 
-    if (!this.isHostActiveForAccount(hostId, session.accountId)) {
+    if (!this.isHostActiveForAccount(hostId, session.accountId, input.now)) {
       return { ok: false, reason: "not_found" };
     }
 
@@ -531,20 +531,25 @@ export class HostGrantRepository {
     };
   }
 
-  private isHostActiveForAccount(hostId: string, accountId: string): boolean {
+  private isHostActiveForAccount(hostId: string, accountId: string, now: string): boolean {
     const row = this.db
       .prepare(
         `SELECT 1 AS ok
            FROM desktop_hosts h
            JOIN devices d ON d.id = h.device_id
+           JOIN sessions s ON s.id = h.session_id
           WHERE h.id = ?
             AND h.account_id = ?
             AND h.revoked_at IS NULL
             AND d.account_id = h.account_id
             AND d.platform = 'desktop'
-            AND d.revoked_at IS NULL`,
+            AND d.revoked_at IS NULL
+            AND s.account_id = h.account_id
+            AND s.device_id = h.device_id
+            AND s.revoked_at IS NULL
+            AND s.expires_at > ?`,
       )
-      .get(hostId, accountId);
+      .get(hostId, accountId, now);
     return row !== undefined;
   }
 
