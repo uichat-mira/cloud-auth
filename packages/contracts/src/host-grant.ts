@@ -105,6 +105,30 @@ export const hostGrantSnapshotSchema = z
   .strict();
 
 /**
+ * Account-owner Portal management view of durable Host grants. Unlike the
+ * runtime /grants snapshot this response is NEVER a positive Host execution
+ * credential: it carries no issuedAt, validUntil or grant TTL. Historical
+ * Hosts ended by Desktop logout remain visible until their device is revoked.
+ */
+export const hostGrantManagementEntrySchema = z.object({
+  host: z.object({
+    id: z.string().min(1),
+    displayName: z.string().min(1).max(80).nullable(),
+    clientVersion: z.string().min(1).max(64).nullable(),
+    availability: z.enum(["available", "offline"]),
+  }).strict(),
+  accountId: z.string().min(1),
+  policyConfigured: z.boolean(),
+  policyScopes: z.array(remoteDeviceScopeSchema),
+  revision: expectedRevisionSchema,
+  grants: z.array(hostGrantEntrySchema),
+}).strict();
+
+export const hostGrantManagementListResponseSchema = z.object({
+  hosts: z.array(hostGrantManagementEntrySchema),
+}).strict();
+
+/**
  * A Mobile's own effective grant. It never includes another Mobile's identity
  * or the Host-wide snapshot.
  */
@@ -166,3 +190,6 @@ export type HostMobileGrantMutationResponse = z.infer<
 >;
 export type HostGrantErrorCode = z.infer<typeof hostGrantErrorCodeSchema>;
 export type HostGrantErrorEnvelope = z.infer<typeof hostGrantErrorEnvelopeSchema>;
+
+export type HostGrantManagementEntry = z.infer<typeof hostGrantManagementEntrySchema>;
+export type HostGrantManagementListResponse = z.infer<typeof hostGrantManagementListResponseSchema>;
