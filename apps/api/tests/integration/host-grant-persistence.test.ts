@@ -392,6 +392,78 @@ describe("Host grant SQLite persistence", () => {
     testContext.db.close();
   });
 
+  it("keeps owner narrowing/revoke available after Desktop logout without restoring grants", async () => {
+    const testContext = context(databasePath());
+    await testContext.service.provisionAccount("alice", password);
+    const installationId = randomUUID();
+    const desktop = await createFirstPartySession(testContext, {
+      username: "alice", password, installationId,
+    });
+    const mobile = await createFirstPartySession(testContext, {
+      username: "alice", password, platform: "mobile",
+    });
+    const host = await registerHost(testContext, desktop.sessionToken);
+    expect((await setPolicy(
+      testContext, desktop.sessionToken, host.id, 0, ["tools:read", "tools:invoke"],
+    )).statusCode).toBe(200);
+    const portal = await testContext.service.login("alice", password, "127.0.0.1");
+    const mobileDeviceId = sessionDeviceId(testContext, mobile.sessionToken);
+
+    expect((await testContext.app.inject({
+      method: "POST",
+      url: "/v1/auth/logout",
+      headers: auth(desktop.sessionToken),
+    })).statusCode).toBe(204);
+    const hostRow = testContext.db
+      .prepare("SELECT revoked_at, revoke_reason FROM desktop_hosts WHERE id = ?")
+      .get(host.id) as { revoked_at: string | null; revoke_reason: string | null };
+    expect(hostRow.revoked_at).not.toBeNull();
+    expect(hostRow.revoke_reason).toBe("host_session_revoked");
+
+    // No fresh grants on logout, but the still-signed-in owner can reduce
+    // durable authority without onsite confirmation or an active Desktop.
+    expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
+    const narrowed = await patchGrant(
+      testContext, portal.sessionToken, host.id, mobileDeviceId, 1, ["tools:read"],
+    );
+    expect(narrowed.statusCode).toBe(200);
+    expect(narrowed.json()).toMatchObject({ revision: 2, scopes: ["tools:read"] });
+
+    const revoked = await testContext.app.inject({
+      method: "DELETE",
+      url: `/v1/hosts/${host.id}/grants/${mobileDeviceId}?expectedRevision=2`,
+      headers: auth(portal.sessionToken),
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(revoked.json()).toMatchObject({ revision: 3, status: "revoked", scopes: [] });
+
+    const relogin = await createFirstPartySession(testContext, {
+      username: "alice", password, installationId,
+    });
+    const reRegistered = await registerHost(testContext, relogin.sessionToken);
+    expect(reRegistered.id).toBe(host.id);
+    const restored = hostGrantSnapshotSchema.parse(
+      (await snapshot(testContext, relogin.sessionToken, host.id)).json(),
+    );
+    expect(restored.revision).toBe(3);
+    expect(restored.grants).toEqual([
+      { mobileDeviceId, status: "revoked", scopes: [] },
+    ]);
+
+    // Actual device revocation remains a hard stop, not a session-only grace.
+    expect((await testContext.app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${reRegistered.deviceId}`,
+      headers: auth(portal.sessionToken),
+    })).statusCode).toBe(200);
+    expect((await patchGrant(
+      testContext, portal.sessionToken, host.id, mobileDeviceId, 3, [],
+    )).statusCode).toBe(404);
+
+    await testContext.app.close();
+    testContext.db.close();
+  });
+
   it("invalidates future authority on session, Host and account-session revocation", async () => {
     const path = databasePath();
     const testContext = context(path);
