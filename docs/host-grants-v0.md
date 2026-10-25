@@ -276,7 +276,20 @@ revocation.
 
 Device revoke, Host revoke, logout, password change, account disable/deny, and
 session expiry withdraw future snapshot/authority. The next snapshot attempt
-fails closed; a cached snapshot still expires at `validUntil`.
+fails closed; a cached snapshot still expires at `validUntil`. In particular,
+a valid Portal or Mobile Session cannot renew a positive grant snapshot once
+the Host-owning Desktop Session is revoked or expired, even if the Host device
+row itself remains registered and non-revoked.
+
+Host grant **policy** and per-Mobile overrides are durable account-owned state,
+distinct from the current Host Session's authority to serve fresh snapshots.
+When the Desktop explicitly signs in again and successfully re-registers the
+same still-approved Host, its previous policy and non-revoked, narrowed or
+revoked Mobile overrides remain in effect; a new registration alone does not
+widen scopes or undo Portal revocations. The Desktop login-stage scope UI
+(DSK-005) must display the stored policy accurately rather than silently
+asserting a new approval. Revoking the Host device instead makes all grants
+ineligible even if historical policy rows remain.
 
 ## Storage and concurrency
 
