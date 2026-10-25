@@ -3,6 +3,8 @@ import { AuthRepository } from "./auth/auth-repository.js";
 import { AuthService } from "./auth/auth-service.js";
 import { DeviceRepository } from "./devices/device-repository.js";
 import { DeviceService } from "./devices/device-service.js";
+import { HostRepository } from "./hosts/host-repository.js";
+import { HostService } from "./hosts/host-service.js";
 import { loadConfig } from "./config.js";
 import { OAuthRepository } from "./oauth/oauth-repository.js";
 import { OAuthService } from "./oauth/oauth-service.js";
@@ -31,6 +33,9 @@ const authService = new AuthService(
   { sessionTtlSeconds: config.sessionTtlSeconds },
 );
 const deviceService = new DeviceService(new DeviceRepository(db), authService);
+const hostService = new HostService(new HostRepository(db), authService, {
+  leaseTtlSeconds: config.hostLeaseSeconds,
+});
 const oauthService = new OAuthService(new OAuthRepository(db), authService, {
   codeTtlSeconds: config.oauthAuthorizationCodeTtlSeconds,
   sessionTtlSeconds: config.sessionTtlSeconds,
@@ -44,6 +49,7 @@ const app = buildApp({
   db,
   authService,
   deviceService,
+  hostService,
   oauthService,
   serviceCredentialService,
   trustProxy: true,
