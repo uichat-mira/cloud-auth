@@ -1,0 +1,167 @@
+import {
+  findFirstPartyOAuthClient,
+  type FirstPartyOAuthClient,
+  type IssuedCloudSession,
+  type OAuthAuthorizationRequest,
+  type OAuthTokenRequest,
+} from "@uichat-mira/cloud-auth-contracts";
+import type { AuthService } from "../auth/auth-service.js";
+import { issueSessionToken } from "../security/session-token.js";
+import { issueAuthorizationCode, parseAuthorizationCode } from "./authorization-code.js";
+import { OAuthError } from "./errors.js";
+import type { OAuthRepository } from "./oauth-repository.js";
+
+export interface OAuthServiceOptions {
+  codeTtlSeconds: number;
+  sessionTtlSeconds: number;
+  now?: () => Date;
+}
+
+export interface IssuedAuthorizationGrant {
+  code: string;
+  redirectUri: string;
+  state: string;
+  expiresAt: string;
+}
+
+export class OAuthService {
+  private readonly now: () => Date;
+
+  constructor(
+    private readonly repository: OAuthRepository,
+    private readonly authService: AuthService,
+    private readonly options: OAuthServiceOptions,
+  ) {
+    this.now = options.now ?? (() => new Date());
+  }
+
+  resolveRegisteredClient(
+    clientId: string | undefined,
+    redirectUri: string | undefined,
+  ): FirstPartyOAuthClient | null {
+    if (!clientId || !redirectUri) return null;
+    const client = findFirstPartyOAuthClient(clientId);
+    if (!client?.redirectUris.includes(redirectUri)) return null;
+    return client;
+  }
+
+  /**
+   * Only a successful, rate-limited account/password verification performed
+   * through the first-party browser form may issue a code. A caller-supplied
+   * Cloud Session bearer is not an OAuth authorization decision.
+   */
+  async authorizeWithPassword(
+    username: string,
+    password: string,
+    ip: string,
+    request: OAuthAuthorizationRequest,
+  ): Promise<IssuedAuthorizationGrant> {
+    const client = this.resolveRegisteredClient(request.client_id, request.redirect_uri);
+    if (!client) {
+      throw new OAuthError("OAUTH_UNAUTHORIZED_CLIENT", 400, "OAuth client or redirect URI is not registered");
+    }
+    const account = await this.authService.authenticate(username, password, ip);
+    return this.issueForAccount(account.id, request);
+  }
+
+  /**
+   * Redeem one authorization code as the receiving installation. The returned
+   * value is the existing Cloud Session authority, not a separate access or
+   * refresh token: renew, logout, device revoke and service credentials work
+   * through the same session/repository checks as password login.
+   *
+   * Every invalid condition maps to one bounded invalid_grant response so the
+   * endpoint does not reveal whether a code exists, expired, was consumed,
+   * belongs to another client/redirect, or failed PKCE verification.
+   */
+  exchangeAuthorizationCode(request: OAuthTokenRequest): IssuedCloudSession {
+    const parsed = parseAuthorizationCode(request.code);
+    if (!parsed) throw invalidGrant();
+
+    const now = this.now();
+    const nowIso = now.toISOString();
+    const expiresAt = new Date(
+      now.getTime() + this.options.sessionTtlSeconds * 1000,
+    ).toISOString();
+    const issued = issueSessionToken();
+
+    const exchanged = this.repository.exchangeAuthorizationCode({
+      codeId: parsed.id,
+      codeSecret: parsed.secret,
+      clientId: request.client_id,
+      redirectUri: request.redirect_uri,
+      codeVerifier: request.code_verifier,
+      installationId: request.installation_id.toLowerCase(),
+      platform: request.platform,
+      now: nowIso,
+      sessionId: issued.id,
+      sessionSecretHash: issued.secretHash,
+      sessionExpiresAt: expiresAt,
+    });
+    if (!exchanged.ok) throw invalidGrant();
+
+    return {
+      sessionToken: issued.token,
+      account: {
+        id: exchanged.value.accountId,
+        username: exchanged.value.accountUsername,
+      },
+      expiresAt,
+    };
+  }
+
+  private issueForAccount(accountId: string, request: OAuthAuthorizationRequest): IssuedAuthorizationGrant {
+    const client = this.resolveRegisteredClient(
+      request.client_id,
+      request.redirect_uri,
+    );
+    if (!client) {
+      throw new OAuthError(
+        "OAUTH_UNAUTHORIZED_CLIENT",
+        400,
+        "OAuth client or redirect URI is not registered",
+      );
+    }
+
+    const now = this.now();
+    const nowIso = now.toISOString();
+    const expiresAt = new Date(
+      now.getTime() + this.options.codeTtlSeconds * 1000,
+    ).toISOString();
+    const issued = issueAuthorizationCode();
+
+    const created = this.repository.createAuthorizationCodeIfAccountActive({
+      id: issued.id,
+      accountId,
+      clientId: client.clientId,
+      redirectUri: request.redirect_uri,
+      codeChallenge: request.code_challenge,
+      codeChallengeMethod: "S256",
+      secretHash: issued.secretHash,
+      expiresAt,
+      now: nowIso,
+    });
+    if (!created) {
+      throw new OAuthError(
+        "OAUTH_REAUTH_REQUIRED",
+        401,
+        "Re-authentication is required",
+      );
+    }
+
+    return {
+      code: issued.code,
+      redirectUri: request.redirect_uri,
+      state: request.state,
+      expiresAt,
+    };
+  }
+}
+
+function invalidGrant(): OAuthError {
+  return new OAuthError(
+    "OAUTH_INVALID_GRANT",
+    400,
+    "Authorization code cannot be exchanged",
+  );
+}

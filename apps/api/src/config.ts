@@ -1,20 +1,65 @@
+import {
+  OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
+  OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
+} from "@uichat-mira/cloud-auth-contracts";
+import { MAX_SERVICE_CREDENTIAL_TTL_SECONDS } from "./service-credentials/signer.js";
+import type {
+  ServiceCredentialKeyMaterialConfig,
+  ServiceCredentialRetiringKeyMaterial,
+} from "./service-credentials/keyring.js";
+
+const DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS = 300;
+const DEFAULT_HOST_LEASE_SECONDS = 120;
+const HOST_LEASE_MIN_SECONDS = 30;
+const HOST_LEASE_MAX_SECONDS = 3600;
+const DEFAULT_HOST_GRANT_SNAPSHOT_TTL_SECONDS = 300;
+const HOST_GRANT_SNAPSHOT_TTL_MIN_SECONDS = 30;
+const HOST_GRANT_SNAPSHOT_TTL_MAX_SECONDS = 3600;
+const OAUTH_AUTHORIZATION_CODE_MIN_TTL_SECONDS = 60;
+const SERVICE_CREDENTIAL_KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+
 export interface AppConfig {
   host: string;
   port: number;
   databasePath: string;
   logLevel: string;
   sessionTtlSeconds: number;
+  oauthAuthorizationCodeTtlSeconds: number;
+  hostLeaseSeconds: number;
+  hostGrantSnapshotTtlSeconds: number;
   passwordMaxConcurrency: number;
   loginPerUsernamePerMinute: number;
   loginPerIpPerMinute: number;
   argon2MemoryKiB: number;
   argon2Passes: number;
   argon2Parallelism: number;
+  serviceCredentials: ServiceCredentialKeyMaterialConfig | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const port = readInteger(env, "PORT", 8788, 1, 65_535);
   const sessionTtlSeconds = readInteger(env, "MIRA_AUTH_SESSION_TTL_SECONDS", 2_592_000, 3_600, 7_776_000);
+  const oauthAuthorizationCodeTtlSeconds = readInteger(
+    env,
+    "MIRA_AUTH_OAUTH_CODE_TTL_SECONDS",
+    OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
+    OAUTH_AUTHORIZATION_CODE_MIN_TTL_SECONDS,
+    OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
+  );
+  const hostLeaseSeconds = readInteger(
+    env,
+    "MIRA_AUTH_HOST_LEASE_SECONDS",
+    DEFAULT_HOST_LEASE_SECONDS,
+    HOST_LEASE_MIN_SECONDS,
+    HOST_LEASE_MAX_SECONDS,
+  );
+  const hostGrantSnapshotTtlSeconds = readInteger(
+    env,
+    "MIRA_AUTH_HOST_GRANT_SNAPSHOT_TTL_SECONDS",
+    DEFAULT_HOST_GRANT_SNAPSHOT_TTL_SECONDS,
+    HOST_GRANT_SNAPSHOT_TTL_MIN_SECONDS,
+    HOST_GRANT_SNAPSHOT_TTL_MAX_SECONDS,
+  );
   const passwordMaxConcurrency = readInteger(env, "MIRA_AUTH_PASSWORD_MAX_CONCURRENCY", 2, 1, 4);
   const loginPerUsernamePerMinute = readInteger(env, "MIRA_AUTH_LOGIN_PER_USERNAME_PER_MINUTE", 5, 1, 60);
   const loginPerIpPerMinute = readInteger(env, "MIRA_AUTH_LOGIN_PER_IP_PER_MINUTE", 20, 1, 300);
@@ -28,12 +73,88 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     databasePath: env.MIRA_AUTH_DB_PATH ?? "./data/auth.sqlite",
     logLevel: env.LOG_LEVEL ?? "info",
     sessionTtlSeconds,
+    oauthAuthorizationCodeTtlSeconds,
+    hostLeaseSeconds,
+    hostGrantSnapshotTtlSeconds,
     passwordMaxConcurrency,
     loginPerUsernamePerMinute,
     loginPerIpPerMinute,
     argon2MemoryKiB,
     argon2Passes,
     argon2Parallelism,
+    serviceCredentials: readServiceCredentialConfig(env),
+  };
+}
+
+/**
+ * Service-credential signing is optional. Missing or malformed material
+ * disables issuance/JWKS (fail closed) without preventing account login,
+ * /health, or /ready from starting.
+ */
+function readServiceCredentialConfig(
+  env: NodeJS.ProcessEnv,
+): ServiceCredentialKeyMaterialConfig | null {
+  const activeKeyId = env.MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID?.trim();
+  const activePrivateKey = env.MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY;
+  const retiringRaw = env.MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS?.trim();
+  const ttlRaw = env.MIRA_AUTH_SERVICE_CREDENTIAL_TTL_SECONDS?.trim();
+
+  const anyConfigured = Boolean(activeKeyId || activePrivateKey || retiringRaw || ttlRaw);
+  if (!anyConfigured) return null;
+
+  if (
+    !activeKeyId ||
+    !SERVICE_CREDENTIAL_KEY_ID_PATTERN.test(activeKeyId) ||
+    !activePrivateKey ||
+    activePrivateKey.trim().length === 0
+  ) {
+    return null;
+  }
+
+  let ttlSeconds = DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS;
+  if (ttlRaw !== undefined && ttlRaw !== "") {
+    const parsed = Number(ttlRaw);
+    if (
+      !Number.isInteger(parsed) ||
+      parsed <= 0 ||
+      parsed > MAX_SERVICE_CREDENTIAL_TTL_SECONDS
+    ) {
+      return null;
+    }
+    ttlSeconds = parsed;
+  }
+
+  let retiringPublicKeys: ServiceCredentialRetiringKeyMaterial[] = [];
+  if (retiringRaw) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(retiringRaw);
+    } catch {
+      return null;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    const seen = new Set<string>();
+    for (const [keyId, publicKey] of entries) {
+      if (
+        !SERVICE_CREDENTIAL_KEY_ID_PATTERN.test(keyId) ||
+        typeof publicKey !== "string" ||
+        publicKey.trim().length === 0 ||
+        seen.has(keyId)
+      ) {
+        return null;
+      }
+      seen.add(keyId);
+      retiringPublicKeys.push({ keyId, publicKey });
+    }
+  }
+
+  return {
+    activeKeyId,
+    activePrivateKey,
+    retiringPublicKeys,
+    ttlSeconds,
   };
 }
 

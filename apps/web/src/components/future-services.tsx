@@ -8,11 +8,6 @@ import {
 
 const futureServices = [
   {
-    name: "Mira Device",
-    description: "设备注册与绑定尚未接入。",
-    detail: "当前 Cloud Session 不会注册、绑定或管理任何 Mira 设备。",
-  },
-  {
     name: "Cloud Shiyan",
     description: "云端服务授权尚未接入。",
     detail: "登录 Mira Cloud Account 不会授予 Shiyan 业务权限。",
@@ -39,7 +34,7 @@ export function FutureServices() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         {futureServices.map((service) => (
           <Card key={service.name} className="gap-3 py-4">
             <CardHeader className="gap-2 px-4">

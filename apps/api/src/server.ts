@@ -1,15 +1,26 @@
 import { buildApp } from "./app.js";
 import { AuthRepository } from "./auth/auth-repository.js";
 import { AuthService } from "./auth/auth-service.js";
+import { DeviceRepository } from "./devices/device-repository.js";
+import { DeviceService } from "./devices/device-service.js";
+import { HostRepository } from "./hosts/host-repository.js";
+import { HostService } from "./hosts/host-service.js";
+import { HostGrantRepository } from "./grants/host-grant-repository.js";
+import { HostGrantService } from "./grants/host-grant-service.js";
 import { loadConfig } from "./config.js";
+import { OAuthRepository } from "./oauth/oauth-repository.js";
+import { OAuthService } from "./oauth/oauth-service.js";
 import { LoginGuard } from "./security/login-guard.js";
 import { PasswordHasher } from "./security/password.js";
+import { createServiceCredentialKeyRing } from "./service-credentials/keyring.js";
+import { ServiceCredentialService } from "./service-credentials/service.js";
 import { openDatabase } from "./storage/database.js";
 
 const config = loadConfig();
 const db = openDatabase({ databasePath: config.databasePath });
+const repository = new AuthRepository(db);
 const authService = new AuthService(
-  new AuthRepository(db),
+  repository,
   new PasswordHasher({
     memoryKiB: config.argon2MemoryKiB,
     passes: config.argon2Passes,
@@ -23,10 +34,31 @@ const authService = new AuthService(
   }),
   { sessionTtlSeconds: config.sessionTtlSeconds },
 );
+const deviceService = new DeviceService(new DeviceRepository(db), authService);
+const hostService = new HostService(new HostRepository(db), authService, {
+  leaseTtlSeconds: config.hostLeaseSeconds,
+});
+const hostGrantService = new HostGrantService(new HostGrantRepository(db), {
+  snapshotTtlSeconds: config.hostGrantSnapshotTtlSeconds,
+});
+const oauthService = new OAuthService(new OAuthRepository(db), authService, {
+  codeTtlSeconds: config.oauthAuthorizationCodeTtlSeconds,
+  sessionTtlSeconds: config.sessionTtlSeconds,
+});
+const serviceCredentialService = new ServiceCredentialService(
+  repository,
+  createServiceCredentialKeyRing(config.serviceCredentials),
+  hostService,
+);
 
 const app = buildApp({
   db,
   authService,
+  deviceService,
+  hostService,
+  hostGrantService,
+  oauthService,
+  serviceCredentialService,
   trustProxy: true,
   logger: {
     level: config.logLevel,
