@@ -169,7 +169,7 @@ Returns only trusted Ed25519 public verification keys:
 }
 ```
 
-The response is cacheable for 300 seconds in V0. It contains the active signing key first, followed by any configured retiring public keys. It never contains private key material. When signing/verification material is not fully configured, credential issuance and JWKS return `503 SERVICE_CREDENTIAL_UNAVAILABLE`.
+The response is cacheable for 300 seconds in V0. It contains the active signing key first, followed by configured **verification-only public keys** (old retiring keys or the future key pre-published before rotation). The existing configuration field is named `RETIRING_PUBLIC_KEYS` for compatibility; it may temporarily hold the **next public key** during the pre-publication phase. It never contains private key material. When signing/verification material is not fully configured, credential issuance and JWKS return `503 SERVICE_CREDENTIAL_UNAVAILABLE`.
 
 ## Signing configuration
 
@@ -179,7 +179,7 @@ Signing material is injected explicitly from deployment configuration; it is nev
 | --- | --- |
 | `MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID` | Active signing key id. |
 | `MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY` | Active Ed25519 private key PEM. Secret. Never logged or returned. |
-| `MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS` | JSON object mapping retiring key id to Ed25519 public key PEM. Public only. |
+| `MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS` | JSON object of verification-only Ed25519 **public** PEMs. Use for old retiring keys and for the next key's public half during pre-publication. Private PEMs are rejected. |
 | `MIRA_AUTH_SERVICE_CREDENTIAL_TTL_SECONDS` | Optional TTL, default 300, maximum 600. |
 
 PEM values may use real newlines or escaped `\n` sequences from environment files. If these variables are absent, or if any supplied key id / PEM / TTL / JSON value is invalid, service-credential issuance and JWKS fail closed. This does **not** disable account login, `/health`, `/ready`, device management, or the web application. Invalid configuration is reported only as `SERVICE_CREDENTIAL_UNAVAILABLE`.
@@ -245,15 +245,14 @@ Revoking an account, device, or Cloud Session stops **future issuance**. An alre
 
 ## V0 key rotation
 
-`kid` is carried in the JWT header, the active key signs all new credentials, and JWKS publishes both the active key and configured retiring public keys. The reviewed V0 procedure is:
+`kid` is carried in the JWT header; only the active key signs new credentials. To avoid rejecting newly issued credentials on a consumer holding a still-valid cached JWKS, **pre-publish the new public key before activating its private key**. The V0 procedure uses the existing `RETIRING_PUBLIC_KEYS` field for public verification-only keys in **both** directions:
 
-1. Generate a new Ed25519 key pair outside this repository.
-2. Add the new key as the active key (`ACTIVE_KID` + `ACTIVE_PRIVATE_KEY`) and move the previous public key into `RETIRING_PUBLIC_KEYS` under its old kid.
-3. Deploy. New credentials use the new `kid`; JWKS publishes both keys, so verification of credentials issued before the change continues during overlap.
-4. Wait at least the maximum credential lifetime plus verifier/JWKS cache interval before removing the old public key.
-5. Remove the old public key from `RETIRING_PUBLIC_KEYS` and deploy.
+1. Generate the new Ed25519 pair outside this repository. Keep the **old** active private key/signing `kid` unchanged. Add **only the new public key** under its future `kid` to `MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS` and deploy this JWKS pre-publication phase.
+2. Confirm the updated JWKS with **both public keys** is reachable on every serving instance. Wait at least the published **300-second cache lifetime plus deployment propagation** so consumers with a previously cached old-only JWKS can refresh before any new-`kid` credentials are issued. Do not advance while an old-only JWKS response can still be served.
+3. Switch `ACTIVE_KID` / `ACTIVE_PRIVATE_KEY` to the **new** pair; keep the **old public key** in `RETIRING_PUBLIC_KEYS`. New tokens use the new `kid`, while both the pre-switch cached JWKS and the new JWKS verify either key. If the switch is rolled back, keep both public keys published throughout the rollback and its cache window.
+4. Once the last old-key token could have expired, allow at least the maximum **600-second token lifetime**, the **300-second JWKS cache lifetime**, and deployment propagation after the last old signature / old-only JWKS response. Then remove the old public key and deploy. Consumers must refresh JWKS on its cache schedule; an unknown `kid` must fail verification, never fall back to another key.
 
-Consumers that cache JWKS must refresh before cached old keys would become unusable, and must treat an unknown `kid` after refresh as a verification failure rather than falling back to another key. This repository does not perform real production rotation, does not change server/GitHub secrets, and does not manage verifier caches outside the published 300-second V0 cache header.
+The unit rotation test constructs a cached pre-switch JWKS, signs tokens with both old and new active keys, verifies both with cached and refreshed key sets, and confirms the old key becomes unknown after retirement. **Never place any private PEM in the verification-only list; config containing a private PEM fails closed.** This repository does not rotate production keys or control consumer caches; the real SHY/REL deployment rollout and cache verification remain required before production promotion.
 
 ## Not implemented
 
