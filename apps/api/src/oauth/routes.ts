@@ -31,7 +31,7 @@ interface RawAuthorizationQuery {
 }
 
 function readRawAuthorizationQuery(rawUrl: string): RawAuthorizationQuery {
-  const url = new URL(rawUrl, "http://cloud-auth.invalid");
+  const url = new URL(rawUrl, "https://cloud-auth.invalid");
   const values: Partial<Record<QueryKey, string>> = {};
   const seen = new Set<string>();
   let hasDuplicate = false;
