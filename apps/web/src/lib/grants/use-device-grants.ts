@@ -118,10 +118,15 @@ export function useDeviceGrants({
     setState((current) => ({ ...current, loadFailure: null, notice: null }));
 
     try {
-      const [managed, devices] = await Promise.all([
+      // Device metadata decorates labels only. A failure to load friendly
+      // names must never make an otherwise valid grant impossible to revoke.
+      const [managementResult, deviceResult] = await Promise.allSettled([
         client.listManagement(sessionToken),
         client.listDevices(sessionToken),
       ]);
+      if (managementResult.status === "rejected") throw managementResult.reason;
+      const managed = managementResult.value;
+      const devices = deviceResult.status === "fulfilled" ? deviceResult.value : [];
 
       // Management is account-owned state, not a runtime Host grant snapshot.
       // The backend never attaches a TTL or current execution credential.
@@ -143,6 +148,12 @@ export function useDeviceGrants({
           (device) => device.platform === "mobile" && device.revokedAt !== null,
         ),
         loadFailure: null,
+        notice: deviceResult.status === "rejected"
+          ? {
+              tone: "warning",
+              message: "手机设备名称暂时无法读取，授权仍可管理；暂以通用名称显示。",
+            }
+          : null,
       }));
     } catch (error) {
       if (requestSequence !== sequence.current) return;
