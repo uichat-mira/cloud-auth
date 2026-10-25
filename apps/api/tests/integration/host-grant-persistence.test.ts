@@ -407,6 +407,30 @@ describe("Host grant SQLite persistence", () => {
     testContext.db.close();
   });
 
+  it("reports a registered Host with no grant ceiling as unconfigured in Portal management", async () => {
+    const testContext = context(databasePath());
+    await testContext.service.provisionAccount("alice", password);
+    const desktop = await createFirstPartySession(testContext, {
+      username: "alice", password,
+    });
+    const host = await registerHost(testContext, desktop.sessionToken);
+    const portal = await testContext.service.login("alice", password, "127.0.0.1");
+
+    const response = await management(testContext, portal.sessionToken);
+    expect(response.statusCode).toBe(200);
+    const entries = hostGrantManagementListResponseSchema.parse(response.json()).hosts;
+    expect(entries).toMatchObject([{
+      host: { id: host.id },
+      policyConfigured: false,
+      policyScopes: [],
+      revision: 0,
+      grants: [],
+    }]);
+
+    await testContext.app.close();
+    testContext.db.close();
+  });
+
   it("keeps owner narrowing/revoke available after Desktop logout without restoring grants", async () => {
     const testContext = context(databasePath());
     await testContext.service.provisionAccount("alice", password);
