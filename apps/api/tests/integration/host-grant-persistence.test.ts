@@ -372,14 +372,6 @@ describe("Host grant SQLite persistence", () => {
     expect(narrowed.json()).toMatchObject({ revision: 2, scopes: [], status: "active" });
     expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
 
-    // An explicit revoke has the same fail-closed snapshot effect, even if the
-    // original expiry time is restored in storage.
-    testContext.db
-      .prepare("UPDATE sessions SET expires_at = ?, revoked_at = ? WHERE id = ?")
-      .run(original.expires_at, new Date().toISOString(), desktopSessionId);
-    expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
-    expect((await mobileGrant(testContext, mobile.sessionToken, host.id)).statusCode).toBe(404);
-
     const revoked = await testContext.app.inject({
       method: "DELETE",
       url: `/v1/hosts/${host.id}/grants/${mobileDeviceId}?expectedRevision=2`,
@@ -387,6 +379,14 @@ describe("Host grant SQLite persistence", () => {
     });
     expect(revoked.statusCode).toBe(200);
     expect(revoked.json()).toMatchObject({ revision: 3, scopes: [], status: "revoked" });
+
+    // An explicit revoke has the same fail-closed snapshot effect, even if the
+    // original expiry time is restored in storage.
+    testContext.db
+      .prepare("UPDATE sessions SET expires_at = ?, revoked_at = ? WHERE id = ?")
+      .run(original.expires_at, new Date().toISOString(), desktopSessionId);
+    expect((await snapshot(testContext, portal.sessionToken, host.id)).statusCode).toBe(404);
+    expect((await mobileGrant(testContext, mobile.sessionToken, host.id)).statusCode).toBe(404);
 
     await testContext.app.close();
     testContext.db.close();
