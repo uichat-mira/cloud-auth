@@ -54,6 +54,7 @@ export {
   SHIYAN_AUTHENTICATE_SCOPE,
   issuedServiceCredentialSchema,
   relayConnectionRoleSchema,
+  relayRoomSchema,
   relayServiceCredentialClaimsSchema,
   relayTicketContextSchema,
   serviceCredentialAudienceSchema,
@@ -85,6 +86,24 @@ export type {
   ServiceCredentialScope,
   ShiyanServiceCredentialClaims,
 } from "./service-credential.js";
+
+export {
+  desktopHostAvailabilitySchema,
+  desktopHostListResponseSchema,
+  desktopHostSchema,
+  hostErrorCodeSchema,
+  hostErrorEnvelopeSchema,
+  registerHostRequestSchema,
+} from "./host.js";
+
+export type {
+  DesktopHost,
+  DesktopHostAvailability,
+  DesktopHostListResponse,
+  HostErrorCode,
+  HostErrorEnvelope,
+  RegisterHostRequest,
+} from "./host.js";
 
 export const accountIdentitySchema = z
   .object({

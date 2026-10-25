@@ -31,7 +31,7 @@ export const serviceCredentialKeyIdSchema = z
 
 export const relayConnectionRoleSchema = z.enum(["client", "host"]);
 
-const relayRoomSchema = z
+export const relayRoomSchema = z
   .string()
   .min(1)
   .max(128)

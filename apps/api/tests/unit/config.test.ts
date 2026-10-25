@@ -10,6 +10,7 @@ describe("loadConfig", () => {
       logLevel: "info",
       sessionTtlSeconds: 2_592_000,
       oauthAuthorizationCodeTtlSeconds: 300,
+      hostLeaseSeconds: 120,
       passwordMaxConcurrency: 2,
       loginPerUsernamePerMinute: 5,
       loginPerIpPerMinute: 20,
@@ -85,5 +86,12 @@ describe("loadConfig", () => {
       loadConfig({ MIRA_AUTH_OAUTH_CODE_TTL_SECONDS: "600" })
         .oauthAuthorizationCodeTtlSeconds,
     ).toBe(600);
+    expect(() => loadConfig({ MIRA_AUTH_HOST_LEASE_SECONDS: "29" })).toThrow(
+      /HOST_LEASE_SECONDS/,
+    );
+    expect(() => loadConfig({ MIRA_AUTH_HOST_LEASE_SECONDS: "3601" })).toThrow(
+      /HOST_LEASE_SECONDS/,
+    );
+    expect(loadConfig({ MIRA_AUTH_HOST_LEASE_SECONDS: "60" }).hostLeaseSeconds).toBe(60);
   });
 });
