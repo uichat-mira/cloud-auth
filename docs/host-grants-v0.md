@@ -83,6 +83,7 @@ revoke an individual grant afterwards.
 | --- | --- |
 | Set/update Host policy ceiling | The `mira-desktop` OAuth Cloud Session currently owning that Host (`desktop_hosts.session_id`), with an active desktop device and active account |
 | Read Host snapshot | Active same-account Desktop or device-less account Portal Session; not Mobile |
+| Read historical grant management view | Authenticated device-less account Portal Session |
 | Read own Mobile grant | Active Cloud Session bound to a same-account, non-revoked Mobile device |
 | Narrow/revoke one Mobile | Any active Cloud Session of the owning account |
 
