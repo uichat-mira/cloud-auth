@@ -264,8 +264,8 @@ describe("Device and Host grants card", () => {
     expect(store.getState().status).toBe("authenticated");
   });
 
-  it("distinguishes a revoked Host snapshot from a network outage", async () => {
-    await renderLoadedGrants(
+  it("distinguishes a failed management ledger read from a network outage", async () => {
+    renderGrants(
       createFakeHostGrantsClient({
         getSnapshot: async () => {
           throw new HostGrantsError(
@@ -281,7 +281,7 @@ describe("Device and Host grants card", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Desktop Host 或手机设备已不存在或已撤销。",
     );
-    expect(screen.getByText("工作 Desktop")).toBeInTheDocument();
+    expect(screen.queryByText("工作 Desktop")).not.toBeInTheDocument();
   });
 
   it("shows network and service failures distinctly without ending the session", async () => {
@@ -327,7 +327,7 @@ describe("Device and Host grants card", () => {
     expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
   });
 
-  it("explains no-Host discovery including the revoked/logged-out Host limitation", async () => {
+  it("explains an empty management ledger without hiding historical eligible Hosts", async () => {
     renderGrants(
       createFakeHostGrantsClient({
         listHosts: async () => [],
@@ -339,7 +339,7 @@ describe("Device and Host grants card", () => {
       await screen.findByText("没有可管理的 Desktop Host"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/历史 Host 可能不会出现在列表中/),
+      screen.getByText(/设备退出云账号或 Session 过期时也可管理已保存的权限/),
     ).toBeInTheDocument();
   });
 
@@ -370,6 +370,31 @@ describe("Device and Host grants card", () => {
     expect(
       await screen.findByText("此账户还没有手机设备。"),
     ).toBeInTheDocument();
+  });
+
+  it("allows managing durable revoked-by-logout Host without any runtime snapshot", async () => {
+    const client = createFakeHostGrantsClient({
+      listManagement: async () => [{
+        host: {
+          id: hostOffline.id,
+          displayName: hostOffline.displayName,
+          clientVersion: hostOffline.clientVersion,
+          availability: "offline",
+        },
+        accountId: snapshotGranted.accountId,
+        policyConfigured: true,
+        policyScopes: snapshotGranted.policyScopes,
+        revision: 4,
+        grants: snapshotGranted.grants,
+      }],
+      getSnapshot: async () => {
+        throw new Error("runtime snapshot must not be read by Portal management");
+      },
+    });
+    await renderLoadedGrants(client);
+    expect(screen.getByText("客厅 Desktop")).toBeInTheDocument();
+    expect(screen.getByText("离线")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled();
   });
 
   it("marks an offline Host without claiming immediate enforcement", async () => {
@@ -416,8 +441,8 @@ describe("Device and Host grants card", () => {
     expect(screen.getByText("查看工具")).toBeInTheDocument();
   });
 
-  it("does not render a snapshot that belongs to another account", async () => {
-    await renderLoadedGrants(
+  it("does not render management data that belongs to another account", async () => {
+    renderGrants(
       createFakeHostGrantsClient({
         getSnapshot: async () => ({
           ...snapshotGranted,
