@@ -82,7 +82,7 @@ revoke an individual grant afterwards.
 | Action | Accepted caller |
 | --- | --- |
 | Set/update Host policy ceiling | The `mira-desktop` OAuth Cloud Session currently owning that Host (`desktop_hosts.session_id`), with an active desktop device and active account |
-| Read Host snapshot | Any active Cloud Session of the owning account (Desktop or account Portal) |
+| Read Host snapshot | Active same-account Desktop or device-less account Portal Session; not Mobile |
 | Read own Mobile grant | Active Cloud Session bound to a same-account, non-revoked Mobile device |
 | Narrow/revoke one Mobile | Any active Cloud Session of the owning account |
 
@@ -284,10 +284,16 @@ row itself remains registered and non-revoked.
 Host grant **policy** and per-Mobile overrides are durable account-owned state,
 distinct from the current Host Session's authority to serve fresh snapshots.
 An authenticated account owner may **still narrow or revoke** grants in Portal
-while the Desktop Host is offline, logged out, or its session has expired;
+while the Desktop Host is offline, logged out, or its session has expired,
+including a Host row marked `host_session_revoked` by the logout trigger;
 the stored grant revision advances, but no fresh positive snapshot can be
 issued until the Desktop signs in and registers a valid Host Session. This
 remote mutation does not require onsite Host approval and never widens authority.
+A genuinely revoked Host device remains ineligible for grant mutations.
+
+The Host-wide `/grants` snapshot contains sibling Mobile identities, so
+Mobile OAuth Sessions receive `403 HOST_GRANT_NOT_ALLOWED` on that endpoint.
+Mobiles read their own effective scopes only through `/grant`.
 
 When the Desktop explicitly signs in again and successfully re-registers the
 same still-approved Host, its previous policy and non-revoked, narrowed or
