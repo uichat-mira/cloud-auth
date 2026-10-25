@@ -23,6 +23,12 @@ export const serviceCredentialScopeSchema = z.enum([
   RELAY_TRANSPORT_SCOPE,
 ]);
 
+export const serviceCredentialKeyIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9._-]+$/, "kid must be a bounded key identifier");
+
 export const relayConnectionRoleSchema = z.enum(["client", "host"]);
 
 const relayRoomSchema = z
@@ -47,11 +53,7 @@ export const serviceCredentialJwtHeaderSchema = z
   .object({
     alg: z.literal("EdDSA"),
     typ: z.literal("JWT"),
-    kid: z
-      .string()
-      .min(1)
-      .max(64)
-      .regex(/^[A-Za-z0-9._-]+$/, "kid must be a bounded key identifier"),
+    kid: serviceCredentialKeyIdSchema,
   })
   .strict();
 
@@ -111,6 +113,78 @@ export const serviceCredentialClaimsSchema = z.discriminatedUnion("aud", [
   relayServiceCredentialClaimsSchema,
 ]);
 
+/**
+ * Issuance request. The client chooses only the narrow target service. Account,
+ * device, issuer, key id and business scope are derived by Cloud Auth from the
+ * authenticated device-bound Cloud Session.
+ */
+export const serviceCredentialRequestSchema = z.discriminatedUnion("audience", [
+  z
+    .object({
+      audience: z.literal(CLOUD_SHIYAN_AUDIENCE),
+    })
+    .strict(),
+  z
+    .object({
+      audience: z.literal(CLOUD_RELAY_TRANSPORT_AUDIENCE),
+      relay: relayTicketContextSchema,
+    })
+    .strict(),
+]);
+
+export const issuedServiceCredentialSchema = z
+  .object({
+    token: z.string().min(1),
+    tokenType: z.literal("Bearer"),
+    audience: serviceCredentialAudienceSchema,
+    expiresAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const serviceCredentialPublicJwkSchema = z
+  .object({
+    kty: z.literal("OKP"),
+    crv: z.literal("Ed25519"),
+    use: z.literal("sig"),
+    alg: z.literal("EdDSA"),
+    kid: serviceCredentialKeyIdSchema,
+    x: z.string().regex(/^[A-Za-z0-9_-]+$/),
+  })
+  .strict();
+
+export const serviceCredentialJwksSchema = z
+  .object({
+    keys: z.array(serviceCredentialPublicJwkSchema),
+  })
+  .strict();
+
+export const serviceCredentialErrorCodeSchema = z.enum([
+  "SERVICE_CREDENTIAL_INVALID_REQUEST",
+  "SERVICE_CREDENTIAL_REAUTH_REQUIRED",
+  "SERVICE_CREDENTIAL_DEVICE_REQUIRED",
+  "SERVICE_CREDENTIAL_UNAVAILABLE",
+  "SERVICE_CREDENTIAL_INTERNAL_ERROR",
+]);
+
+export const serviceCredentialErrorEnvelopeSchema = z
+  .object({
+    error: z
+      .object({
+        code: serviceCredentialErrorCodeSchema,
+        message: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict();
+
+export type ServiceCredentialRequest = z.infer<typeof serviceCredentialRequestSchema>;
+export type IssuedServiceCredential = z.infer<typeof issuedServiceCredentialSchema>;
+export type ServiceCredentialPublicJwk = z.infer<typeof serviceCredentialPublicJwkSchema>;
+export type ServiceCredentialJwks = z.infer<typeof serviceCredentialJwksSchema>;
+export type ServiceCredentialErrorCode = z.infer<typeof serviceCredentialErrorCodeSchema>;
+export type ServiceCredentialErrorEnvelope = z.infer<
+  typeof serviceCredentialErrorEnvelopeSchema
+>;
 export type ServiceCredentialAudience = z.infer<typeof serviceCredentialAudienceSchema>;
 export type ServiceCredentialScope = z.infer<typeof serviceCredentialScopeSchema>;
 export type RelayConnectionRole = z.infer<typeof relayConnectionRoleSchema>;

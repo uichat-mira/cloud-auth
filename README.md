@@ -65,7 +65,9 @@ The API default local database path is `./data/auth.sqlite` relative to `apps/ap
 - POST /v1/devices: register the current installation as a Mira Device
 - GET /v1/devices: list the authenticated account's Mira Devices
 - DELETE /v1/devices/:deviceId: revoke one owned Mira Device and its Cloud Sessions
+- POST /v1/service-credentials: exchange a device-bound Cloud Session for one audience-bound short-lived service credential
+- GET /.well-known/jwks.json: publish the active and retiring Ed25519 verification public keys
 
 See docs/auth-v0.md for the OPS-006 account/session contract, the OPS-007 Mira Device lifecycle, and maintainer administration.
 
-Service credentials are not yet exposed over HTTP. See docs/service-credentials-v0.md for the OPS-008 run 1 canonical claims contract, Ed25519 sign/verify helpers, trust assumptions, and deferred issuance/JWKS/rotation work.
+See docs/service-credentials-v0.md for the OPS-008 canonical claims, issuance endpoint, offline verification, signing configuration, trust assumptions, V0 key-overlap rotation, and remaining deferred work.

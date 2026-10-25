@@ -1,3 +1,12 @@
+import { MAX_SERVICE_CREDENTIAL_TTL_SECONDS } from "./service-credentials/signer.js";
+import type {
+  ServiceCredentialKeyMaterialConfig,
+  ServiceCredentialRetiringKeyMaterial,
+} from "./service-credentials/keyring.js";
+
+const DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS = 300;
+const SERVICE_CREDENTIAL_KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+
 export interface AppConfig {
   host: string;
   port: number;
@@ -10,6 +19,7 @@ export interface AppConfig {
   argon2MemoryKiB: number;
   argon2Passes: number;
   argon2Parallelism: number;
+  serviceCredentials: ServiceCredentialKeyMaterialConfig | null;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -34,6 +44,79 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     argon2MemoryKiB,
     argon2Passes,
     argon2Parallelism,
+    serviceCredentials: readServiceCredentialConfig(env),
+  };
+}
+
+/**
+ * Service-credential signing is optional. Missing or malformed material
+ * disables issuance/JWKS (fail closed) without preventing account login,
+ * /health, or /ready from starting.
+ */
+function readServiceCredentialConfig(
+  env: NodeJS.ProcessEnv,
+): ServiceCredentialKeyMaterialConfig | null {
+  const activeKeyId = env.MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID?.trim();
+  const activePrivateKey = env.MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY;
+  const retiringRaw = env.MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS?.trim();
+  const ttlRaw = env.MIRA_AUTH_SERVICE_CREDENTIAL_TTL_SECONDS?.trim();
+
+  const anyConfigured = Boolean(activeKeyId || activePrivateKey || retiringRaw || ttlRaw);
+  if (!anyConfigured) return null;
+
+  if (
+    !activeKeyId ||
+    !SERVICE_CREDENTIAL_KEY_ID_PATTERN.test(activeKeyId) ||
+    !activePrivateKey ||
+    activePrivateKey.trim().length === 0
+  ) {
+    return null;
+  }
+
+  let ttlSeconds = DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS;
+  if (ttlRaw !== undefined && ttlRaw !== "") {
+    const parsed = Number(ttlRaw);
+    if (
+      !Number.isInteger(parsed) ||
+      parsed <= 0 ||
+      parsed > MAX_SERVICE_CREDENTIAL_TTL_SECONDS
+    ) {
+      return null;
+    }
+    ttlSeconds = parsed;
+  }
+
+  let retiringPublicKeys: ServiceCredentialRetiringKeyMaterial[] = [];
+  if (retiringRaw) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(retiringRaw);
+    } catch {
+      return null;
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    const seen = new Set<string>();
+    for (const [keyId, publicKey] of entries) {
+      if (
+        !SERVICE_CREDENTIAL_KEY_ID_PATTERN.test(keyId) ||
+        typeof publicKey !== "string" ||
+        publicKey.trim().length === 0 ||
+        seen.has(keyId)
+      ) {
+        return null;
+      }
+      seen.add(keyId);
+      retiringPublicKeys.push({ keyId, publicKey });
+    }
+  }
+
+  return {
+    activeKeyId,
+    activePrivateKey,
+    retiringPublicKeys,
+    ttlSeconds,
   };
 }
 

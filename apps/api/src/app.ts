@@ -4,11 +4,14 @@ import type { AuthService } from "./auth/auth-service.js";
 import { registerAuthRoutes } from "./auth/routes.js";
 import type { DeviceService } from "./devices/device-service.js";
 import { registerDeviceRoutes } from "./devices/routes.js";
+import { registerServiceCredentialRoutes } from "./service-credentials/routes.js";
+import type { ServiceCredentialService } from "./service-credentials/service.js";
 
 export interface BuildAppOptions {
   db: DatabaseSync;
   authService?: AuthService;
   deviceService?: DeviceService;
+  serviceCredentialService?: ServiceCredentialService;
   logger?: boolean | object;
   trustProxy?: boolean;
 }
@@ -36,6 +39,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
   if (options.authService) registerAuthRoutes(app, options.authService);
   if (options.deviceService) registerDeviceRoutes(app, options.deviceService);
+  if (options.serviceCredentialService) {
+    registerServiceCredentialRoutes(app, options.serviceCredentialService);
+  }
 
   return app;
 }

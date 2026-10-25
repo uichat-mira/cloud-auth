@@ -34,7 +34,14 @@ export function hashSessionSecret(secret: string): string {
 }
 
 export function verifySessionSecret(secret: string, expectedHash: string): boolean {
-  const actual = Buffer.from(hashSessionSecret(secret), "hex");
+  return verifySessionSecretHash(hashSessionSecret(secret), expectedHash);
+}
+
+export function verifySessionSecretHash(actualHash: string, expectedHash: string): boolean {
+  if (!/^[0-9a-f]{64}$/.test(actualHash) || !/^[0-9a-f]{64}$/.test(expectedHash)) {
+    return false;
+  }
+  const actual = Buffer.from(actualHash, "hex");
   const expected = Buffer.from(expectedHash, "hex");
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }

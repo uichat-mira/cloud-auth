@@ -6,6 +6,8 @@ import { DeviceService } from "./devices/device-service.js";
 import { loadConfig } from "./config.js";
 import { LoginGuard } from "./security/login-guard.js";
 import { PasswordHasher } from "./security/password.js";
+import { createServiceCredentialKeyRing } from "./service-credentials/keyring.js";
+import { ServiceCredentialService } from "./service-credentials/service.js";
 import { openDatabase } from "./storage/database.js";
 
 const config = loadConfig();
@@ -27,11 +29,16 @@ const authService = new AuthService(
   { sessionTtlSeconds: config.sessionTtlSeconds },
 );
 const deviceService = new DeviceService(new DeviceRepository(db), authService);
+const serviceCredentialService = new ServiceCredentialService(
+  repository,
+  createServiceCredentialKeyRing(config.serviceCredentials),
+);
 
 const app = buildApp({
   db,
   authService,
   deviceService,
+  serviceCredentialService,
   trustProxy: true,
   logger: {
     level: config.logLevel,

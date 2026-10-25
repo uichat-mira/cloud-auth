@@ -15,7 +15,55 @@ describe("loadConfig", () => {
       argon2MemoryKiB: 19_456,
       argon2Passes: 2,
       argon2Parallelism: 1,
+      serviceCredentials: null,
     });
+  });
+
+  it("parses explicit service-credential signing material without requiring it", () => {
+    expect(
+      loadConfig({
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID: "cloud-auth-2026-10",
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\n...",
+        MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS:
+          '{"cloud-auth-2026-09":"-----BEGIN PUBLIC KEY-----\\n...\\n-----END PUBLIC KEY-----"}',
+        MIRA_AUTH_SERVICE_CREDENTIAL_TTL_SECONDS: "120",
+      }).serviceCredentials,
+    ).toEqual({
+      activeKeyId: "cloud-auth-2026-10",
+      activePrivateKey: "-----BEGIN PRIVATE KEY-----\n...",
+      retiringPublicKeys: [
+        {
+          keyId: "cloud-auth-2026-09",
+          publicKey: "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+        },
+      ],
+      ttlSeconds: 120,
+    });
+  });
+
+  it("fails service-credential configuration closed without breaking other config", () => {
+    for (const env of [
+      { MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID: "only-a-kid" },
+      {
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID: "cloud-auth-2026-10",
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY: "pem",
+        MIRA_AUTH_SERVICE_CREDENTIAL_TTL_SECONDS: "0",
+      },
+      {
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID: "cloud-auth-2026-10",
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY: "pem",
+        MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS: "not-json",
+      },
+      {
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID: "cloud-auth-2026-10",
+        MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY: "pem",
+        MIRA_AUTH_SERVICE_CREDENTIAL_RETIRING_PUBLIC_KEYS: '{"bad kid":"pem"}',
+      },
+    ]) {
+      const config = loadConfig(env);
+      expect(config.serviceCredentials).toBeNull();
+      expect(config.port).toBe(8788);
+    }
   });
 
   it("rejects unsafe or invalid runtime values", () => {
