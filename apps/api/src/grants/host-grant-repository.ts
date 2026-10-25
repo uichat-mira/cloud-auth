@@ -412,7 +412,9 @@ export class HostGrantRepository {
         input.now,
       );
       if (!owner) return { ok: false as const, reason: "unauthorized" as const };
-      if (owner.devicePlatform === "mobile") {
+      // An account Portal session has no bound device. Desktop and Mobile
+      // clients must not use this historic administration endpoint.
+      if (owner.deviceId !== null) {
         return { ok: false as const, reason: "not_allowed" as const };
       }
 
