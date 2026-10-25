@@ -430,4 +430,63 @@ describe("OAuth token exchange SQLite runtime", () => {
     context.db.close();
     await context.app.close();
   });
+  for (const mode of ["reset", "change"] as const) {
+    it(`invalidates outstanding OAuth codes atomically when the account password is ${mode}d`, async () => {
+      const context = createContext(databasePath(), {});
+      const nextPassword = "another strong replacement passphrase";
+      await context.service.provisionAccount("alice", password);
+
+      const originalSession = await context.service.login("alice", password, "127.0.0.1");
+      const oldGrant = await context.oauthService.authorizeWithPassword(
+        "alice",
+        password,
+        "127.0.0.1",
+        authorizationRequest,
+      );
+      const oldCodeId = parseAuthorizationCode(oldGrant.code)!.id;
+
+      if (mode === "reset") {
+        await context.service.resetPassword("alice", nextPassword);
+      } else {
+        await context.service.changePassword(
+          originalSession.sessionToken,
+          password,
+          nextPassword,
+          "127.0.0.1",
+        );
+      }
+
+      expect(() => context.service.getSession(originalSession.sessionToken))
+        .toThrow(/Re-authentication/);
+      expect(context.oauthRepository.findAuthorizationCode(oldCodeId)).toMatchObject({
+        consumedAt: expect.any(String),
+        consumedBySessionId: null,
+        consumeReason: mode === "reset" ? "password_reset" : "password_changed",
+      });
+
+      const rejected = await exchangeViaApp(context, tokenRequest(oldGrant.code, randomUUID()));
+      expect(rejected.statusCode).toBe(400);
+      expect(rejected.json()).toMatchObject({
+        error: { code: "OAUTH_INVALID_GRANT" },
+      });
+      expect(context.db.prepare("SELECT COUNT(*) AS count FROM sessions").get())
+        .toMatchObject({ count: 1 });
+      expect(context.db.prepare("SELECT COUNT(*) AS count FROM devices").get())
+        .toMatchObject({ count: 0 });
+
+      const freshGrant = await context.oauthService.authorizeWithPassword(
+        "alice",
+        nextPassword,
+        "127.0.0.1",
+        authorizationRequest,
+      );
+      const accepted = await exchangeViaApp(context, tokenRequest(freshGrant.code, randomUUID()));
+      expect(accepted.statusCode).toBe(200);
+      expect(issuedCloudSessionSchema.parse(accepted.json()).account.username).toBe("alice");
+
+      await context.app.close();
+      context.db.close();
+    });
+  }
+
 });
