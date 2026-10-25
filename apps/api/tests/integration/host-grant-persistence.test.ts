@@ -423,6 +423,9 @@ describe("Host grant SQLite persistence", () => {
     )).statusCode).toBe(200);
     const portal = await testContext.service.login("alice", password, "127.0.0.1");
     const mobileDeviceId = sessionDeviceId(testContext, mobile.sessionToken);
+    // Historic grant ledger is for device-less Portal sessions only, even
+    // when the owning Desktop is currently online.
+    expect((await management(testContext, desktop.sessionToken)).statusCode).toBe(403);
 
     expect((await testContext.app.inject({
       method: "POST",
