@@ -283,6 +283,12 @@ row itself remains registered and non-revoked.
 
 Host grant **policy** and per-Mobile overrides are durable account-owned state,
 distinct from the current Host Session's authority to serve fresh snapshots.
+An authenticated account owner may **still narrow or revoke** grants in Portal
+while the Desktop Host is offline, logged out, or its session has expired;
+the stored grant revision advances, but no fresh positive snapshot can be
+issued until the Desktop signs in and registers a valid Host Session. This
+remote mutation does not require onsite Host approval and never widens authority.
+
 When the Desktop explicitly signs in again and successfully re-registers the
 same still-approved Host, its previous policy and non-revoked, narrowed or
 revoked Mobile overrides remain in effect; a new registration alone does not
