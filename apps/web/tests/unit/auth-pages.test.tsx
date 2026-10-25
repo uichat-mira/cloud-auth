@@ -6,6 +6,8 @@ import type { CloudAuthClient } from "@/lib/auth/client";
 import { AuthProvider } from "@/lib/auth/context";
 import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
 import { createAuthStore } from "@/lib/auth/store";
+import { HostGrantsProvider } from "@/lib/grants/context";
+import { createFakeHostGrantsClient } from "../helpers/host-grants-fixtures";
 import { createMemoryStorage } from "../helpers/session-storage";
 import {
   account,
@@ -24,6 +26,13 @@ function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient
   };
 }
 
+function emptyGrantsClient() {
+  return createFakeHostGrantsClient({
+    listHosts: async () => [],
+    listDevices: async () => [],
+  });
+}
+
 function renderWithClient({
   client,
   initialSession = null,
@@ -39,7 +48,9 @@ function renderWithClient({
 
   render(
     <AuthProvider store={store}>
-      <RouterProvider router={router} />
+      <HostGrantsProvider client={emptyGrantsClient()}>
+        <RouterProvider router={router} />
+      </HostGrantsProvider>
     </AuthProvider>,
   );
 
@@ -70,7 +81,9 @@ describe("auth-backed route components", () => {
 
     render(
       <AuthProvider store={store}>
-        <RouterProvider router={router} />
+        <HostGrantsProvider client={emptyGrantsClient()}>
+          <RouterProvider router={router} />
+        </HostGrantsProvider>
       </AuthProvider>,
     );
 
@@ -108,7 +121,10 @@ describe("auth-backed route components", () => {
 
     expect(screen.getByText(/本地、直连与 Tailscale 功能不需要/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Mira Device、Cloud Shiyan、Hosted Relay 仍在建设中/),
+      screen.getByText(/Cloud Shiyan、Hosted Relay 仍在建设中/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/登录后可在账户页管理 Mira Device/),
     ).toBeInTheDocument();
   });
 
@@ -124,10 +140,15 @@ describe("auth-backed route components", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "关联服务" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("尚未接入")).toHaveLength(3);
-    expect(screen.getByText("Mira Device")).toBeInTheDocument();
+    expect(screen.getAllByText("尚未接入")).toHaveLength(2);
     expect(screen.getByText("Cloud Shiyan")).toBeInTheDocument();
     expect(screen.getByText("Hosted Relay")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "设备与授权" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText("没有可管理的 Desktop Host"),
+    ).toBeInTheDocument();
   });
 
   it("confirms an explicit session renewal without leaving the account view", async () => {

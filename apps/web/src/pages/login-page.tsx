@@ -42,8 +42,12 @@ export function LoginPage() {
             Mira Cloud Account 只用于 Mira 运营的云端服务与会话。
           </li>
           <li>
+            <span className="font-medium text-foreground">设备与授权：</span>
+            登录后可在账户页管理 Mira Device 的 Desktop Host 与手机授权。
+          </li>
+          <li>
             <span className="font-medium text-foreground">尚未接入：</span>
-            Mira Device、Cloud Shiyan、Hosted Relay 仍在建设中。
+            Cloud Shiyan、Hosted Relay 仍在建设中。
           </li>
         </ul>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">

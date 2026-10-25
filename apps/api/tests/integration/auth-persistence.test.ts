@@ -69,11 +69,11 @@ describe("auth persistence", () => {
     const databasePath = join(dir, "auth.sqlite");
 
     const first = createTestAuth(databasePath);
-    expect(first.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 2 });
+    expect(first.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 7 });
     first.db.close();
 
     const second = createTestAuth(databasePath);
-    expect(second.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 2 });
+    expect(second.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 7 });
     second.db.close();
   });
 });
