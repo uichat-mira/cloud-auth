@@ -42,7 +42,7 @@ describe("OAuth authorization code SQLite persistence", () => {
     await first.service.provisionAccount("alice", password);
     const login = await first.service.login("alice", password, "127.0.0.1");
 
-    const grant = first.oauthService.authorize(login.sessionToken, request);
+    const grant = await first.oauthService.authorizeWithPassword("alice", password, "127.0.0.1", request);
     const parsed = parseAuthorizationCode(grant.code);
     expect(parsed).not.toBeNull();
 
@@ -118,14 +118,14 @@ describe("OAuth authorization code SQLite persistence", () => {
       await first.service.login("disabled", password, "127.0.0.1")
     ).sessionToken;
     first.service.setDisabled("disabled", true);
-    expect(() => first.oauthService.authorize(disabledSession, request)).toThrowError(AuthError);
+    await expect(first.oauthService.authorizeWithPassword("disabled", password, "127.0.0.1", request)).rejects.toThrowError(AuthError);
 
     first.service.setDisabled("alice", false);
     const deniedSession = (
       await first.service.login("alice", password, "127.0.0.2")
     ).sessionToken;
     first.service.setAllowed("alice", false);
-    expect(() => first.oauthService.authorize(deniedSession, request)).toThrowError(AuthError);
+    await expect(first.oauthService.authorizeWithPassword("alice", password, "127.0.0.2", request)).rejects.toThrowError(AuthError);
 
     expect(
       first.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get(),
