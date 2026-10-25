@@ -391,8 +391,8 @@ describe("Device and Host grants card", () => {
         throw new Error("runtime snapshot must not be read by Portal management");
       },
     });
-    await renderLoadedGrants(client);
-    expect(screen.getByText("客厅 Desktop")).toBeInTheDocument();
+    renderGrants(client);
+    expect(await screen.findByText("客厅 Desktop")).toBeInTheDocument();
     expect(screen.getByText("离线")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled();
   });
