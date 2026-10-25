@@ -87,6 +87,16 @@ export function registerHostGrantRoutes(
     },
   );
 
+  // Portal-only durable ledger read; deliberately separate from the runtime
+  // /grants snapshot which must fail closed when the Host Session is invalid.
+  app.get("/v1/hosts/grant-management", async (request, reply) => {
+    try {
+      return reply.code(200).send(hostGrantService.listManagement(readBearerToken(request)));
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
   app.get<{ Params: { hostId: string } }>(
     "/v1/hosts/:hostId/grants",
     async (request, reply) => {

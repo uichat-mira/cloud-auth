@@ -1,4 +1,5 @@
 import type {
+  HostGrantManagementListResponse,
   HostGrantPolicyResponse,
   HostGrantSnapshot,
   HostMobileGrant,
@@ -84,6 +85,15 @@ export class HostGrantService {
       ...grantWindow(now, this.options.snapshotTtlSeconds),
       grants: value.grants,
     };
+  }
+
+  listManagement(token: string): HostGrantManagementListResponse {
+    const actor = this.actor(token);
+    const hosts = unwrap(this.repository.listGrantManagement({
+      ...actor,
+      now: this.now().toISOString(),
+    }));
+    return { hosts };
   }
 
   getMobileGrant(token: string, hostId: string): HostMobileGrant {

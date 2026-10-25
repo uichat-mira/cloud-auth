@@ -216,6 +216,16 @@ async function startAuthServer(): Promise<AuthServer> {
       return;
     }
 
+    if (request.method === "GET" && request.url === "/v1/hosts") {
+      sendJson(response, 200, { hosts: [] });
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/v1/devices") {
+      sendJson(response, 200, { devices: [] });
+      return;
+    }
+
     if (request.method === "POST" && request.url === "/v1/auth/session/renew") {
       activeToken = issueSession(response, (tokenSequence += 1));
       return;

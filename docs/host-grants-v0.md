@@ -5,9 +5,10 @@ authoritative Host -> same-account Mobile capability ledger, the minimal
 management API, and the bounded, verifiable snapshot that Desktop can cache
 without asking Cloud Auth on every Tool call.
 
-It does not execute Remote Gateway tools, implement Desktop login UI, implement
-Portal UI, authorize Relay connections, or replace Remote V1 pairing for local
-and Tailscale paths.
+The grant authority itself does not execute Remote Gateway tools, implement
+Desktop login UI, authorize Relay connections, or replace Remote V1 pairing
+for local and Tailscale paths. The signed-in Portal grant-management UI is
+implemented by OPS-021 as a separate consumer of this authority.
 
 ## Authority boundaries
 
@@ -83,6 +84,7 @@ revoke an individual grant afterwards.
 | --- | --- |
 | Set/update Host policy ceiling | The `mira-desktop` OAuth Cloud Session currently owning that Host (`desktop_hosts.session_id`), with an active desktop device and active account |
 | Read Host snapshot | Active same-account Desktop or device-less account Portal Session; not Mobile |
+| Read historical grant management view | Authenticated device-less account Portal Session |
 | Read own Mobile grant | Active Cloud Session bound to a same-account, non-revoked Mobile device |
 | Narrow/revoke one Mobile | Any active Cloud Session of the owning account |
 
@@ -102,6 +104,23 @@ override.
 ## HTTP contract
 
 All endpoints use `Authorization: Bearer <Cloud Session>` and return JSON.
+
+### Portal grant-management read (OPS-021)
+
+`GET /v1/hosts/grant-management` returns a `hosts` array of stored grant
+administration records to an authenticated, device-less account Portal Session.
+Entries contain a public Host summary (id, display name, version, availability),
+account ID, policy configuration, revision, and per-Mobile effective scopes.
+Previously logged-out or expired Host Sessions remain visible as offline when
+the underlying desktop device is still active. Revoked desktop devices are
+excluded.
+
+This is an **administrative view**, not a capability snapshot. It does not
+contain an issue time, validity deadline, snapshot TTL, or Relay room. It
+cannot be used as a runtime Host execution authorization. The original
+`/v1/hosts` directory and `/v1/hosts/{hostId}/grants` runtime snapshot
+retain their strict Host Session checks. PATCH/DELETE still enforce versioned
+narrowing and revocation only.
 
 ### Desktop owner sets the ceiling (DSK-005)
 
@@ -343,7 +362,7 @@ workspace content.
 
 - DSK-005 Desktop login-stage scope selection UI.
 - DSK-007 Host Gateway Tool enforcement.
-- OPS-021 Cloud Portal grant management UI.
+- Live cross-device Portal/Desktop/Mobile T4 acceptance (separate from the OPS-021 implementation).
 - Live Remote V1 pairing migration, hardware attestation, cryptographic offline
   grant tokens, Hosted Relay connection changes, and any Tool execution.
 - Reverse Mobile capability delegation or a general IAM/permission engine.

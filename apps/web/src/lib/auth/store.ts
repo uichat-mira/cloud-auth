@@ -40,6 +40,12 @@ export interface AuthStoreState {
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
   logout(): Promise<void>;
   clearFailure(): void;
+  /**
+   * Returns the persisted bearer for the current Cloud Session without changing
+   * auth state. Consumers such as the Host grant client must treat it as an
+   * opaque credential and never render or log it.
+   */
+  getSessionToken(): string | null;
 }
 
 export interface AuthStoreDependencies {
@@ -189,6 +195,10 @@ export function createAuthStore({
 
     clearFailure() {
       set({ failure: null });
+    },
+
+    getSessionToken() {
+      return storage.load()?.sessionToken ?? null;
     },
   }));
 }
