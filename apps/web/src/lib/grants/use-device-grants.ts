@@ -1,0 +1,355 @@
+import {
+  canonicalRemoteDeviceScopes,
+  type DesktopHost,
+  type HostGrantSnapshot,
+  type HostMobileGrantMutationResponse,
+  type MiraDevice,
+  type RemoteDeviceScope,
+} from "@uichat-mira/cloud-auth-contracts";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import {
+  createHostGrantsFailure,
+  HostGrantsError,
+  toHostGrantsFailure,
+  type HostGrantsClient,
+  type HostGrantsFailure,
+} from "./client";
+
+export interface HostGrantItem {
+  mobileDeviceId: string;
+  scopes: RemoteDeviceScope[];
+  status: "active" | "revoked";
+}
+
+export interface HostGrantView {
+  host: DesktopHost;
+  revision: number;
+  policyConfigured: boolean;
+  policyScopes: RemoteDeviceScope[];
+  validUntil: string | null;
+  grants: HostGrantItem[];
+  failure: HostGrantsFailure | null;
+}
+
+export interface HostGrantsNotice {
+  tone: "success" | "warning" | "error";
+  message: string;
+}
+
+export interface GrantMutationTarget {
+  hostId: string;
+  mobileDeviceId: string;
+  action: "narrow" | "revoke";
+}
+
+export interface DeviceGrantsState {
+  status: "loading" | "ready";
+  hosts: HostGrantView[];
+  mobiles: MiraDevice[];
+  revokedMobiles: MiraDevice[];
+  loadFailure: HostGrantsFailure | null;
+  pending: GrantMutationTarget | null;
+  notice: HostGrantsNotice | null;
+}
+
+export interface UseDeviceGrantsOptions {
+  client: HostGrantsClient;
+  getSessionToken: () => string | null;
+  accountId: string | null;
+  enabled: boolean;
+}
+
+export interface DeviceGrantsController extends DeviceGrantsState {
+  refresh(): Promise<void>;
+  narrow(input: {
+    hostId: string;
+    mobileDeviceId: string;
+    expectedRevision: number;
+    scopes: RemoteDeviceScope[];
+  }): Promise<boolean>;
+  revoke(input: {
+    hostId: string;
+    mobileDeviceId: string;
+    expectedRevision: number;
+  }): Promise<boolean>;
+}
+
+const initialState: DeviceGrantsState = {
+  status: "loading",
+  hosts: [],
+  mobiles: [],
+  revokedMobiles: [],
+  loadFailure: null,
+  pending: null,
+  notice: null,
+};
+
+export function useDeviceGrants({
+  client,
+  getSessionToken,
+  accountId,
+  enabled,
+}: UseDeviceGrantsOptions): DeviceGrantsController {
+  const [state, setState] = useState<DeviceGrantsState>(initialState);
+  const sequence = useRef(0);
+
+  const refresh = useCallback(async () => {
+    const requestSequence = (sequence.current += 1);
+    const sessionToken = getSessionToken();
+
+    if (!sessionToken || !accountId) {
+      setState((current) => ({
+        ...current,
+        status: "ready",
+        hosts: [],
+        mobiles: [],
+        revokedMobiles: [],
+        loadFailure: createHostGrantsFailure("reauth_required"),
+        notice: null,
+      }));
+      return;
+    }
+
+    setState((current) => ({ ...current, loadFailure: null, notice: null }));
+
+    try {
+      const [hosts, devices] = await Promise.all([
+        client.listHosts(sessionToken),
+        client.listDevices(sessionToken),
+      ]);
+
+      const hostViews = await Promise.all(
+        hosts.map(async (host) => {
+          try {
+            const snapshot = await client.getSnapshot(sessionToken, host.id);
+            if (snapshot.accountId !== accountId) {
+              throw new HostGrantsError(
+                createHostGrantsFailure("unexpected_response", { status: 200 }),
+              );
+            }
+            return toHostView(host, snapshot, null);
+          } catch (error) {
+            return toHostView(host, null, toHostGrantsFailure(error));
+          }
+        }),
+      );
+
+      if (requestSequence !== sequence.current) return;
+
+      setState((current) => ({
+        ...current,
+        status: "ready",
+        hosts: hostViews,
+        mobiles: devices.filter(
+          (device) => device.platform === "mobile" && device.revokedAt === null,
+        ),
+        revokedMobiles: devices.filter(
+          (device) => device.platform === "mobile" && device.revokedAt !== null,
+        ),
+        loadFailure: null,
+      }));
+    } catch (error) {
+      if (requestSequence !== sequence.current) return;
+      setState((current) => ({
+        ...current,
+        status: "ready",
+        hosts: [],
+        mobiles: [],
+        revokedMobiles: [],
+        loadFailure: toHostGrantsFailure(error),
+      }));
+    }
+  }, [client, getSessionToken, accountId]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    void refresh();
+  }, [enabled, refresh]);
+
+  const narrow: DeviceGrantsController["narrow"] = useCallback(
+    async ({ hostId, mobileDeviceId, expectedRevision, scopes }) => {
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
+        setState((current) => ({
+          ...current,
+          pending: null,
+          notice: {
+            tone: "error",
+            message: createHostGrantsFailure("reauth_required").message,
+          },
+        }));
+        return false;
+      }
+
+      setState((current) => ({
+        ...current,
+        pending: { hostId, mobileDeviceId, action: "narrow" },
+        notice: null,
+      }));
+
+      try {
+        const result = await client.narrowGrant(
+          sessionToken,
+          hostId,
+          mobileDeviceId,
+          {
+            expectedRevision,
+            scopes: canonicalRemoteDeviceScopes(scopes),
+          },
+        );
+
+        setState((current) => ({
+          ...current,
+          hosts: applyMutation(current.hosts, result),
+          pending: null,
+          notice: {
+            tone: "success",
+            message:
+              "云端已保存新的授权范围。Desktop 会在下次同步或授权快照过期后按新范围执行；Portal 无法确认 Desktop 已立即生效。",
+          },
+        }));
+        return true;
+      } catch (error) {
+        return handleMutationFailure(error, refresh, setState);
+      }
+    },
+    [client, getSessionToken, refresh],
+  );
+
+  const revoke: DeviceGrantsController["revoke"] = useCallback(
+    async ({ hostId, mobileDeviceId, expectedRevision }) => {
+      const sessionToken = getSessionToken();
+      if (!sessionToken) {
+        setState((current) => ({
+          ...current,
+          pending: null,
+          notice: {
+            tone: "error",
+            message: createHostGrantsFailure("reauth_required").message,
+          },
+        }));
+        return false;
+      }
+
+      setState((current) => ({
+        ...current,
+        pending: { hostId, mobileDeviceId, action: "revoke" },
+        notice: null,
+      }));
+
+      try {
+        const result = await client.revokeGrant(
+          sessionToken,
+          hostId,
+          mobileDeviceId,
+          expectedRevision,
+        );
+
+        setState((current) => ({
+          ...current,
+          hosts: applyMutation(current.hosts, result),
+          pending: null,
+          notice: {
+            tone: "success",
+            message:
+              "云端已撤销此手机设备的授权。Desktop 会在下次同步或授权快照过期后停止使用这些权限；Portal 无法确认 Desktop 已立即断开。",
+          },
+        }));
+        return true;
+      } catch (error) {
+        return handleMutationFailure(error, refresh, setState);
+      }
+    },
+    [client, getSessionToken, refresh],
+  );
+
+  return { ...state, refresh, narrow, revoke };
+}
+
+async function handleMutationFailure(
+  error: unknown,
+  refresh: () => Promise<void>,
+  setState: Dispatch<SetStateAction<DeviceGrantsState>>,
+): Promise<boolean> {
+  const failure = toHostGrantsFailure(error);
+
+  if (
+    failure.kind === "stale_revision" ||
+    failure.kind === "not_found" ||
+    failure.kind === "forbidden"
+  ) {
+    await refresh();
+  }
+
+  setState((current) => ({
+    ...current,
+    pending: null,
+    notice: { tone: "error", message: failure.message },
+  }));
+  return false;
+}
+
+function applyMutation(
+  hosts: HostGrantView[],
+  result: HostMobileGrantMutationResponse,
+): HostGrantView[] {
+  return hosts.map((view) => {
+    if (view.host.id !== result.hostId) return view;
+
+    const grants = view.grants.map((grant) =>
+      grant.mobileDeviceId === result.mobileDeviceId
+        ? {
+            mobileDeviceId: grant.mobileDeviceId,
+            scopes: result.scopes,
+            status: result.status,
+          }
+        : grant,
+    );
+
+    return {
+      ...view,
+      revision: result.revision,
+      validUntil: null,
+      grants,
+    };
+  });
+}
+
+function toHostView(
+  host: DesktopHost,
+  snapshot: HostGrantSnapshot | null,
+  failure: HostGrantsFailure | null,
+): HostGrantView {
+  if (!snapshot) {
+    return {
+      host,
+      revision: 0,
+      policyConfigured: false,
+      policyScopes: [],
+      validUntil: null,
+      grants: [],
+      failure,
+    };
+  }
+
+  return {
+    host,
+    revision: snapshot.revision,
+    policyConfigured: snapshot.policyConfigured,
+    policyScopes: snapshot.policyScopes,
+    validUntil: snapshot.validUntil,
+    grants: snapshot.grants.map((grant) => ({
+      mobileDeviceId: grant.mobileDeviceId,
+      scopes: grant.scopes,
+      status: grant.status,
+    })),
+    failure: null,
+  };
+}
