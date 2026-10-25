@@ -31,41 +31,51 @@ Registration rules:
 - Desktop/Mobile owners must implement the callback handler for the exact URI
   above. DSK-005/MOB-078 own the native browser and secure-storage journey.
 
-## GET /v1/oauth/authorize
+## Browser authorization (GET and POST)
 
-The authorization endpoint accepts the standard authorization request as query
-parameters and requires the existing Mira Cloud Account browser context.
+The native app opens the standard authorization URL in the **system browser**.
+The server returns an HTML login/authorization form (HTTP 200), not an
+authorization code. The user explicitly signs in and selects **Authorize
+Mira Desktop** or **Authorize Mira Mobile**. The form posts to the same
+first-party origin, and the server issues the code only after a successful
+Mira Cloud account/password check. No client can attach an arbitrary Bearer
+to bypass the browser interaction.
 
 ```http
-GET /v1/oauth/authorize?response_type=code
-    &client_id=mira-desktop
+GET /v1/oauth/authorize?response_type=code&client_id=mira-desktop
     &redirect_uri=mira-desktop%3A%2F%2Foauth%2Fcallback
     &state=<opaque-16-512-url-safe-characters>
     &code_challenge=<43-character-base64url-sha256>
     &code_challenge_method=S256
-Authorization: Bearer <existing Cloud Session>
 ```
 
-### Authorization context
+Browser transaction:
 
-The caller must present an existing, accepted Cloud Session issued by the
-existing allowlisted account/password flow. The server validates the session,
-account admission (`is_allowed`, not disabled), and any device binding through
-the normal Cloud Session checks.
+1. GET validates the exact client/redirect and PKCE parameters, then renders a
+   minimal self-contained HTML form; it issues a fresh unpredictable CSRF token
+   as a scoped, HttpOnly, SameSite=Lax cookie (Secure over HTTPS).
+2. The form posts the same validated parameters, username, password, and
+   matching CSRF field as `application/x-www-form-urlencoded` to
+   `POST /v1/oauth/authorize`. No JavaScript or actual browser test runner
+   is required; a normal HTML form works in external browsers.
+3. The server verifies CSRF and request integrity, then authenticates using
+   the **existing allowlisted account/password verifier, rate-limit guard,
+   and admission checks**. It does *not* mint a Cloud Session for this step.
+4. If accepted, the server creates the existing opaque, short-lived,
+   hash-stored authorization code and responds with HTTP 303 to the exact
+   registered native callback, preserving the caller's original `state`.
 
-The request cannot assert who consented:
+No password, Cloud Session or bearer is returned to the native app, logged,
+or embedded in a URL. No new browser-session table/cookie is introduced:
+authorization is deliberately a fresh, explicit first-party sign-in per
+request for this minimal V0 boundary. Portal `sessionStorage` is not used
+or silently elevated to OAuth authorization. UX / SSO enhancements belong
+to future independently authorized work, not OPS-016.
 
-- no `username`, `account_id`, `device_id`, `consent`, or `scope` parameter is
-  accepted;
-- the account always comes from the validated Cloud Session;
-- no second account system, password grant, implicit flow, or device proof is
-  introduced;
-- an unauthenticated, expired, revoked, denied, or disabled context receives
-  `401 OAUTH_REAUTH_REQUIRED` and no code.
-
-The existing login page is not redesigned by this work item. The native/browser
-product journey that obtains the Cloud Session and invokes this endpoint is
-deferred to DSK-005/MOB-078.
+Missing or incorrect CSRF, duplicate/unknown POST fields, invalid request,
+unregistered callback, wrong credentials, blocked/disabled accounts all fail
+closed without code. The form's POST body is bounded. Fastify HTTP inject
+contract tests cover this browser protocol without launching Chromium.
 
 ### Parameter rules
 
@@ -81,7 +91,7 @@ deferred to DSK-005/MOB-078.
 
 ### Success
 
-On success the endpoint returns `302` with a `Location` to the **registered**
+On successful browser-form POST the endpoint returns `303` with a `Location` to the **registered**
 callback:
 
 ```text
@@ -129,15 +139,16 @@ JSON error envelope:
 ```
 
 Current JSON codes are `OAUTH_INVALID_REQUEST`, `OAUTH_UNAUTHORIZED_CLIENT`,
-`OAUTH_REAUTH_REQUIRED`, and `OAUTH_INTERNAL_ERROR`. Callback error values are
-bounded by `oauthAuthorizationCallbackErrorSchema`.
+`OAUTH_REAUTH_REQUIRED`, and `OAUTH_INTERNAL_ERROR`. Invalid CSRF returns 403;
+invalid sign-in returns a fresh login form without disclosing the password.
+Callback error values are bounded by `oauthAuthorizationCallbackErrorSchema`.
 
 ## Authorization code storage
 
 Migration `005_oauth_authorization_codes.sql` adds
 `oauth_authorization_codes`. Each row is scoped to:
 
-- canonical account id (derived from the accepted Cloud Session);
+- canonical account id (derived from server-verified allowlisted credentials);
 - registered client id and exact redirect URI;
 - PKCE `code_challenge` and `code_challenge_method = 'S256'`;
 - SHA-256 hash of the high-entropy code secret, domain-separated for
@@ -147,8 +158,7 @@ Migration `005_oauth_authorization_codes.sql` adds
   `consume_reason`) reserved for OPS-017.
 
 The raw code exists only in the redirect response and at the native client. It is
-not written to SQLite, logs, or error responses. Account passwords and browser
-Cloud Session material are not stored in this table.
+not written to SQLite, logs, or error responses. Account passwords and Cloud Session material are not stored in this table.
 
 The default lifetime is 300 seconds (`MIRA_AUTH_OAUTH_CODE_TTL_SECONDS`), with a
 reviewed minimum of 60 and maximum of 600 seconds.
