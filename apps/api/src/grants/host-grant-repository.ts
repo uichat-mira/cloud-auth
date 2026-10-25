@@ -339,6 +339,10 @@ export class HostGrantRepository {
       if (!this.isHostActiveForAccount(input.hostId, session.accountId, input.now)) {
         return { ok: false as const, reason: "not_found" as const };
       }
+      // Mobiles may read only their own grant via /grant, not the full ledger.
+      if (session.devicePlatform === "mobile") {
+        return { ok: false as const, reason: "not_allowed" as const };
+      }
 
       const policy = this.findPolicy(input.hostId);
       if (!policy) {
@@ -533,8 +537,9 @@ export class HostGrantRepository {
 
   /**
    * Account owners can narrow or revoke a durable Host grant even while that
-   * Host's Desktop Session is expired or logged out. Only a non-revoked Host
-   * registration and device ownership are required for an owner mutation;
+   * Host's Desktop Session is expired or logged out. Host Session revocation
+   * must not block owner narrowing/revocation, but an actually revoked Host
+   * device still disqualifies the grant;
    * fresh positive snapshots have the stricter active-session gate below.
    */
   private isHostRegisteredForAccount(hostId: string, accountId: string): boolean {
@@ -545,7 +550,7 @@ export class HostGrantRepository {
            JOIN devices d ON d.id = h.device_id
           WHERE h.id = ?
             AND h.account_id = ?
-            AND h.revoked_at IS NULL
+            AND (h.revoked_at IS NULL OR h.revoke_reason = 'host_session_revoked')
             AND d.account_id = h.account_id
             AND d.platform = 'desktop'
             AND d.revoked_at IS NULL`,
