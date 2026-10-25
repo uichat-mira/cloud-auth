@@ -1,3 +1,7 @@
+import {
+  OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
+  OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
+} from "@uichat-mira/cloud-auth-contracts";
 import { MAX_SERVICE_CREDENTIAL_TTL_SECONDS } from "./service-credentials/signer.js";
 import type {
   ServiceCredentialKeyMaterialConfig,
@@ -5,6 +9,7 @@ import type {
 } from "./service-credentials/keyring.js";
 
 const DEFAULT_SERVICE_CREDENTIAL_TTL_SECONDS = 300;
+const OAUTH_AUTHORIZATION_CODE_MIN_TTL_SECONDS = 60;
 const SERVICE_CREDENTIAL_KEY_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 
 export interface AppConfig {
@@ -13,6 +18,7 @@ export interface AppConfig {
   databasePath: string;
   logLevel: string;
   sessionTtlSeconds: number;
+  oauthAuthorizationCodeTtlSeconds: number;
   passwordMaxConcurrency: number;
   loginPerUsernamePerMinute: number;
   loginPerIpPerMinute: number;
@@ -25,6 +31,13 @@ export interface AppConfig {
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const port = readInteger(env, "PORT", 8788, 1, 65_535);
   const sessionTtlSeconds = readInteger(env, "MIRA_AUTH_SESSION_TTL_SECONDS", 2_592_000, 3_600, 7_776_000);
+  const oauthAuthorizationCodeTtlSeconds = readInteger(
+    env,
+    "MIRA_AUTH_OAUTH_CODE_TTL_SECONDS",
+    OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
+    OAUTH_AUTHORIZATION_CODE_MIN_TTL_SECONDS,
+    OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
+  );
   const passwordMaxConcurrency = readInteger(env, "MIRA_AUTH_PASSWORD_MAX_CONCURRENCY", 2, 1, 4);
   const loginPerUsernamePerMinute = readInteger(env, "MIRA_AUTH_LOGIN_PER_USERNAME_PER_MINUTE", 5, 1, 60);
   const loginPerIpPerMinute = readInteger(env, "MIRA_AUTH_LOGIN_PER_IP_PER_MINUTE", 20, 1, 300);
@@ -38,6 +51,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     databasePath: env.MIRA_AUTH_DB_PATH ?? "./data/auth.sqlite",
     logLevel: env.LOG_LEVEL ?? "info",
     sessionTtlSeconds,
+    oauthAuthorizationCodeTtlSeconds,
     passwordMaxConcurrency,
     loginPerUsernamePerMinute,
     loginPerIpPerMinute,

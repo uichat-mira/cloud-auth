@@ -1,6 +1,43 @@
 import { z } from "zod";
 
 export {
+  FIRST_PARTY_OAUTH_CLIENTS,
+  MIRA_DESKTOP_OAUTH_CLIENT_ID,
+  MIRA_DESKTOP_OAUTH_REDIRECT_URI,
+  MIRA_MOBILE_OAUTH_CLIENT_ID,
+  MIRA_MOBILE_OAUTH_REDIRECT_URI,
+  OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
+  OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
+  OAUTH_AUTHORIZATION_CODE_RESPONSE_TYPE,
+  OAUTH_PKCE_S256_METHOD,
+  findFirstPartyOAuthClient,
+  isRegisteredOAuthRedirectUri,
+  oauthApiErrorCodeSchema,
+  oauthApiErrorEnvelopeSchema,
+  oauthAuthorizationCallbackErrorSchema,
+  oauthAuthorizationCallbackSchema,
+  oauthAuthorizationCodeSchema,
+  oauthAuthorizationErrorCallbackSchema,
+  oauthAuthorizationRequestSchema,
+  oauthClientIdSchema,
+  oauthCodeChallengeMethodSchema,
+  oauthPkceCodeChallengeSchema,
+  oauthRedirectUriSchema,
+  oauthStateSchema,
+} from "./oauth.js";
+
+export type {
+  FirstPartyOAuthClient,
+  OAuthApiErrorCode,
+  OAuthApiErrorEnvelope,
+  OAuthAuthorizationCallback,
+  OAuthAuthorizationCallbackError,
+  OAuthAuthorizationErrorCallback,
+  OAuthAuthorizationRequest,
+  OAuthClientId,
+} from "./oauth.js";
+
+export {
   CLOUD_RELAY_TRANSPORT_AUDIENCE,
   CLOUD_SHIYAN_AUDIENCE,
   RELAY_TRANSPORT_SCOPE,

@@ -9,6 +9,7 @@ describe("loadConfig", () => {
       databasePath: "./data/auth.sqlite",
       logLevel: "info",
       sessionTtlSeconds: 2_592_000,
+      oauthAuthorizationCodeTtlSeconds: 300,
       passwordMaxConcurrency: 2,
       loginPerUsernamePerMinute: 5,
       loginPerIpPerMinute: 20,
@@ -71,5 +72,18 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ MIRA_AUTH_PASSWORD_MAX_CONCURRENCY: "9" })).toThrow(/CONCURRENCY/);
     expect(() => loadConfig({ MIRA_AUTH_ARGON2_MEMORY_KIB: "1024" })).toThrow(/ARGON2_MEMORY/);
     expect(() => loadConfig({ MIRA_AUTH_SESSION_TTL_SECONDS: "60" })).toThrow(/SESSION_TTL/);
+    expect(() => loadConfig({ MIRA_AUTH_OAUTH_CODE_TTL_SECONDS: "59" })).toThrow(
+      /OAUTH_CODE_TTL/,
+    );
+    expect(() => loadConfig({ MIRA_AUTH_OAUTH_CODE_TTL_SECONDS: "601" })).toThrow(
+      /OAUTH_CODE_TTL/,
+    );
+    expect(() => loadConfig({ MIRA_AUTH_OAUTH_CODE_TTL_SECONDS: "soon" })).toThrow(
+      /OAUTH_CODE_TTL/,
+    );
+    expect(
+      loadConfig({ MIRA_AUTH_OAUTH_CODE_TTL_SECONDS: "600" })
+        .oauthAuthorizationCodeTtlSeconds,
+    ).toBe(600);
   });
 });

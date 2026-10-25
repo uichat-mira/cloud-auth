@@ -35,7 +35,7 @@ describe("Mira Device SQLite persistence", () => {
 
     const second = createTestAuth(databasePath);
     expect(second.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({
-      count: 4,
+      count: 5,
     });
     expect(second.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'devices'").get()).toMatchObject({
       name: "devices",
@@ -71,7 +71,7 @@ describe("Mira Device SQLite persistence", () => {
 
     const third = createTestAuth(databasePath);
     expect(third.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({
-      count: 4,
+      count: 5,
     });
 
     const aliceDevices = third.deviceService.list(alice.sessionToken);

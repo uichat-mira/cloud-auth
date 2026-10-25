@@ -4,6 +4,8 @@ import { AuthService } from "./auth/auth-service.js";
 import { DeviceRepository } from "./devices/device-repository.js";
 import { DeviceService } from "./devices/device-service.js";
 import { loadConfig } from "./config.js";
+import { OAuthRepository } from "./oauth/oauth-repository.js";
+import { OAuthService } from "./oauth/oauth-service.js";
 import { LoginGuard } from "./security/login-guard.js";
 import { PasswordHasher } from "./security/password.js";
 import { createServiceCredentialKeyRing } from "./service-credentials/keyring.js";
@@ -29,6 +31,9 @@ const authService = new AuthService(
   { sessionTtlSeconds: config.sessionTtlSeconds },
 );
 const deviceService = new DeviceService(new DeviceRepository(db), authService);
+const oauthService = new OAuthService(new OAuthRepository(db), authService, {
+  codeTtlSeconds: config.oauthAuthorizationCodeTtlSeconds,
+});
 const serviceCredentialService = new ServiceCredentialService(
   repository,
   createServiceCredentialKeyRing(config.serviceCredentials),
@@ -38,6 +43,7 @@ const app = buildApp({
   db,
   authService,
   deviceService,
+  oauthService,
   serviceCredentialService,
   trustProxy: true,
   logger: {

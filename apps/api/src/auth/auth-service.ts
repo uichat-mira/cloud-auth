@@ -115,6 +115,38 @@ export class AuthService {
     }
   }
 
+  /**
+   * Verify an allowlisted account for a first-party browser authorization.
+   * Uses the same password hasher and login guard as Cloud Session login,
+   * but never issues or exposes a Cloud Session to a browser/native client.
+   */
+  async authenticate(username: string, password: string, ip: string): Promise<AccountIdentity> {
+    let normalized: string;
+    try {
+      normalized = normalizeUsername(username);
+    } catch {
+      normalized = "invalid";
+    }
+
+    const guard = this.beginCredentialAttempt(normalized, ip);
+    try {
+      const account = normalized === "invalid"
+        ? null
+        : this.repository.findAccountByUsername(normalized);
+      const passwordValid = account
+        ? await this.passwordHasher.verify(password, account.passwordHash)
+        : await this.burnUnknown(password);
+
+      if (!account || !passwordValid || !account.isAllowed || account.disabledAt) {
+        throw new AuthError("AUTH_INVALID_CREDENTIALS", 401, "Invalid account or password");
+      }
+      this.loginGuard.resetAfterSuccess(account.usernameNormalized);
+      return publicAccount(account);
+    } finally {
+      guard.releaseHashSlot();
+    }
+  }
+
   getSession(token: string): CloudSession {
     const authenticated = this.requireSession(token);
     if (!this.repository.touchSession(authenticated.session.id, new Date().toISOString())) {
