@@ -2,10 +2,12 @@ import {
   desktopHostListResponseSchema,
   deviceListResponseSchema,
   hostGrantSnapshotSchema,
+  hostGrantManagementListResponseSchema,
   hostMobileGrantMutationResponseSchema,
   updateHostMobileGrantRequestSchema,
   type DesktopHost,
   type HostGrantSnapshot,
+  type HostGrantManagementEntry,
   type HostMobileGrantMutationResponse,
   type MiraDevice,
   type RemoteDeviceScope,
@@ -79,6 +81,7 @@ export interface NarrowHostMobileGrantRequest {
 }
 
 export interface HostGrantsClient {
+  listManagement(sessionToken: string): Promise<HostGrantManagementEntry[]>;
   listHosts(sessionToken: string): Promise<DesktopHost[]>;
   listDevices(sessionToken: string): Promise<MiraDevice[]>;
   getSnapshot(sessionToken: string, hostId: string): Promise<HostGrantSnapshot>;
@@ -142,6 +145,14 @@ export function createHostGrantsClient(
       );
     }
     return parsed.data;
+  }
+
+  function listManagement(sessionToken: string): Promise<HostGrantManagementEntry[]> {
+    return requestJson(
+      "/v1/hosts/grant-management",
+      authenticatedRequest("GET", sessionToken),
+      hostGrantManagementListResponseSchema,
+    ).then((response) => response.hosts);
   }
 
   function listHosts(sessionToken: string): Promise<DesktopHost[]> {
@@ -229,7 +240,7 @@ export function createHostGrantsClient(
     return result;
   }
 
-  return { listHosts, listDevices, getSnapshot, narrowGrant, revokeGrant };
+  return { listManagement, listHosts, listDevices, getSnapshot, narrowGrant, revokeGrant };
 }
 
 function authenticatedRequest(
