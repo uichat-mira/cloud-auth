@@ -36,8 +36,8 @@ Registration rules:
 
 The native app opens the standard authorization URL in the **system browser**.
 The server returns an HTML login/authorization form (HTTP 200), not an
-authorization code. The user explicitly signs in and selects **Authorize
-Mira Desktop** or **Authorize Mira Mobile**. The form posts to the same
+authorization code. The user explicitly signs in and selects **授权 Mira Desktop** or
+**授权 Mira Mobile** (native-app authorization buttons). The form posts to the same
 first-party origin, and the server issues the code only after a successful
 Mira Cloud account/password check. No client can attach an arbitrary Bearer
 to bypass the browser interaction.

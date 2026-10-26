@@ -91,6 +91,16 @@ describe("OAuth authorization/callback HTTP contract", () => {
     expect(initial.statusCode).toBe(200);
     expect(locationOf(initial)).toBeNull();
     expect(initial.body).toContain('method="post"');
+    expect(initial.body).toContain('<html lang="zh-CN">');
+    expect(initial.body).toContain("登录并授权");
+    expect(initial.body).toContain("授权 Mira Desktop");
+    expect(initial.body).toContain('name="username"');
+    expect(initial.body).toContain('name="password"');
+    expect(initial.body).toContain('name="csrf_token"');
+    expect(initial.body).toContain("focus-visible");
+    expect(initial.body).not.toContain("#31359d");
+    expect(initial.body).not.toContain("<script");
+    expect(initial.headers["content-security-policy"]).toContain("default-src 'none'");
     expect(initial.body).not.toContain(password);
     expect(testContext.db.prepare("SELECT COUNT(*) AS count FROM oauth_authorization_codes").get())
       .toMatchObject({ count: 0 });
@@ -133,10 +143,12 @@ describe("OAuth authorization/callback HTTP contract", () => {
   it("issues only to the fixed Mobile callback", async () => {
     const testContext = context();
     await testContext.service.provisionAccount("alice", password);
-    const { response } = await browserAuthorize(testContext, authorizeUrl({
+    const { page, response } = await browserAuthorize(testContext, authorizeUrl({
       client_id: MIRA_MOBILE_OAUTH_CLIENT_ID,
       redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
     }));
+    expect(page.body).toContain("授权 Mira Mobile");
+    expect(page.body).toContain('method="post"');
     expect(response.statusCode).toBe(303);
     const location = locationOf(response);
     expect(location?.protocol).toBe("mira-mobile:");
