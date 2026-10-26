@@ -1,0 +1,374 @@
+.cloud-grants .cloud-section-title {
+  display:flex;
+  justify-content:space-between;
+  gap:14px
+}
+.cloud-refresh {
+  border:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  color:#575650!important;
+  font-size:12px!important;
+  padding:0!important;
+  height:auto!important
+}
+.cloud-refresh:hover {
+  text-decoration:underline
+}
+.cloud-grants-alert {
+  padding:14px 0;
+  line-height:1.7
+}
+.cloud-grants-empty {
+  border-top:1px solid #e8e6e1;
+  padding:25px 0;
+  color:#777671;
+  font-size:13px;
+  line-height:1.8
+}
+.cloud-grants-empty strong {
+  font-weight:650;
+  color:#33312e
+}
+.cloud-host {
+  border-top:1px solid #e8e6e1;
+  padding:22px 0 12px
+}
+.cloud-host-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px
+}
+.cloud-host-title {
+  display:flex;
+  align-items:center;
+  gap:14px
+}
+.cloud-host-icon {
+  height:46px;
+  width:46px;
+  border-radius:13px;
+  background:#efede8;
+  display:grid;
+  place-items:center;
+  flex-shrink:0;
+  color:#4b4945
+}
+.cloud-host-icon svg,.cloud-mobile-icon svg {
+  width:21px;
+  height:21px;
+  stroke:currentColor;
+  stroke-width:1.6;
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round
+}
+.cloud-host-title strong {
+  display:block;
+  font-size:14px;
+  font-weight:650;
+  letter-spacing:-.015em
+}
+.cloud-host-title small {
+  display:block;
+  color:#85827c;
+  font-size:12px;
+  margin-top:5px
+}
+.cloud-host-status {
+  font-size:11px;
+  color:#6d6c66;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  white-space:nowrap
+}
+.cloud-host-status:before {
+  content:"";
+  width:6px;
+  height:6px;
+  background:#60866d;
+  border-radius:50%
+}
+.cloud-host-status.offline:before {
+  background:#c5c1b8
+}
+.cloud-host-description {
+  margin:18px 0;
+  color:#8b8982;
+  font-size:12px;
+  line-height:1.8
+}
+.cloud-mobile-heading {
+  font-size:10px;
+  letter-spacing:.12em;
+  color:#9a978f;
+  font-weight:680;
+  margin:25px 0 12px
+}
+.cloud-mobile-row {
+  padding:18px 0;
+  border-top:1px solid #e8e6e1;
+  font-size:12px
+}
+.cloud-mobile-header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px
+}
+.cloud-mobile-info {
+  display:flex;
+  align-items:center;
+  gap:11px
+}
+.cloud-mobile-icon {
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  color:#696760
+}
+.cloud-mobile-icon svg {
+  height:19px;
+  width:19px
+}
+.cloud-mobile-info strong {
+  font-size:13px;
+  font-weight:630;
+  display:block
+}
+.cloud-mobile-info small {
+  font-size:11px;
+  color:#8a8882
+}
+.cloud-mobile-row .cloud-status-text {
+  font-size:11px;
+  color:#60866d
+}
+.cloud-mobile-row .cloud-status-text.revoked {
+  color:#9d6963
+}
+.cloud-permissions {
+  padding-left:17px;
+  list-style:disc;
+  font-size:12px;
+  color:#6c6a64;
+  line-height:1.9;
+  margin:10px 0 14px
+}
+.cloud-grant-action {
+  background:transparent!important;
+  border:0!important;
+  border-bottom:1px solid #77746d!important;
+  padding:3px 0!important;
+  height:auto!important;
+  color:#242421!important;
+  border-radius:0!important;
+  font-size:12px!important
+}
+.cloud-grant-action.danger {
+  color:#a24d48!important;
+  border-bottom-color:#dbaca9!important
+}
+.cloud-grant-edit {
+  border-top:1px solid #e8e6e1;
+  padding-top:15px;
+  margin-top:12px
+}
+.cloud-grant-warning {
+  color:#8c5a54;
+  font-size:11px;
+  line-height:1.8
+}
+@media(max-width:800px) {
+  .cloud-container {
+    padding-left:24px;
+    padding-right:24px
+  }
+  .cloud-header-inner {
+    height:73px
+  }
+  .cloud-account-hero {
+    padding:58px 0 39px;
+    align-items:flex-start
+  }
+  .cloud-account-grid {
+    grid-template-columns:1fr;
+    gap:39px;
+    padding-top:36px
+  }
+  .cloud-security {
+    border-top:1px solid #e8e6e1;
+    padding-top:31px
+  }
+  .cloud-auth-grid {
+    grid-template-columns:1fr;
+    gap:40px;
+    padding:70px 0
+  }
+  .cloud-auth-form-col {
+    border:0;
+    border-top:1px solid #e8e6e1;
+    padding:32px 0 0;
+    max-width:420px
+  }
+}
+@media(max-width:480px) {
+  .cloud-container {
+    padding-left:20px;
+    padding-right:20px
+  }
+  .cloud-header-inner {
+    height:64px
+  }
+  .cloud-brand-mark {
+    height:34px;
+    width:34px;
+    border-radius:10px
+  }
+  .cloud-brand-copy strong {
+    font-size:13px
+  }
+  .cloud-brand-copy small {
+    font-size:9px
+  }
+  .cloud-navigation {
+    gap:13px
+  }
+  .cloud-nav-link {
+    font-size:11px
+  }
+  .cloud-account-hero {
+    display:block;
+    padding:45px 0 30px
+  }
+  .cloud-account-hero h1 {
+    font-size:36px
+  }
+  .cloud-identity {
+    margin-top:26px
+  }
+  .cloud-auth-grid {
+    padding:58px 0 75px
+  }
+  .cloud-auth-intro h1 {
+    font-size:36px
+  }
+  .cloud-footer {
+    font-size:10px
+  }
+  .cloud-host-title {
+    gap:10px
+  }
+  .cloud-host-icon {
+    height:42px;
+    width:42px
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .cloud-shell * {
+    scroll-behavior:auto!important;
+    transition:none!important
+  }
+}
+/* Flat grant presentation; Card remains an implementation detail for existing tests. */
+.cloud-grants .cloud-section-heading {
+  font-size:18px;
+  font-weight:660;
+  letter-spacing:-.04em;
+  line-height:1.4
+}
+.cloud-grants [data-slot="card"] {
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  border-radius:0
+}
+.cloud-grants .cloud-host[data-slot="card"] {
+  padding:22px 0 6px;
+  border-top:1px solid #e8e6e1;
+  gap:0
+}
+.cloud-host [data-slot="card-header"],.cloud-host [data-slot="card-content"] {
+  padding-left:0;
+  padding-right:0
+}
+.cloud-host [data-slot="card-header"] {
+  gap:0
+}
+.cloud-host [data-slot="card-content"] {
+  margin-left:62px;
+  gap:14px
+}
+.cloud-host [data-slot="card-title"] {
+  font-size:14px;
+  letter-spacing:-.015em;
+  font-weight:650
+}
+.cloud-host [data-slot="card-description"] {
+  font-size:12px;
+  color:#85827c;
+  margin-top:5px
+}
+.cloud-grants .cloud-host .cloud-host-description {
+  font-size:12px;
+  color:#8b8982;
+  line-height:1.8;
+  margin-top:18px
+}
+.cloud-grants .cloud-mobile-row {
+  border:0;
+  border-top:1px solid #e8e6e1;
+  border-radius:0;
+  padding:18px 0
+}
+.cloud-grants .cloud-mobile-row .cloud-permissions {
+  display:grid;
+  gap:4px;
+  list-style:disc;
+  padding-left:16px;
+  margin-top:9px;
+  margin-bottom:12px;
+  font-size:12px;
+  line-height:1.7;
+  color:#6c6a64
+}
+.cloud-grants .cloud-mobile-row .cloud-permissions li {
+  border:0;
+  border-radius:0;
+  padding:0;
+  background:transparent;
+  font-size:12px;
+  color:#6c6a64;
+  display:list-item
+}
+.cloud-grants .cloud-mobile-row button[variant="outline"] {
+  background:transparent
+}
+.cloud-grants .cloud-mobile-row [class*="rounded-full"] {
+  border:none;
+  background:transparent;
+  padding:0;
+  border-radius:0;
+  color:#60866d;
+  font-size:11px
+}
+.cloud-grants .cloud-mobile-row .flex.flex-wrap.gap-2 button {
+  height:auto;
+  min-height:30px
+}
+.cloud-grants [data-slot="card"].cloud-grants-empty {
+  padding:22px 0;
+  border-top:1px solid #e8e6e1
+}
+.cloud-grants [data-slot="card"].cloud-grants-empty [data-slot="card-header"],.cloud-grants [data-slot="card"].cloud-grants-empty [data-slot="card-content"] {
+  padding-left:0;
+  padding-right:0
+}
+@media(max-width:480px) {
+  .cloud-host [data-slot="card-content"] {
+    margin-left:0
+  }
+}

@@ -104,7 +104,6 @@ describe("auth-backed route components", () => {
     ]);
     expect(storage.load()?.sessionToken).toBe("token-1");
 
-    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
 
     await waitFor(() => {
@@ -284,7 +283,7 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
-    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
+    fireEvent.click(screen.getByText("当前登录会话"));
     fireEvent.click(screen.getByRole("button", { name: "续期 Session" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
@@ -307,7 +306,6 @@ describe("auth-backed route components", () => {
 
     await screen.findByText("pilot");
     expect(screen.queryByLabelText("当前密码")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     expect(screen.queryByLabelText("当前密码")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
 
@@ -345,7 +343,6 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
-    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
     expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("当前密码"), {
@@ -399,7 +396,6 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
-    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
     expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("当前密码"), {
@@ -434,7 +430,6 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
-    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
     expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("当前密码"), {

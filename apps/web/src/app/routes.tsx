@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 import { RootLayout } from "@/app/root-layout";
+import { useAuthSession } from "@/lib/auth/context";
 import { AccountPage } from "@/pages/account-page";
 import { LoginPage } from "@/pages/login-page";
 import { NotFoundPage } from "@/pages/not-found-page";
@@ -13,7 +14,7 @@ export const routes: RouteObject[] = [
     children: [
       {
         index: true,
-        element: <Navigate to="/login" replace />,
+        element: <PortalHome />,
       },
       {
         path: "login",
@@ -30,3 +31,18 @@ export const routes: RouteObject[] = [
     ],
   },
 ];
+
+function PortalHome() {
+  const { status } = useAuthSession();
+
+  if (status === "idle" || status === "restoring") {
+    return <p role="status" className="py-12 text-sm text-muted-foreground">正在检查登录状态…</p>;
+  }
+
+  return (
+    <Navigate
+      to={status === "authenticated" || status === "unavailable" ? "/account" : "/login"}
+      replace
+    />
+  );
+}
