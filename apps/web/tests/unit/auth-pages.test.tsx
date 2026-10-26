@@ -116,16 +116,136 @@ describe("auth-backed route components", () => {
     );
   });
 
-  it("explains the local-first boundary and future integrations before login", () => {
+  it("keeps a concise local-first note without the technical explainer", () => {
     renderWithClient({ client: createClient(), path: "/login" });
 
-    expect(screen.getByText(/本地、直连与 Tailscale 功能不需要/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Cloud Shiyan、Hosted Relay 仍在建设中/),
+      screen.getByText(/仅用于 Mira 运营的云端服务/),
     ).toBeInTheDocument();
+    expect(screen.getByText(/本地、直连与 Tailscale/)).toBeInTheDocument();
+    expect(screen.queryByText("Cloud Shiyan")).not.toBeInTheDocument();
+    expect(screen.queryByText("Hosted Relay")).not.toBeInTheDocument();
     expect(
-      screen.getByText(/登录后可在账户页管理 Mira Device/),
+      screen.queryByText(/只是想查看账户页面/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("disables submission with a pending label while login is in flight", async () => {
+    let resolveLogin: () => void = () => undefined;
+    const pendingLogin = new Promise<void>((resolve) => {
+      resolveLogin = resolve;
+    });
+
+    const { router } = renderWithClient({
+      client: createClient({
+        login: async () => {
+          await pendingLogin;
+          return issuedSession("token-1");
+        },
+      }),
+      path: "/login",
+    });
+
+    fireEvent.change(screen.getByLabelText("账号"), {
+      target: { value: "pilot" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
+
+    expect(
+      await screen.findByRole("button", { name: "登录中…" }),
+    ).toBeDisabled();
+    expect(router.state.location.pathname).toBe("/login");
+
+    resolveLogin();
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/account");
+    });
+  });
+
+  it("shows restoring feedback before redirecting an existing session", async () => {
+    let resolveSession: () => void = () => undefined;
+    const pendingSession = new Promise<void>((resolve) => {
+      resolveSession = resolve;
+    });
+
+    const { router } = renderWithClient({
+      client: createClient({
+        getSession: async () => {
+          await pendingSession;
+          return { account, expiresAt };
+        },
+      }),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/login",
+    });
+
+    expect(
+      await screen.findByText("正在恢复登录状态…"),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "登录" })).toBeDisabled();
+
+    resolveSession();
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/account");
+    });
+  });
+
+  it("renders invalid credentials as a readable login failure", async () => {
+    const { storage } = renderWithClient({
+      client: createClient({
+        login: async () => {
+          throw new CloudAuthError(
+            createAuthFailure("invalid_credentials", {
+              status: 401,
+              code: "AUTH_INVALID_CREDENTIALS",
+            }),
+          );
+        },
+      }),
+      path: "/login",
+    });
+
+    fireEvent.change(screen.getByLabelText("账号"), {
+      target: { value: "pilot" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "wrong" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "账号或密码不正确。",
+    );
+    expect(screen.getByRole("button", { name: "登录" })).toBeEnabled();
+    expect(storage.load()).toBeNull();
+  });
+
+  it("renders a distinct network-unavailable failure", async () => {
+    renderWithClient({
+      client: createClient({
+        login: async () => {
+          throw new CloudAuthError(createAuthFailure("network_unavailable"));
+        },
+      }),
+      path: "/login",
+    });
+
+    fireEvent.change(screen.getByLabelText("账号"), {
+      target: { value: "pilot" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "登录" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "无法连接认证服务，请检查网络后重试。",
+    );
   });
 
   it("shows the restored identity, session, and not-yet-connected services", async () => {
