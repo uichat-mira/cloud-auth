@@ -3,6 +3,7 @@ import {
   Link,
   useRouteError,
 } from "react-router-dom";
+import { PortalShell } from "@/app/root-layout";
 import { Button } from "@/components/ui/button";
 
 function describeError(error: unknown): string {
@@ -21,8 +22,8 @@ export function RouteErrorPage() {
   const error = useRouteError();
 
   return (
-    <div className="grid min-h-dvh place-items-center px-4 py-12">
-      <section className="w-full max-w-md space-y-4 text-center">
+    <PortalShell>
+      <section className="mx-auto max-w-md space-y-4 py-12 text-center sm:py-20">
         <p className="font-mono text-sm text-muted-foreground">Error</p>
         <h1 className="text-3xl font-semibold tracking-tight">
           页面暂时无法显示
@@ -36,6 +37,6 @@ export function RouteErrorPage() {
           </Button>
         </div>
       </section>
-    </div>
+    </PortalShell>
   );
 }

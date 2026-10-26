@@ -1,9 +1,11 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers";
+import { RootLayout } from "@/app/root-layout";
 import { routes } from "@/app/routes";
+import { RouteErrorPage } from "@/pages/route-error-page";
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, {
@@ -77,5 +79,47 @@ describe("web route shell", () => {
     expect(
       screen.getByRole("link", { name: "前往登录" }),
     ).toHaveAttribute("href", "/login");
+  });
+
+  it("renders route errors inside the shared portal shell", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    function BrokenPage(): never {
+      throw new Error("boom");
+    }
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/",
+          element: <RootLayout />,
+          errorElement: <RouteErrorPage />,
+          children: [{ path: "broken", element: <BrokenPage /> }],
+        },
+      ],
+      { initialEntries: ["/broken"] },
+    );
+
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
+
+    expect(
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "页面暂时无法显示",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: "主导航" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "账户" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+
+    consoleError.mockRestore();
   });
 });
