@@ -148,6 +148,35 @@ function validCsrf(request: FastifyRequest, posted: string | undefined): boolean
   return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
+const authorizationStyles = `
+:root {
+  color-scheme: light;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+  color: #18181b;
+  background: #fafafa;
+  font-synthesis: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; min-height: 100dvh; }
+main { width: min(100%, 26rem); margin: 0 auto; padding: clamp(3.5rem, 12vh, 7rem) 1.25rem 3rem; }
+.brand { display: flex; align-items: center; gap: .65rem; margin-bottom: 3.5rem; font-size: .875rem; font-weight: 600; letter-spacing: -.015em; }
+.mark { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: .55rem; background: #18181b; color: #fff; font-size: .875rem; font-weight: 700; }
+h1 { margin: 0; font-size: clamp(1.625rem, 5vw, 2rem); font-weight: 650; letter-spacing: -.04em; line-height: 1.3; }
+.lead { margin: .75rem 0 1.75rem; color: #52525b; line-height: 1.75; font-size: .875rem; }
+.lead strong { color: #18181b; font-weight: 600; }
+form { display: grid; gap: 1.1rem; }
+.field { display: grid; gap: .5rem; }
+label { font-size: .875rem; font-weight: 550; }
+input:not([type=hidden]) { display: block; width: 100%; min-width: 0; min-height: 2.75rem; padding: .65rem .8rem; border: 1px solid #d4d4d8; border-radius: .5rem; background: #fff; color: #18181b; font: inherit; font-size: 1rem; }
+input:not([type=hidden]):focus-visible, button:focus-visible { outline: 3px solid #a1a1aa; outline-offset: 2px; }
+button { width: 100%; min-height: 2.75rem; margin-top: .35rem; padding: .7rem 1rem; border: 1px solid #18181b; border-radius: .5rem; background: #18181b; color: #fafafa; font: inherit; font-weight: 600; cursor: pointer; }
+button:hover { background: #3f3f46; }
+button:active { background: #27272a; }
+.error { margin: 0 0 1rem; padding: .75rem .875rem; border: 1px solid #fecaca; border-radius: .5rem; background: #fef2f2; color: #991b1b; font-size: .875rem; line-height: 1.6; }
+.note { margin: 1.75rem 0 0; color: #71717a; font-size: .75rem; line-height: 1.75; }
+@media (max-width: 480px) { main { padding-top: 4rem; } .brand { margin-bottom: 3rem; } }
+`;
+
 function renderLoginForm(
   reply: FastifyReply,
   request: FastifyRequest,
@@ -164,22 +193,27 @@ function renderLoginForm(
   const clientLabel = client.platform === "desktop" ? "Mira Desktop" : "Mira Mobile";
   const page = [
     "<!doctype html>",
-    '<html lang="en"><head><meta charset="utf-8">',
+    '<html lang="zh-CN"><head><meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
-    "<title>Authorize " + clientLabel + " — Mira Cloud</title>",
-    '<style>body{font:16px system-ui,sans-serif;max-width:26rem;margin:10vh auto;padding:1.25rem;color:#24262a}label{display:block;margin:1rem 0}input:not([type=hidden]){display:block;width:100%;box-sizing:border-box;font:inherit;padding:.75rem;margin-top:.4rem;border:1px solid #aaa;border-radius:.4rem}button{width:100%;padding:.8rem;font:inherit;background:#31359d;color:white;border:0;border-radius:.4rem}p{line-height:1.5}.error{color:#b21a1a}</style>',
+    '<meta name="color-scheme" content="light">',
+    "<title>授权 " + clientLabel + " — Mira Cloud</title>",
+    "<style>" + authorizationStyles + "</style>",
     "</head><body><main>",
-    "<h1>Sign in to Mira Cloud</h1>",
-    "<p>Sign in with your Mira Cloud Account to authorize " + clientLabel +
-      ". Your password stays with Mira Cloud and is never sent to the app.</p>",
+    '<header class="brand"><span class="mark" aria-hidden="true">M.</span><span>Mira Cloud</span></header>',
+    "<h1>登录并授权</h1>",
+    '<p class="lead">使用 Mira Cloud 账号，授权 <strong>' + clientLabel + "</strong>。</p>",
     error ? '<p class="error" role="alert">' + escapeHtml(error) + "</p>" : "",
     '<form method="post" action="/v1/oauth/authorize" autocomplete="on">',
     hidden,
     '<input type="hidden" name="' + CSRF_FIELD_NAME + '" value="' + csrf + '">',
-    '<label>Username<input name="username" autocomplete="username" required maxlength="128"></label>',
-    '<label>Password<input type="password" name="password" autocomplete="current-password" required maxlength="1024"></label>',
-    '<button type="submit">Authorize ' + clientLabel + "</button>",
-    "</form></main></body></html>",
+    '<div class="field"><label for="oauth-username">账号</label>',
+    '<input id="oauth-username" name="username" autocomplete="username" required maxlength="128"></div>',
+    '<div class="field"><label for="oauth-password">密码</label>',
+    '<input id="oauth-password" type="password" name="password" autocomplete="current-password" required maxlength="1024"></div>',
+    '<button type="submit">授权 ' + clientLabel + "</button>",
+    "</form>",
+    '<p class="note">密码仅提交给 Mira Cloud 进行身份验证，不会发送给客户端应用。</p>',
+    "</main></body></html>",
   ].join("\n");
 
   return noStore(reply)
