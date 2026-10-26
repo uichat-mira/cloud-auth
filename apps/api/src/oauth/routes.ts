@@ -13,6 +13,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { AuthError } from "../auth/auth-service.js";
 import { OAuthError } from "./errors.js";
+import { authorizationStyles } from "./authorization-styles.js";
 import type { OAuthService } from "./oauth-service.js";
 
 const AUTHORIZATION_QUERY_KEYS = [
@@ -148,35 +149,6 @@ function validCsrf(request: FastifyRequest, posted: string | undefined): boolean
   return received.length === expected.length && timingSafeEqual(received, expected);
 }
 
-const authorizationStyles = `
-:root {
-  color-scheme: light;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
-  color: #18181b;
-  background: #fafafa;
-  font-synthesis: none;
-}
-* { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; min-height: 100dvh; }
-main { width: min(100%, 26rem); margin: 0 auto; padding: clamp(3.5rem, 12vh, 7rem) 1.25rem 3rem; }
-.brand { display: flex; align-items: center; gap: .65rem; margin-bottom: 3.5rem; font-size: .875rem; font-weight: 600; letter-spacing: -.015em; }
-.mark { display: inline-grid; place-items: center; width: 2rem; height: 2rem; border-radius: .55rem; background: #18181b; color: #fff; font-size: .875rem; font-weight: 700; }
-h1 { margin: 0; font-size: clamp(1.625rem, 5vw, 2rem); font-weight: 650; letter-spacing: -.04em; line-height: 1.3; }
-.lead { margin: .75rem 0 1.75rem; color: #52525b; line-height: 1.75; font-size: .875rem; }
-.lead strong { color: #18181b; font-weight: 600; }
-form { display: grid; gap: 1.1rem; }
-.field { display: grid; gap: .5rem; }
-label { font-size: .875rem; font-weight: 550; }
-input:not([type=hidden]) { display: block; width: 100%; min-width: 0; min-height: 2.75rem; padding: .65rem .8rem; border: 1px solid #d4d4d8; border-radius: .5rem; background: #fff; color: #18181b; font: inherit; font-size: 1rem; }
-input:not([type=hidden]):focus-visible, button:focus-visible { outline: 3px solid #a1a1aa; outline-offset: 2px; }
-button { width: 100%; min-height: 2.75rem; margin-top: .35rem; padding: .7rem 1rem; border: 1px solid #18181b; border-radius: .5rem; background: #18181b; color: #fafafa; font: inherit; font-weight: 600; cursor: pointer; }
-button:hover { background: #3f3f46; }
-button:active { background: #27272a; }
-.error { margin: 0 0 1rem; padding: .75rem .875rem; border: 1px solid #fecaca; border-radius: .5rem; background: #fef2f2; color: #991b1b; font-size: .875rem; line-height: 1.6; }
-.note { margin: 1.75rem 0 0; color: #71717a; font-size: .75rem; line-height: 1.75; }
-@media (max-width: 480px) { main { padding-top: 4rem; } .brand { margin-bottom: 3rem; } }
-`;
-
 function renderLoginForm(
   reply: FastifyReply,
   request: FastifyRequest,
@@ -200,6 +172,8 @@ function renderLoginForm(
     "<style>" + authorizationStyles + "</style>",
     "</head><body><main>",
     '<header class="brand"><span class="mark" aria-hidden="true">M.</span><span>Mira Cloud</span></header>',
+    '<span class="app-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="12" rx="2" /><path d="M9 20h6M12 16.5V20"/></svg></span>',
+    '<span class="eyebrow">Mira Cloud / Authorization</span>',
     "<h1>登录并授权</h1>",
     '<p class="lead">使用 Mira Cloud 账号，授权 <strong>' + clientLabel + "</strong>。</p>",
     error ? '<p class="error" role="alert">' + escapeHtml(error) + "</p>" : "",

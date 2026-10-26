@@ -16,8 +16,6 @@ const sessionLabels: Record<AuthStatus, string> = {
   unavailable: "登录状态待确认",
 };
 
-type AccountSection = "devices" | "security";
-
 export function AccountPage() {
   const {
     status,
@@ -31,7 +29,6 @@ export function AccountPage() {
     logout,
     clearFailure,
   } = useAuthSession();
-  const [section, setSection] = useState<AccountSection>("devices");
   const [passwordOpen, setPasswordOpen] = useState(false);
   const isAuthenticated = status === "authenticated";
 
@@ -46,186 +43,137 @@ export function AccountPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
-      <header className="space-y-3">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Mira Cloud Account
-        </p>
-        <h1 className="text-3xl font-semibold tracking-tight">我的账户</h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          管理云端身份与设备访问权限。
-        </p>
+    <div className="cloud-account">
+      <header className="cloud-account-hero">
+        <div>
+          <p className="cloud-eyebrow">Mira Cloud / Account</p>
+          <h1 aria-label="我的账户">
+            {isAuthenticated ? <>你好，{account?.username ?? "朋友"}。</> : "我的账户"}
+          </h1>
+          <p className="cloud-account-summary">
+            你的云账户、Desktop 与手机之间的授权关系，都在这里。
+            <span className="block">简单查看；需要时，再管理。</span>
+          </p>
+        </div>
+        {isAuthenticated ? (
+          <div className="cloud-identity" aria-label="账户身份">
+            <span className="cloud-avatar" aria-hidden="true">
+              {account?.username?.trim().slice(0, 1).toUpperCase() ?? "M"}
+            </span>
+            <span>
+              <strong>{account?.username ?? "Mira Cloud"}</strong>
+              <small>Mira Cloud Account · {sessionLabels[status]}</small>
+            </span>
+          </div>
+        ) : null}
       </header>
 
-      <AuthFailureAlert failure={passwordOpen ? null : failure} />
-
-      {notice === "session_renewed" ? (
-        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
-          Cloud Session 已续期，当前登录状态保持不变。
-        </p>
-      ) : null}
-
-      {notice === "password_changed" ? (
-        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
-          密码已修改，请重新登录。
-        </p>
-      ) : null}
-
-      <section aria-label="账户身份" className="space-y-4 border-b pb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <p className="break-all text-lg font-medium">
-              {account?.username ?? "尚未登录"}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Mira Cloud · {sessionLabels[status]}
-            </p>
-          </div>
-          <span className="rounded-md bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-            {sessionLabels[status]}
-          </span>
-        </div>
-        <details className="text-sm">
-          <summary className="w-fit cursor-pointer rounded-md text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
-            账户及会话详情
-          </summary>
-          <dl className="mt-4 grid grid-cols-[minmax(0,6rem)_minmax(0,1fr)] gap-x-3 gap-y-3 border-t pt-4 text-sm">
-            <dt className="text-muted-foreground">Account ID</dt>
-            <dd className="min-w-0 break-all font-mono text-xs sm:text-sm">
-              {account?.id ?? "—"}
-            </dd>
-            <dt className="text-muted-foreground">会话状态</dt>
-            <dd>{sessionLabels[status]}</dd>
-            <dt className="text-muted-foreground">到期时间</dt>
-            <dd>{expiresAt ? formatExpiry(expiresAt) : "—"}</dd>
-          </dl>
-        </details>
-      </section>
+      <div className="cloud-page-messages">
+        <AuthFailureAlert failure={passwordOpen ? null : failure} />
+        {notice === "session_renewed" ? (
+          <p role="status" className="text-sm text-emerald-700">
+            Cloud Session 已续期，当前登录状态保持不变。
+          </p>
+        ) : null}
+        {notice === "password_changed" ? (
+          <p role="status" className="text-sm text-emerald-700">
+            密码已修改，请重新登录。
+          </p>
+        ) : null}
+      </div>
 
       {isAuthenticated ? (
         <>
-          <div role="group" aria-label="账户管理" className="flex gap-6 border-b">
-            <button
-              type="button"
-              aria-pressed={section === "devices"}
-              onClick={() => setSection("devices")}
-              className={sectionClassName(section === "devices")}
-            >
-              设备授权
-            </button>
-            <button
-              type="button"
-              aria-pressed={section === "security"}
-              onClick={() => setSection("security")}
-              className={sectionClassName(section === "security")}
-            >
-              账户安全
-            </button>
-          </div>
+          <div className="cloud-account-grid">
+            <div className="cloud-main-column">
+              <DeviceGrantsCard />
+              <details className="cloud-extra-services">
+                <summary>关联服务 · 尚未接入</summary>
+                <div className="pt-4"><FutureServices /></div>
+              </details>
+            </div>
 
-          {section === "devices" ? (
-            <DeviceGrantsCard />
-          ) : (
-            <section aria-labelledby="account-security-heading" className="space-y-5">
-              <div className="space-y-1">
-                <h2 id="account-security-heading" className="text-lg font-semibold">
-                  账户安全
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  管理密码与当前浏览器的 Cloud Session。
-                </p>
+            <aside className="cloud-security" aria-labelledby="account-security-heading">
+              <div className="cloud-section-title">
+                <h2 id="account-security-heading">账户安全</h2>
+                <p>密码与当前浏览器会话。</p>
               </div>
-
-              <button
-                type="button"
-                aria-label="修改密码"
-                onClick={openPasswordDialog}
-                className="flex w-full items-center justify-between gap-3 rounded-md border-b px-1 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <span className="space-y-1">
-                  <span className="block font-medium">修改密码</span>
-                  <span className="block text-xs leading-5 text-muted-foreground">
-                    修改成功后，所有 Cloud Session 将失效，需要重新登录。
+              <div className="cloud-action-list">
+                <button type="button" aria-label="修改密码" className="cloud-action-row" onClick={openPasswordDialog}>
+                  <span>
+                    <strong>修改密码</strong>
+                    <small>修改后，云端会话需要重新登录</small>
                   </span>
-                </span>
-                <span aria-hidden="true" className="text-lg text-muted-foreground">›</span>
-              </button>
-
-              <div className="space-y-3 border-t pt-5">
-                <h3 className="text-sm font-medium">当前登录会话</h3>
-                <p className="text-sm text-muted-foreground">
-                  {expiresAt ? "有效期至 " + formatExpiry(expiresAt) : "会话有效期尚未读取"}
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void renew()}
-                    disabled={pending !== null}
-                  >
-                    {pending === "renew" ? "续期中…" : "续期 Session"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => void logout()}
-                    disabled={pending !== null}
-                  >
-                    {pending === "logout" ? "退出中…" : "退出登录"}
-                  </Button>
-                </div>
+                  <span aria-hidden="true" className="cloud-arrow">›</span>
+                </button>
+                <details className="cloud-session-details">
+                  <summary className="cloud-action-row">
+                    <span>
+                      <strong>当前登录会话</strong>
+                      <small>仅管理此浏览器的会话</small>
+                    </span>
+                    <span aria-hidden="true" className="cloud-arrow">›</span>
+                  </summary>
+                  <div className="cloud-session-body">
+                    <p>会话到期：{expiresAt ? formatExpiry(expiresAt) : "尚未读取"}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" variant="outline" onClick={() => void renew()} disabled={pending !== null}>
+                        {pending === "renew" ? "续期中…" : "续期 Session"}
+                      </Button>
+                    </div>
+                  </div>
+                </details>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-label="退出登录"
+                  className="cloud-action-row cloud-signout"
+                  onClick={() => void logout()}
+                  disabled={pending !== null}
+                >
+                  <span>
+                    <strong>{pending === "logout" ? "退出中…" : "退出登录"}</strong>
+                    <small>不会退出 Desktop 本地账户</small>
+                  </span>
+                  <span aria-hidden="true" className="cloud-arrow">›</span>
+                </Button>
               </div>
-            </section>
-          )}
+              <p className="cloud-side-note">
+                云端授权修改后，Desktop 会根据有效快照和同步机制执行。
+                这里不会虚构即时生效状态。
+              </p>
+            </aside>
+          </div>
+          <details className="cloud-account-technical">
+            <summary>账户及会话详情</summary>
+            <dl>
+              <dt>Account ID</dt><dd className="break-all">{account?.id ?? "—"}</dd>
+              <dt>会话状态</dt><dd>{sessionLabels[status]}</dd>
+              <dt>到期时间</dt><dd>{expiresAt ? formatExpiry(expiresAt) : "—"}</dd>
+            </dl>
+          </details>
           <ChangePasswordDialog open={passwordOpen} onClose={closePasswordDialog} />
         </>
       ) : (
-        <section className="space-y-4" aria-label="会话操作">
+        <section aria-label="会话操作" className="cloud-account-recovery">
           {status === "idle" || status === "restoring" ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              正在检查登录状态…
-            </p>
+            <p role="status" className="text-sm text-muted-foreground">正在检查登录状态…</p>
           ) : null}
           {status === "unavailable" ? (
-            <Button
-              type="button"
-              onClick={() => void restore()}
-              disabled={pending !== null}
-            >
+            <Button type="button" onClick={() => void restore()} disabled={pending !== null}>
               {pending === "restore" ? "正在检查…" : "重新检查登录状态"}
             </Button>
           ) : null}
           {status === "unauthenticated" ? (
-            <Button asChild>
-              <Link to="/login">前往登录</Link>
-            </Button>
+            <p className="text-sm text-muted-foreground">{sessionLabels[status]}</p>
+          ) : null}
+          {status === "unauthenticated" ? (
+            <Button asChild><Link to="/login">前往登录</Link></Button>
           ) : null}
         </section>
       )}
-
-      <details className="border-t pt-5">
-        <summary className="w-fit cursor-pointer rounded-md text-sm text-muted-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
-          关联服务 · 尚未接入
-        </summary>
-        <div className="pt-5">
-          <FutureServices />
-        </div>
-      </details>
-
-      <p className="text-xs leading-5 text-muted-foreground">
-        Mira Cloud 只用于 Mira 运营的云端服务；本地、直连与 Tailscale 功能不需要登录。
-      </p>
     </div>
   );
-}
-
-function sectionClassName(active: boolean): string {
-  return [
-    "border-b-2 px-1 py-3 text-sm outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50",
-    active
-      ? "border-foreground font-medium text-foreground"
-      : "border-transparent text-muted-foreground hover:text-foreground",
-  ].join(" ");
 }
 
 function formatExpiry(expiresAt: string): string {

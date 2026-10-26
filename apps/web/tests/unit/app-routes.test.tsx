@@ -26,7 +26,7 @@ describe("web route shell", () => {
     renderAt("/login");
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
+      screen.getByRole("heading", { level: 2, name: "登录 Mira Cloud" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("账号")).toBeEnabled();
     expect(screen.getByLabelText("密码")).toBeEnabled();
@@ -40,7 +40,7 @@ describe("web route shell", () => {
       expect(router.state.location.pathname).toBe("/login");
     });
     expect(
-      await screen.findByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
+      await screen.findByRole("heading", { level: 2, name: "登录 Mira Cloud" }),
     ).toBeInTheDocument();
   });
 
@@ -60,7 +60,7 @@ describe("web route shell", () => {
     const user = userEvent.setup();
     const router = renderAt("/login");
 
-    await user.click(screen.getByRole("link", { name: "账户" }));
+    await user.click(screen.getByRole("link", { name: "账户中心" }));
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/account");
@@ -115,7 +115,7 @@ describe("web route shell", () => {
     expect(
       screen.getByRole("navigation", { name: "主导航" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "账户" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "账户中心" })).toHaveAttribute(
       "href",
       "/account",
     );
