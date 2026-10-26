@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.screenshots/
 data/
 *.sqlite
 *.sqlite-shm

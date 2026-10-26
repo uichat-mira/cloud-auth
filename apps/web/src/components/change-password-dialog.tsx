@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
+import { useRegisterModalOpen } from "@/components/modal-open-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthSession } from "@/lib/auth/context";
@@ -15,6 +16,10 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const submitting = pending === "changePassword";
+
+  // While this dialog is open it owns the alert region: the console layout hides
+  // its own copy of the shared failure so one state never renders two alerts.
+  useRegisterModalOpen(open);
 
   useEffect(() => {
     if (!open) return;
@@ -81,14 +86,12 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
           close();
         }
       }}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-xl border bg-background p-0 text-foreground shadow-xl backdrop:bg-foreground/40"
+      className="cloud-dialog"
     >
-      <div className="flex items-start justify-between gap-4 px-6 pt-6">
-        <div className="space-y-2">
-          <h2 id="change-password-heading" className="text-xl font-semibold tracking-tight">
-            修改密码
-          </h2>
-          <p id="change-password-description" className="text-sm leading-6 text-muted-foreground">
+      <div className="cloud-dialog-head">
+        <div>
+          <h2 id="change-password-heading">修改密码</h2>
+          <p id="change-password-description" className="cloud-dialog-caption">
             修改成功后，所有 Cloud Session 将失效，需要重新登录。
           </p>
         </div>
@@ -97,17 +100,15 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
           aria-label="关闭弹窗"
           onClick={close}
           disabled={submitting}
-          className="rounded-md px-1 text-xl text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50"
+          className="cloud-dialog-close"
         >
           ×
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 px-6 pb-6 pt-5">
-        <div className="grid gap-2">
-          <label htmlFor="current-password" className="text-sm font-medium">
-            当前密码
-          </label>
+      <form onSubmit={handleSubmit} className="cloud-dialog-form">
+        <div className="cloud-field">
+          <label htmlFor="current-password">当前密码</label>
           <Input
             id="current-password"
             name="current-password"
@@ -121,10 +122,8 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
             disabled={submitting}
           />
         </div>
-        <div className="grid gap-2">
-          <label htmlFor="new-password" className="text-sm font-medium">
-            新密码
-          </label>
+        <div className="cloud-field">
+          <label htmlFor="new-password">新密码</label>
           <Input
             id="new-password"
             name="new-password"
@@ -137,14 +136,12 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
             onChange={(event) => setNewPassword(event.target.value)}
             disabled={submitting}
           />
-          <p className="text-xs text-muted-foreground">
-            新密码至少 15 个字符。
-          </p>
+          <p className="cloud-field-hint">新密码至少 15 个字符。</p>
         </div>
 
         <AuthFailureAlert failure={failure} />
 
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
+        <div className="cloud-dialog-footer">
           <Button type="button" variant="outline" onClick={close} disabled={submitting}>
             取消
           </Button>
