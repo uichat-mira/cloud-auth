@@ -48,7 +48,7 @@ describe("web route shell", () => {
     renderAt("/account");
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "账户概览" }),
+      screen.getByRole("heading", { level: 1, name: "我的账户" }),
     ).toBeInTheDocument();
     expect((await screen.findAllByText("未登录")).length).toBeGreaterThan(0);
     expect(
@@ -66,7 +66,7 @@ describe("web route shell", () => {
       expect(router.state.location.pathname).toBe("/account");
     });
     expect(
-      await screen.findByRole("heading", { level: 1, name: "账户概览" }),
+      await screen.findByRole("heading", { level: 1, name: "我的账户" }),
     ).toBeInTheDocument();
   });
 
