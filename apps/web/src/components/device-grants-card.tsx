@@ -28,7 +28,7 @@ export function DeviceGrantsCard() {
             设备与授权
           </h2>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            管理你允许手机使用的 Desktop 能力。
+            查看云端已保存的设备授权。刷新列表不会强制 Desktop 立即同步。
           </p>
         </div>
         <Button
@@ -36,10 +36,10 @@ export function DeviceGrantsCard() {
           variant="outline"
           size="sm"
           className="cloud-refresh"
-          onClick={() => void grants.refresh()}
-          disabled={grants.status === "loading" || grants.pending !== null}
+          onClick={() => void grants.refresh({ announce: true })}
+          disabled={grants.status === "loading" || grants.refreshing || grants.pending !== null}
         >
-          刷新授权
+          {grants.refreshing ? "读取中…" : "刷新列表"}
         </Button>
       </header>
 
@@ -55,7 +55,7 @@ export function DeviceGrantsCard() {
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => void grants.refresh()}
+              onClick={() => void grants.refresh({ announce: true })}
             >
               重新读取
             </Button>
@@ -72,6 +72,7 @@ export function DeviceGrantsCard() {
       ) : null}
 
       {grants.status === "ready" &&
+      !grants.refreshing &&
       !grants.loadFailure &&
       grants.hosts.length === 0 ? (
         <Card className="gap-3 py-4">

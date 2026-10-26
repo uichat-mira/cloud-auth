@@ -49,6 +49,7 @@ export interface GrantMutationTarget {
 
 export interface DeviceGrantsState {
   status: "loading" | "ready";
+  refreshing: boolean;
   hosts: HostGrantView[];
   mobiles: MiraDevice[];
   revokedMobiles: MiraDevice[];
@@ -65,7 +66,7 @@ export interface UseDeviceGrantsOptions {
 }
 
 export interface DeviceGrantsController extends DeviceGrantsState {
-  refresh(): Promise<void>;
+  refresh(options?: { announce?: boolean }): Promise<void>;
   narrow(input: {
     hostId: string;
     mobileDeviceId: string;
@@ -81,6 +82,7 @@ export interface DeviceGrantsController extends DeviceGrantsState {
 
 const initialState: DeviceGrantsState = {
   status: "loading",
+  refreshing: false,
   hosts: [],
   mobiles: [],
   revokedMobiles: [],
@@ -98,7 +100,8 @@ export function useDeviceGrants({
   const [state, setState] = useState<DeviceGrantsState>(initialState);
   const sequence = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { announce?: boolean }) => {
+    const announce = options?.announce === true;
     const requestSequence = (sequence.current += 1);
     const sessionToken = getSessionToken();
 
@@ -109,13 +112,19 @@ export function useDeviceGrants({
         hosts: [],
         mobiles: [],
         revokedMobiles: [],
+        refreshing: false,
         loadFailure: createHostGrantsFailure("reauth_required"),
         notice: null,
       }));
       return;
     }
 
-    setState((current) => ({ ...current, loadFailure: null, notice: null }));
+    setState((current) => ({
+      ...current,
+      refreshing: announce,
+      loadFailure: null,
+      notice: null,
+    }));
 
     try {
       // Device metadata decorates labels only. A failure to load friendly
@@ -140,6 +149,7 @@ export function useDeviceGrants({
       setState((current) => ({
         ...current,
         status: "ready",
+        refreshing: false,
         hosts: hostViews,
         mobiles: devices.filter(
           (device) => device.platform === "mobile" && device.revokedAt === null,
@@ -153,7 +163,12 @@ export function useDeviceGrants({
               tone: "warning",
               message: "手机设备名称暂时无法读取，授权仍可管理；暂以通用名称显示。",
             }
-          : null,
+          : announce
+            ? {
+                tone: "success",
+                message: "已读取最新云端设备与授权；如果数据没变化，列表会保持原样。Desktop 的实际授权执行仍取决于自身同步。",
+              }
+            : null,
       }));
     } catch (error) {
       if (requestSequence !== sequence.current) return;
@@ -163,6 +178,7 @@ export function useDeviceGrants({
         hosts: [],
         mobiles: [],
         revokedMobiles: [],
+        refreshing: false,
         loadFailure: toHostGrantsFailure(error),
       }));
     }
