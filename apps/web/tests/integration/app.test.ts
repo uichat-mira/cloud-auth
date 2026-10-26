@@ -14,7 +14,7 @@ let baseUrl: string;
 
 const viewports = [
   { name: "desktop", width: 1440, height: 900 },
-  { name: "mobile", width: 390, height: 844 },
+  { name: "mobile", width: 375, height: 812 },
 ] as const;
 
 const routeCases = [
