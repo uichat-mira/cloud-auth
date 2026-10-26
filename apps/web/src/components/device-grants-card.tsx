@@ -37,23 +37,24 @@ export function DeviceGrantsCard() {
   if (status !== "authenticated") return null;
 
   return (
-    <section aria-labelledby="device-grants-heading" className="space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+    <section aria-labelledby="device-grants-heading" className="cloud-grants">
+      <header className="cloud-section-title">
         <div className="space-y-1">
           <h2
             id="device-grants-heading"
-            className="text-lg font-semibold tracking-tight"
+            className="cloud-section-heading"
           >
             设备与授权
           </h2>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            查看此账户的 Desktop Host 与手机设备授权。这里只能收窄或撤销已有权限，不能新增或扩大权限。
+            管理你允许手机使用的 Desktop 能力。
           </p>
         </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
+          className="cloud-refresh"
           onClick={() => void grants.refresh()}
           disabled={grants.status === "loading" || grants.pending !== null}
         >
@@ -144,7 +145,7 @@ function HostGrantCard({
   const hasMobiles = mobiles.length > 0;
 
   return (
-    <Card className="gap-4 py-4">
+    <Card className="cloud-host">
       <CardHeader className="gap-2 px-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="space-y-1">
@@ -287,7 +288,7 @@ function MobileGrantRow({
   }
 
   return (
-    <li className="space-y-3 rounded-lg border px-3 py-3">
+    <li className="cloud-mobile-row">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="space-y-0.5">
           <p className="text-sm font-medium">{mobileLabel(device)}</p>
@@ -313,7 +314,7 @@ function MobileGrantRow({
       </div>
 
       {grant.scopes.length > 0 ? (
-        <ul className="flex flex-wrap gap-1.5">
+        <ul className="cloud-permissions">
           {grant.scopes.map((scope) => (
             <li
               key={scope}
@@ -334,7 +335,7 @@ function MobileGrantRow({
       ) : null}
 
       {!isRevoked && !editing && !confirmingRevoke ? (
-        <div className="flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-5">
           {canNarrow ? (
             <Button
               type="button"
