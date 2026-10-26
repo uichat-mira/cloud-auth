@@ -1,11 +1,8 @@
-import {
-  isRouteErrorResponse,
-  Link,
-  useRouteError,
-} from "react-router-dom";
+import { isRouteErrorResponse, Link, useRouteError } from "react-router-dom";
 import { PortalShell } from "@/app/root-layout";
 import { Button } from "@/components/ui/button";
 import { useAuthSession } from "@/lib/auth/context";
+import { getAccountEntry } from "@/lib/auth/account-entry";
 
 function describeError(error: unknown): string {
   if (isRouteErrorResponse(error)) {
@@ -22,22 +19,18 @@ function describeError(error: unknown): string {
 export function RouteErrorPage() {
   const error = useRouteError();
   const { status } = useAuthSession();
-  const accountEntry = status === "authenticated" || status === "unavailable";
+  const { destination } = getAccountEntry(status);
 
   return (
     <PortalShell>
-      <section className="mx-auto max-w-md space-y-4 py-12 text-center sm:py-20">
-        <p className="font-mono text-sm text-muted-foreground">Error</p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          页面暂时无法显示
-        </h1>
-        <p className="text-sm leading-6 text-muted-foreground">
-          {describeError(error)}
-        </p>
-        <div className="flex justify-center pt-2">
-          <Button asChild>
-            <Link to={accountEntry ? "/account" : "/login"}>
-              {accountEntry ? "返回账户中心" : "返回登录"}
+      <section className="cloud-page-state">
+        <p className="cloud-state-code">Error</p>
+        <h1>页面暂时无法显示</h1>
+        <p className="cloud-state-body">{describeError(error)}</p>
+        <div className="cloud-state-actions">
+          <Button asChild size="lg">
+            <Link to={destination}>
+              {destination === "/account" ? "返回账户中心" : "返回登录"}
             </Link>
           </Button>
         </div>

@@ -1,29 +1,29 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuthSession } from "@/lib/auth/context";
+import { getAccountEntry } from "@/lib/auth/account-entry";
 import { cn } from "@/lib/utils";
 
+/**
+ * Public portal shell — brand, the single contextual entry link and the footer.
+ * It wraps `/`, `/login` and public 404s only; the account console has its own
+ * shell (AccountLayout) with the section rail.
+ */
 export function PortalShell({ children }: { children: ReactNode }) {
   const { status } = useAuthSession();
-  const checking = status === "idle" || status === "restoring";
-  const destination =
-    status === "authenticated" || status === "unavailable" ? "/account" : "/login";
-  const label =
-    status === "authenticated"
-      ? "账户中心"
-      : status === "unavailable"
-        ? "检查登录状态"
-        : "登录";
+  const { checking, destination, label } = getAccountEntry(status);
 
   return (
     <div className="cloud-shell flex min-h-dvh flex-col">
       <header className="cloud-header">
         <div className="cloud-container cloud-header-inner">
           <Link
-            to={destination}
+            to="/"
             className="cloud-brand focus-visible:outline-2 focus-visible:outline-offset-4"
           >
-            <span aria-hidden="true" className="cloud-brand-mark">M.</span>
+            <span aria-hidden="true" className="cloud-brand-mark">
+              M.
+            </span>
             <span className="cloud-brand-copy">
               <strong>Mira Cloud</strong>
               <small>Your account</small>
@@ -56,7 +56,8 @@ export function PortalShell({ children }: { children: ReactNode }) {
   );
 }
 
-export function RootLayout() {
+/** Route element for the public half of the tree. */
+export function PublicLayout() {
   return (
     <PortalShell>
       <Outlet />

@@ -36,7 +36,7 @@ Run workspace commands from the repository root; API package-local source, tests
 - Docker / Docker Compose
 - Caddy TLS, API reverse proxy, and static SPA delivery on the Mira self-managed server
 
-The web application is a separate Vite build providing the `/login`, `/account`, and not-found routes. The legacy embedded browser acceptance harness has been retired; use the real Portal for acceptance. Route components use a typed Cloud Auth client and session state layer; `apps/web/src/lib/auth` owns HTTP transport, contract validation, session persistence, and auth state so route components never handle bearer tokens directly.
+The web application is a separate Vite build providing the `/` account portal home, `/login`, `/account`, and not-found routes. The home page stays visible regardless of session state and offers the appropriate login or account entry. The legacy embedded browser acceptance harness has been retired; use the real Portal for acceptance. Route components use a typed Cloud Auth client and session state layer; `apps/web/src/lib/auth` owns HTTP transport, contract validation, session persistence, and auth state so route components never handle bearer tokens directly.
 
 OPS-001 intentionally provides only the service boundary, persistence/migration substrate, health/readiness, backup procedure, and CI/runtime evidence. Account/password, device lifecycle, and service credential behavior belong to follow-up work items.
 
@@ -46,12 +46,16 @@ OPS-001 intentionally provides only the service boundary, persistence/migration 
 
 ## Development
 
-1. pnpm install --frozen-lockfile
-2. pnpm run check
-3. pnpm run dev
-4. pnpm run dev:web
+1. `pnpm install --frozen-lockfile`
+2. `pnpm run check`
+3. `pnpm run dev`
 
-The API default local database path is `./data/auth.sqlite` relative to `apps/api`. The web app starts through Vite at `http://localhost:5173`; use `pnpm run build` to produce its production bundle under `apps/web/dist`.
+`pnpm run dev` builds `packages/contracts`, then starts the Fastify API (`http://localhost:8788`) and the Vite Account Portal (`http://localhost:5173`) together. The Vite dev server proxies `/v1`, `/health`, `/ready`, and `/.well-known` to the API, so the Portal talks to a same-origin API exactly as it does in production behind Caddy. If `5173` is already taken, Vite picks the next free port; set `MIRA_AUTH_DEV_API_ORIGIN` (for example `http://127.0.0.1:9000`) when the API listens elsewhere.
+
+- `pnpm run dev:api`: API only.
+- `pnpm run dev:web`: Portal only, expects an API at the proxy target above.
+
+The API default local database path is `./data/auth.sqlite` relative to `apps/api`. Use `pnpm run build` to produce the Portal's production bundle under `apps/web/dist`.
 
 ## Endpoints
 

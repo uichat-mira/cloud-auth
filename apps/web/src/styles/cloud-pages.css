@@ -1,289 +1,437 @@
-.cloud-account-hero {
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:28px;
-  padding:77px 0 54px;
-  border-bottom:1px solid #e8e6e1
+/*
+ * Page layer - Mira Console recipes (docs/ui/mira-redesign-spec.md sections 4-7).
+ *
+ * Rules honoured here:
+ *   - colors/elevation come from the --mc-* tokens in globals.css only;
+ *   - hairline depth uses 0/0.5px shadows, never 1px solid borders;
+ *   - no !important, no negative letter-spacing (CJK copy);
+ *   - the shell (cloud-shell.css / console.css) owns the header, rail, page head,
+ *     sections and context facts; the grants card (cloud-grants.css) owns
+ *     .cloud-grants* / .cloud-host* / .cloud-grant*. This file owns .cloud-auth* /
+ *     .cloud-row / .cloud-notice* / .cloud-dialog* / .cloud-page-state* and the
+ *     session recovery states rendered by the shell's SessionRecovery.
+ */
+
+@keyframes mc-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
-.cloud-account-hero h1 {
-  font-size:clamp(34px,4vw,47px);
-  line-height:1.15;
-  letter-spacing:-.065em;
-  font-weight:640
+
+/* ------------------------------------------------------------------ */
+/* Shared page chrome                                                 */
+
+/* Notice recipe (spec §5): tone surfaces + 0.5px tone hairline. */
+.cloud-notice {
+  margin: 0;
+  border-radius: var(--mc-r-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
+  letter-spacing: 0;
 }
-.cloud-account-summary {
-  margin-top:19px;
-  color:#777671;
-  font-size:14px;
-  line-height:1.9
+
+.cloud-notice-success {
+  background: var(--mc-success-bg);
+  color: var(--mc-success-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-success-border);
 }
-.cloud-identity {
-  display:flex;
-  align-items:center;
-  gap:11px;
-  flex-shrink:0;
-  padding-bottom:4px
+
+.cloud-notice-danger {
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
 }
-.cloud-avatar {
-  height:32px;
-  width:32px;
-  border-radius:50%;
-  border:1px solid #d5d2cb;
-  background:#efede8;
-  color:#54534f;
-  display:grid;
-  place-items:center;
-  font-size:12px;
-  font-weight:650
+
+/* ------------------------------------------------------------------ */
+/* Action row (security page: 修改密码)                                 */
+
+/* A standalone inset plate: the whole row is the hit target, the chevron is
+   decorative and the hover wash is clipped by the plate radius. */
+.cloud-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  border: 0;
+  border-radius: var(--mc-r-md);
+  padding: 12px 16px;
+  background: var(--mc-surface-1);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: 0;
+  text-align: left;
+  text-decoration: none;
+  white-space: normal;
+  cursor: pointer;
+  list-style: none;
+  transition:
+    background-color 85ms var(--mc-ease),
+    color 85ms var(--mc-ease);
 }
-.cloud-identity strong {
-  display:block;
-  font-size:12px;
-  font-weight:650
+
+.cloud-row:hover {
+  background: var(--mc-surface-2);
+  color: var(--mc-text);
 }
-.cloud-identity small {
-  display:block;
-  font-size:11px;
-  color:#92908a;
-  margin-top:3px
+
+.cloud-row:focus-visible {
+  outline: 2px solid var(--mc-border-focus);
+  outline-offset: -2px;
 }
-.cloud-page-messages {
-  padding-top:12px
+
+.cloud-row-copy {
+  min-width: 0;
 }
-.cloud-account-grid {
-  display:grid;
-  grid-template-columns:minmax(0,1.57fr) minmax(260px,.87fr);
-  gap:60px;
-  padding-top:41px;
-  padding-bottom:62px;
-  align-items:start
+
+.cloud-row-copy strong {
+  display: block;
+  color: inherit;
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
 }
-.cloud-section-title {
-  margin-bottom:19px
+
+.cloud-row-copy small {
+  display: block;
+  margin-top: 2px;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 18px;
+  letter-spacing: 0;
 }
-.cloud-section-title h2 {
-  font-size:18px;
-  font-weight:660;
-  letter-spacing:-.04em;
-  margin-bottom:8px
+
+.cloud-row-chevron {
+  display: grid;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  place-items: center;
+  color: var(--mc-text-faint);
 }
-.cloud-section-title p {
-  font-size:12px;
-  line-height:1.8;
-  color:#8b8982
+
+.cloud-row-chevron::before {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(-45deg);
+  transition: transform 120ms var(--mc-ease);
 }
-.cloud-main-column,.cloud-security {
-  min-width:0
+
+.cloud-break-all {
+  overflow-wrap: anywhere;
 }
-.cloud-action-list {
-  border-top:1px solid #e8e6e1
+
+/* ------------------------------------------------------------------ */
+/* Account page - signed-out / loading / unavailable states            */
+
+/* ------------------------------------------------------------------ */
+/* Login page                                                          */
+/* ------------------------------------------------------------------ */
+
+/* Full-bleed #fafafa canvas. The 100vmax shadow paints edge-to-edge without
+ * creating horizontal scroll; the clip (plus overflow: clip for iOS Safari)
+ * keeps it inside this block vertically and stops any scrollWidth contribution.
+ * min-height mirrors the shell: header 56 + footer 66 = 122px at 641px and up. */
+.cloud-auth-canvas {
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - 122px);
+  background: var(--mc-surface-1);
+  box-shadow: 0 0 0 100vmax var(--mc-surface-1);
+  clip-path: inset(0 -100vmax);
+  overflow: clip;
+  padding-block: 48px;
 }
-.cloud-action-row {
-  width:100%;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  text-align:left;
-  background:transparent;
-  border:0;
-  border-bottom:1px solid #e8e6e1;
-  padding:18px 0;
-  color:#20201e;
-  border-radius:0;
-  font-size:13px;
-  min-height:68px
+
+/* White elevated form card - the only elevated surface on the canvas. */
+.cloud-auth-card {
+  width: min(100%, 384px);
+  border-radius: 10px;
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-el-raised);
+  padding: 24px;
 }
-.cloud-action-row:hover {
-  background:transparent;
-  color:#615f5b
+
+.cloud-auth-card h1 {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 22px;
+  letter-spacing: 0;
 }
-.cloud-action-row strong {
-  display:block;
-  font-size:13px;
-  font-weight:620
+
+.cloud-auth-caption {
+  margin: 4px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
 }
-.cloud-action-row small {
-  display:block;
-  font-size:11px;
-  line-height:1.7;
-  color:#89877f;
-  margin-top:5px;
-  font-weight:400
-}
-.cloud-action-row .cloud-arrow {
-  font-size:20px;
-  color:#99968e
-}
-.cloud-action-row:focus-visible {
-  outline:2px solid #777671;
-  outline-offset:2px
-}
-.cloud-session-details summary {
-  cursor:pointer;
-  list-style:none
-}
-.cloud-session-details summary::-webkit-details-marker {
-  display:none
-}
-.cloud-session-body {
-  padding:12px 0 19px;
-  display:grid;
-  gap:10px;
-  font-size:12px;
-  color:#777671
-}
-.cloud-signout {
-  height:auto;
-  justify-content:space-between!important;
-  padding:18px 0!important;
-  font-weight:400!important
-}
-.cloud-side-note {
-  font-size:11px;
-  line-height:1.85;
-  color:#92908a;
-  margin-top:24px
-}
-.cloud-extra-services {
-  margin-top:44px;
-  border-top:1px solid #e8e6e1;
-  padding-top:23px;
-  font-size:11px;
-  color:#918e87
-}
-.cloud-extra-services summary,.cloud-account-technical summary {
-  cursor:pointer;
-  outline-offset:3px
-}
-.cloud-account-technical {
-  border-top:1px solid #e8e6e1;
-  padding-top:18px;
-  margin-bottom:60px;
-  font-size:12px;
-  color:#777671
-}
-.cloud-account-technical dl {
-  display:grid;
-  grid-template-columns:115px minmax(0,1fr);
-  gap:12px;
-  font-size:12px;
-  line-height:1.7;
-  padding-top:20px
-}
-.cloud-account-technical dt {
-  color:#99968e
-}
-.cloud-account-technical dd {
-  min-width:0
-}
-.cloud-account-recovery {
-  padding:36px 0 110px
-}
-.cloud-auth-grid {
-  display:grid;
-  grid-template-columns:1fr .9fr;
-  gap:75px;
-  align-items:start;
-  padding:108px 0 130px;
-  min-height:630px
-}
-.cloud-auth-intro h1 {
-  font-size:clamp(32px,4vw,47px);
-  letter-spacing:-.065em;
-  font-weight:630;
-  line-height:1.2
-}
-.cloud-auth-intro>p:last-child {
-  font-size:14px;
-  line-height:1.9;
-  color:#807d76;
-  max-width:360px;
-  margin-top:26px
-}
-.cloud-auth-form-col {
-  border-left:1px solid #e8e6e1;
-  padding-left:70px
-}
-.cloud-auth-form-col h2 {
-  font-size:21px;
-  font-weight:650;
-  letter-spacing:-.035em
-}
-.cloud-intro-caption {
-  font-size:12px;
-  color:#8a8780;
-  line-height:1.8;
-  margin-top:10px;
-  margin-bottom:28px
-}
+
 .cloud-auth-form {
-  display:grid;
-  gap:19px
+  display: grid;
+  gap: 16px;
+  margin-top: 20px;
 }
+
 .cloud-field {
-  display:grid;
-  gap:9px
+  display: grid;
+  gap: 6px;
 }
+
 .cloud-field label {
-  font-size:12px;
-  color:#46443f;
-  font-weight:600
+  color: var(--mc-text);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
 }
-.cloud-field input {
-  min-height:46px;
-  border:1px solid #dcd9d2;
-  border-radius:9px;
-  background:#fff;
-  padding:12px 13px;
-  color:#20201e;
-  font-size:13px
+
+.cloud-field-hint {
+  margin: 0;
+  color: var(--mc-text-faint);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
 }
-.cloud-field input:focus-visible {
-  outline:0;
-  border-color:#79766e;
-  box-shadow:0 0 0 3px #efede8
+
+.cloud-auth-status {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
 }
-.cloud-field input::placeholder {
-  color:#aaa69e
+
+.cloud-auth-submit {
+  width: 100%;
 }
-.cloud-primary {
-  min-height:46px;
-  margin-top:14px;
-  background:#22211e!important;
-  border:1px solid #22211e!important;
-  border-radius:9px;
-  color:#fff!important;
-  font-size:13px;
-  font-weight:620
+
+.cloud-auth-card-note {
+  margin: 20px 0 0;
+  padding-top: 14px;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+  color: var(--mc-text-faint);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
 }
-.cloud-primary:hover {
-  background:#45433d!important
+
+/* ------------------------------------------------------------------ */
+/* 404 / route error                                                   */
+/* ------------------------------------------------------------------ */
+
+.cloud-page-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding-block: 96px;
+  text-align: center;
 }
-.cloud-footnote {
-  font-size:11px;
-  line-height:1.9;
-  color:#8d8a82;
-  margin-top:23px
+
+.cloud-page-state h1 {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: clamp(22px, 3vw, 26px);
+  font-weight: 600;
+  line-height: 32px;
+  letter-spacing: 0;
 }
-.cloud-shell dialog[aria-labelledby="change-password-heading"] {
-  border:1px solid #e5e1da;
-  background:#fff;
-  color:#252420;
-  border-radius:17px;
-  box-shadow:0 36px 110px #1c1b1730
+
+.cloud-state-code {
+  margin: 0;
+  color: var(--mc-text-faint);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
-.cloud-shell dialog[aria-labelledby="change-password-heading"]::backdrop {
-  background:rgba(29,28,25,.41);
-  backdrop-filter:blur(3px)
+
+.cloud-state-body {
+  max-width: 40ch;
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 450;
 }
-.cloud-shell dialog[aria-labelledby="change-password-heading"] input {
-  min-height:44px;
-  background:#fff;
-  border-color:#dcd9d2
+
+.cloud-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
 }
-.cloud-shell dialog[aria-labelledby="change-password-heading"] button[type="submit"] {
-  background:#22211e;
-  color:#fff
+
+/* ------------------------------------------------------------------ */
+/* Change-password dialog                                              */
+/* ------------------------------------------------------------------ */
+
+.cloud-dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  margin: auto;
+  border: 0;
+  border-radius: var(--mc-r-lg);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-el-overlay);
+  color: var(--mc-text);
+  padding: 20px;
+}
+
+.cloud-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cloud-dialog::backdrop {
+  background: color-mix(in srgb, var(--mc-text) 40%, transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.cloud-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cloud-dialog-head h2 {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 22px;
+  letter-spacing: 0;
+}
+
+.cloud-dialog-caption {
+  margin: 6px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
+}
+
+.cloud-dialog-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: var(--mc-r-sm);
+  background: transparent;
+  color: var(--mc-text-secondary);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 450;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 85ms var(--mc-ease),
+    color 85ms var(--mc-ease);
+}
+
+.cloud-dialog-close:hover {
+  background: var(--mc-overlay-hover);
+  color: var(--mc-text);
+}
+
+.cloud-dialog-close:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.cloud-dialog-form {
+  display: grid;
+  gap: 16px;
+}
+
+.cloud-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive (spec §7: 1024 / 900 / 640 / 480)                        */
+
+@media (max-width: 640px) {
+  .cloud-auth-canvas {
+    min-height: calc(100dvh - 136px);
+    padding-block: 32px;
+  }
+
+  .cloud-auth-card {
+    padding: 20px;
+  }
+
+  /* Comfortable mobile hit areas: inputs and dialog controls reach 40px. */
+  .cloud-auth-form [data-slot="input"] {
+    height: 40px;
+  }
+
+  .cloud-row {
+    padding-block: 14px;
+  }
+
+  .cloud-dialog-close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .cloud-page-state {
+    padding-block: 64px;
+  }
+
+  .cloud-dialog {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cloud-page-state h1 {
+    font-size: 22px;
+    line-height: 30px;
+  }
+
+  .cloud-dialog-footer > * {
+    flex: 1 1 auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-row,
+  .cloud-row-chevron::before,
+  .cloud-dialog-close {
+    transition: none;
+  }
 }

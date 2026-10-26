@@ -8,7 +8,8 @@
   },
   "packageManager": "pnpm@10.34.7",
   "scripts": {
-    "dev": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run dev",
+    "dev": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm -r --parallel --filter @uichat-mira/cloud-auth-api --filter @uichat-mira/cloud-auth-web run dev",
+    "dev:api": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run dev",
     "dev:web": "pnpm --filter @uichat-mira/cloud-auth-web run dev",
     "build": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run build && pnpm --filter @uichat-mira/cloud-auth-web run build",
     "start": "pnpm --filter @uichat-mira/cloud-auth-api run start",

@@ -72,9 +72,19 @@ for (const viewport of viewports) {
 
       try {
         authServer.reset();
-        await page.goto(`${baseUrl}/login`, { waitUntil: "load" });
+        await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+        await page.getByRole("heading", { level: 1, name: "你的 Mira 云端账户" }).waitFor();
+        await expectNoHorizontalOverflow(page);
+        expect(new URL(page.url()).pathname).toBe("/");
+        expect(await page.getByLabel("密码").count()).toBe(0);
+        await screenshot(page, "home", viewport.name);
+        await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
+        await page.waitForURL("**/login");
+        await page.locator(".cloud-brand").click();
+        await page.waitForURL(`${baseUrl}/`);
+        await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
         await page
-          .getByRole("heading", { level: 2, name: "登录 Mira Cloud" })
+          .getByRole("heading", { level: 1, name: "登录 Mira Cloud" })
           .waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-out", viewport.name);
@@ -88,13 +98,44 @@ for (const viewport of viewports) {
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-in", viewport.name);
 
+        await page.goto(`${baseUrl}/`, { waitUntil: "load" });
+        await page.getByRole("main").getByRole("link", { name: "进入账户中心" }).waitFor();
+        expect(new URL(page.url()).pathname).toBe("/");
+        await page.getByRole("main").getByRole("link", { name: "进入账户中心" }).click();
+        await page.waitForURL("**/account");
+
         await page.reload({ waitUntil: "load" });
         await page
           .getByRole("heading", { level: 1, name: "我的账户" })
           .waitFor();
         await page.getByText("pilot").first().waitFor();
 
-        await page.getByText("当前登录会话").click();
+        // The console shell keeps one rail for all four sections.
+        const rail = page.getByRole("navigation", { name: "账户分区" });
+        await rail.waitFor();
+        expect(await rail.getByRole("link").count()).toBe(4);
+
+        await rail.getByRole("link", { name: "设备与授权" }).click();
+        await page
+          .getByRole("heading", { level: 1, name: "设备与授权" })
+          .waitFor();
+        await page.getByText("没有可管理的 Desktop Host").waitFor();
+        // The execution caveat is stated once, by the page footer.
+        await page
+          .getByText(/云端保存成功不等于 Desktop 已立即执行/)
+          .waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "devices", viewport.name);
+
+        await rail.getByRole("link", { name: "账户安全" }).click();
+        await page
+          .getByRole("heading", { level: 1, name: "账户安全" })
+          .waitFor();
+        // Renewal is visible without expanding a disclosure.
+        await page.getByRole("button", { name: "续期 Session" }).waitFor();
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "security", viewport.name);
+
         await page.getByRole("button", { name: "续期 Session" }).click();
         await page.getByRole("status").waitFor();
         expect(await page.getByRole("status").textContent()).toContain(
@@ -137,16 +178,33 @@ for (const viewport of viewports) {
         await page.getByText("pilot").first().waitFor();
 
         await page.getByRole("button", { name: "退出登录" }).click();
-        await page.getByRole("link", { name: "前往登录" }).waitFor();
+        await page.waitForURL("**/login");
+        await page.getByLabel("账号").waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-out-after-logout", viewport.name);
 
-        await page.getByRole("link", { name: "前往登录" }).click();
         await page.getByLabel("账号").fill("pilot");
         await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
         await page.getByText("pilot").first().waitFor();
+
+        const servicesRail = page.getByRole("navigation", { name: "账户分区" });
+        await servicesRail.getByRole("link", { name: "关联服务" }).click();
+        await page
+          .getByRole("heading", { level: 1, name: "关联服务" })
+          .waitFor();
+        await page.getByText("Cloud Shiyan").waitFor();
+        await page.getByText("Hosted Relay").waitFor();
+        expect(await page.getByText("尚未接入", { exact: true }).count()).toBe(2);
+        await expectNoHorizontalOverflow(page);
+        await screenshot(page, "services", viewport.name);
+
+        // Back to the overview so the expired-session screenshot keeps a stable URL.
+        await servicesRail.getByRole("link", { name: "概览" }).click();
+        await page
+          .getByRole("heading", { level: 1, name: "我的账户" })
+          .waitFor();
 
         authServer.expireSessions();
         await page.reload({ waitUntil: "load" });
@@ -218,6 +276,11 @@ async function startAuthServer(): Promise<AuthServer> {
     }
 
     if (request.method === "GET" && request.url === "/v1/hosts") {
+      sendJson(response, 200, { hosts: [] });
+      return;
+    }
+
+    if (request.method === "GET" && request.url === "/v1/hosts/grant-management") {
       sendJson(response, 200, { hosts: [] });
       return;
     }

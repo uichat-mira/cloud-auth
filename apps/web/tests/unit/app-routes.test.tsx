@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers";
-import { RootLayout } from "@/app/root-layout";
+import { PublicLayout } from "@/app/root-layout";
 import { routes } from "@/app/routes";
 import { RouteErrorPage } from "@/pages/route-error-page";
 
@@ -25,21 +25,24 @@ describe("web route shell", () => {
     renderAt("/login");
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "登录 Mira Cloud" }),
+      screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("账号")).toBeEnabled();
     expect(screen.getByLabelText("密码")).toBeEnabled();
     expect(screen.getByRole("button", { name: "登录" })).toBeEnabled();
   });
 
-  it("redirects the root route to login", async () => {
+  it("renders a separate home page at the root route", async () => {
     const router = renderAt("/");
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/login");
+      expect(router.state.location.pathname).toBe("/");
     });
     expect(
-      await screen.findByRole("heading", { level: 2, name: "登录 Mira Cloud" }),
+      await screen.findByRole("heading", {
+        level: 1,
+        name: "你的 Mira 云端账户",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -50,9 +53,10 @@ describe("web route shell", () => {
       screen.getByRole("heading", { level: 1, name: "我的账户" }),
     ).toBeInTheDocument();
     expect((await screen.findAllByText("未登录")).length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole("link", { name: "前往登录" }),
-    ).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
   });
 
   it("shows only the login entry while signed out, even on the account URL", async () => {
@@ -62,13 +66,21 @@ describe("web route shell", () => {
       "href",
       "/login",
     );
-    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /OAuth|授权/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "账户中心" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /OAuth|授权/ }),
+    ).not.toBeInTheDocument();
 
     await router.navigate("/account");
-    expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "我的账户" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "登录" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "账户中心" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the not-found surface for unknown routes", () => {
@@ -77,13 +89,16 @@ describe("web route shell", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "页面不存在" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "前往登录" }),
-    ).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
   });
 
   it("renders route errors inside the shared portal shell", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     function BrokenPage(): never {
       throw new Error("boom");
@@ -93,7 +108,7 @@ describe("web route shell", () => {
       [
         {
           path: "/",
-          element: <RootLayout />,
+          element: <PublicLayout />,
           errorElement: <RouteErrorPage />,
           children: [{ path: "broken", element: <BrokenPage /> }],
         },
