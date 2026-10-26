@@ -4,7 +4,9 @@ import { App } from "@/app/app";
 import { AppProviders } from "@/app/providers";
 import "@/styles/globals.css";
 import "@/styles/cloud-shell.css";
+import "@/styles/console.css";
 import "@/styles/cloud-pages.css";
+import "@/styles/cloud-home.css";
 import "@/styles/cloud-grants.css";
 
 const rootElement = document.getElementById("root");

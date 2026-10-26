@@ -1,374 +1,884 @@
-.cloud-grants .cloud-section-title {
-  display:flex;
-  justify-content:space-between;
-  gap:14px
+/*
+ * Device & host grants — Mira Console.
+ *
+ * A calm list of hosts: each host is an inset panel with an icon tile, a
+ * title/meta/status line and hairline-separated device rows. Depth comes from
+ * translucent hairlines and overlays, never from 1px borders. Every color and
+ * shadow is a --mc-* token.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Section frame                                                       */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.cloud-refresh {
-  border:0!important;
-  box-shadow:none!important;
-  background:transparent!important;
-  color:#575650!important;
-  font-size:12px!important;
-  padding:0!important;
-  height:auto!important
+
+/* Counts below the caption; refresh sits beside the page title. */
+.cloud-grants-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 28px;
 }
-.cloud-refresh:hover {
-  text-decoration:underline
+
+.cloud-grants-summary {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
 }
-.cloud-grants-alert {
-  padding:14px 0;
-  line-height:1.7
+
+.cloud-grants-skeleton-summary {
+  width: 240px;
+  height: 20px;
 }
+
+.cloud-grants-refresh {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.cloud-grants-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cloud-host-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cloud-grants-footnote {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Inline notices (success / warning / error)                          */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--mc-r-sm);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grants-notice-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 3px;
+}
+
+.cloud-grants-notice-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cloud-grants-notice--success {
+  background: var(--mc-success-bg);
+  color: var(--mc-success-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-success-border);
+}
+
+.cloud-grants-notice--warning {
+  background: var(--mc-warning-bg);
+  color: var(--mc-warning-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-warning-border);
+}
+
+.cloud-grants-notice--danger {
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+}
+
+/* ------------------------------------------------------------------ */
+/* Load failure                                                        */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-failure {
+  padding: 0;
+}
+
+.cloud-grants-failure-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+}
+
+.cloud-grants-failure-message {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grants-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Loading skeletons                                                   */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-loading {
+  gap: 14px;
+  padding: 16px;
+}
+
+.cloud-grants-loading-host {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cloud-grants-loading-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cloud-grants-skeleton {
+  display: block;
+  background: var(--mc-surface-2);
+  border-radius: var(--mc-r-xs);
+  animation: mc-pulse 1.6s ease-in-out infinite;
+}
+
+.cloud-grants-skeleton-tile {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--mc-r-sm);
+}
+
+.cloud-grants-skeleton-title {
+  width: 132px;
+  height: 8px;
+}
+
+.cloud-grants-skeleton-meta {
+  width: 84px;
+  height: 6px;
+}
+
+.cloud-grants-loading-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.cloud-grants-loading-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-inline: -8px;
+  padding: 12px 8px;
+}
+
+.cloud-grants-loading-row + .cloud-grants-loading-row::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.5px;
+  background: var(--mc-border-muted);
+  content: "";
+}
+
+.cloud-grants-skeleton-name {
+  width: 42%;
+  height: 8px;
+}
+
+.cloud-grants-loading-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.cloud-grants-skeleton-chip {
+  width: 48px;
+  height: 18px;
+}
+
+.cloud-grants-loading-label {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+
 .cloud-grants-empty {
-  border-top:1px solid #e8e6e1;
-  padding:25px 0;
-  color:#777671;
-  font-size:13px;
-  line-height:1.8
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
 }
-.cloud-grants-empty strong {
-  font-weight:650;
-  color:#33312e
+
+.cloud-grants-empty-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  margin-bottom: 2px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-2);
+  color: var(--mc-text-secondary);
 }
+
+.cloud-grants-empty-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cloud-grants-empty-title {
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+.cloud-grants-empty-copy {
+  max-width: 320px;
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grants-empty-note {
+  max-width: 320px;
+  margin: 4px 0 0;
+  padding-top: 12px;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Host panel                                                          */
+/* ------------------------------------------------------------------ */
+
 .cloud-host {
-  border-top:1px solid #e8e6e1;
-  padding:22px 0 12px
+  padding: 0;
 }
+
+.cloud-host-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 12px;
+}
+
 .cloud-host-header {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
 }
+
 .cloud-host-title {
-  display:flex;
-  align-items:center;
-  gap:14px
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
 }
+
 .cloud-host-icon {
-  height:46px;
-  width:46px;
-  border-radius:13px;
-  background:#efede8;
-  display:grid;
-  place-items:center;
-  flex-shrink:0;
-  color:#4b4945
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text-secondary);
 }
-.cloud-host-icon svg,.cloud-mobile-icon svg {
-  width:21px;
-  height:21px;
-  stroke:currentColor;
-  stroke-width:1.6;
-  fill:none;
-  stroke-linecap:round;
-  stroke-linejoin:round
+
+.cloud-host-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-.cloud-host-title strong {
-  display:block;
-  font-size:14px;
-  font-weight:650;
-  letter-spacing:-.015em
+
+.cloud-host-title-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
 }
-.cloud-host-title small {
-  display:block;
-  color:#85827c;
-  font-size:12px;
-  margin-top:5px
+
+.cloud-host-name {
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
+
+.cloud-host-meta {
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .cloud-host-status {
-  font-size:11px;
-  color:#6d6c66;
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  white-space:nowrap
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 18px;
+  white-space: nowrap;
 }
-.cloud-host-status:before {
-  content:"";
-  width:6px;
-  height:6px;
-  background:#60866d;
-  border-radius:50%
+
+.cloud-host-status[data-state="online"] {
+  color: var(--mc-success-fg);
 }
-.cloud-host-status.offline:before {
-  background:#c5c1b8
+
+.cloud-host-status[data-state="offline"] {
+  color: var(--mc-text-secondary);
 }
-.cloud-host-description {
-  margin:18px 0;
-  color:#8b8982;
-  font-size:12px;
-  line-height:1.8
+
+.cloud-host-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
 }
-.cloud-mobile-heading {
-  font-size:10px;
-  letter-spacing:.12em;
-  color:#9a978f;
-  font-weight:680;
-  margin:25px 0 12px
+
+/* Trailing header metadata: availability chip + the revision the cloud holds. */
+.cloud-host-trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
 }
-.cloud-mobile-row {
-  padding:18px 0;
-  border-top:1px solid #e8e6e1;
-  font-size:12px
+
+.cloud-host-version {
+  color: var(--mc-text-faint);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.cloud-mobile-header {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px
+
+/* The single facts line: availability observation + client version. */
+.cloud-host-facts {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
 }
-.cloud-mobile-info {
-  display:flex;
-  align-items:center;
-  gap:11px
+
+.cloud-host-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 16px;
 }
-.cloud-mobile-icon {
-  width:28px;
-  height:28px;
-  display:grid;
-  place-items:center;
-  color:#696760
+
+/* Host-level failure and explanatory blocks. */
+.cloud-host-failure {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+  font-size: 13px;
+  line-height: 20px;
 }
-.cloud-mobile-icon svg {
-  height:19px;
-  width:19px
+
+.cloud-host-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-hairline-muted);
 }
-.cloud-mobile-info strong {
-  font-size:13px;
-  font-weight:630;
-  display:block
+
+.cloud-host-block-title {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 20px;
 }
-.cloud-mobile-info small {
-  font-size:11px;
-  color:#8a8882
+
+.cloud-host-block-copy {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
-.cloud-mobile-row .cloud-status-text {
-  font-size:11px;
-  color:#60866d
+
+.cloud-host-empty-row {
+  margin: 0;
+  padding: 20px 8px;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
 }
-.cloud-mobile-row .cloud-status-text.revoked {
-  color:#9d6963
+
+/* ------------------------------------------------------------------ */
+/* Device rows                                                         */
+/* ------------------------------------------------------------------ */
+
+.cloud-grant-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.cloud-permissions {
-  padding-left:17px;
-  list-style:disc;
-  font-size:12px;
-  color:#6c6a64;
-  line-height:1.9;
-  margin:10px 0 14px
+
+.cloud-grant-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 12px;
+  row-gap: 8px;
+  align-items: start;
+  margin-inline: -8px;
+  padding: 12px 8px;
+  border-radius: var(--mc-r-sm);
+  transition: background-color 85ms var(--mc-ease);
 }
-.cloud-grant-action {
-  background:transparent!important;
-  border:0!important;
-  border-bottom:1px solid #77746d!important;
-  padding:3px 0!important;
-  height:auto!important;
-  color:#242421!important;
-  border-radius:0!important;
-  font-size:12px!important
+
+.cloud-grant-row:hover {
+  background: var(--mc-overlay-hover);
 }
-.cloud-grant-action.danger {
-  color:#a24d48!important;
-  border-bottom-color:#dbaca9!important
+
+.cloud-grant-row + .cloud-grant-row::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.5px;
+  background: var(--mc-border-muted);
+  content: "";
+  pointer-events: none;
 }
-.cloud-grant-edit {
-  border-top:1px solid #e8e6e1;
-  padding-top:15px;
-  margin-top:12px
+
+.cloud-grant-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
 }
-.cloud-grant-warning {
-  color:#8c5a54;
-  font-size:11px;
-  line-height:1.8
+
+.cloud-grant-name {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
-@media(max-width:800px) {
-  .cloud-container {
-    padding-left:24px;
-    padding-right:24px
+
+.cloud-grant-row[data-state="revoked"] .cloud-grant-name {
+  color: var(--mc-text-secondary);
+}
+
+.cloud-grant-meta {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.cloud-grant-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-grant-scope {
+  display: inline-flex;
+  height: 18px;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cloud-grant-no-scopes {
+  margin: 6px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.cloud-grant-note {
+  margin: 6px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grant-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.cloud-grant-pill {
+  display: inline-flex;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cloud-grant-pill[data-tone="success"] {
+  background: var(--mc-success-bg);
+  color: var(--mc-success-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-success-border);
+}
+
+.cloud-grant-pill[data-tone="muted"] {
+  background: var(--mc-surface-2);
+  color: var(--mc-text-secondary);
+  box-shadow: var(--mc-hairline-muted);
+}
+
+.cloud-grant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Row edit mode + revocation confirmation                             */
+/* ------------------------------------------------------------------ */
+
+.cloud-grant-editor,
+.cloud-grant-confirm {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--mc-r-sm);
+}
+
+.cloud-grant-editor {
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-hairline-muted);
+}
+
+.cloud-grant-confirm {
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+}
+
+.cloud-grant-editor-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cloud-grant-editor-legend {
+  margin: 0 0 4px;
+  padding: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 20px;
+}
+
+.cloud-grant-scope-options {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+}
+
+.cloud-grant-scope-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline: -6px;
+  padding: 6px;
+  border-radius: var(--mc-r-xs);
+  color: var(--mc-text);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.cloud-grant-scope-option + .cloud-grant-scope-option::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.5px;
+  background: var(--mc-border-muted);
+  content: "";
+  pointer-events: none;
+}
+
+.cloud-grant-scope-option:hover {
+  background: var(--mc-overlay-hover);
+}
+
+.cloud-grant-scope-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cloud-grant-checkbox {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  place-items: center;
+  margin: 0;
+  border: 0;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-el-control);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cloud-grant-checkbox::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--mc-text-inverse);
+  clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 84% 0%, 38% 66%);
+  opacity: 0;
+  transition: opacity 85ms var(--mc-ease);
+}
+
+.cloud-grant-checkbox:checked {
+  background: var(--mc-text);
+  box-shadow: var(--mc-el-control);
+}
+
+.cloud-grant-checkbox:checked::after {
+  opacity: 1;
+}
+
+.cloud-grant-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.cloud-grant-editor-hint {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grant-editor-warning {
+  margin: 0;
+  color: var(--mc-danger-fg);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grant-editor-actions,
+.cloud-grant-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cloud-grant-confirm-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Future services                                                     */
+/* ------------------------------------------------------------------ */
+
+.cloud-future-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+  list-style: none;
+}
+
+.cloud-future-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+}
+
+.cloud-future-row + .cloud-future-row {
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+}
+
+.cloud-future-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cloud-future-name {
+  color: var(--mc-text);
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.cloud-future-pill {
+  display: inline-flex;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cloud-future-description,
+.cloud-future-detail {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive: actions wrap under row content, tap targets grow        */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .cloud-grant-row {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .cloud-header-inner {
-    height:73px
+
+  .cloud-grant-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
   }
-  .cloud-account-hero {
-    padding:58px 0 39px;
-    align-items:flex-start
+
+  .cloud-grant-actions,
+  .cloud-grant-editor-actions,
+  .cloud-grant-confirm-actions {
+    justify-content: flex-start;
   }
-  .cloud-account-grid {
-    grid-template-columns:1fr;
-    gap:39px;
-    padding-top:36px
+
+  .cloud-grant-scope-option {
+    min-height: 40px;
   }
-  .cloud-security {
-    border-top:1px solid #e8e6e1;
-    padding-top:31px
-  }
-  .cloud-auth-grid {
-    grid-template-columns:1fr;
-    gap:40px;
-    padding:70px 0
-  }
-  .cloud-auth-form-col {
-    border:0;
-    border-top:1px solid #e8e6e1;
-    padding:32px 0 0;
-    max-width:420px
+
+  .cloud-grants-empty {
+    padding: 32px 16px;
   }
 }
-@media(max-width:480px) {
-  .cloud-container {
-    padding-left:20px;
-    padding-right:20px
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-grants-skeleton {
+    animation: none;
   }
-  .cloud-header-inner {
-    height:64px
-  }
-  .cloud-brand-mark {
-    height:34px;
-    width:34px;
-    border-radius:10px
-  }
-  .cloud-brand-copy strong {
-    font-size:13px
-  }
-  .cloud-brand-copy small {
-    font-size:9px
-  }
-  .cloud-navigation {
-    gap:13px
-  }
-  .cloud-nav-link {
-    font-size:11px
-  }
-  .cloud-account-hero {
-    display:block;
-    padding:45px 0 30px
-  }
-  .cloud-account-hero h1 {
-    font-size:36px
-  }
-  .cloud-identity {
-    margin-top:26px
-  }
-  .cloud-auth-grid {
-    padding:58px 0 75px
-  }
-  .cloud-auth-intro h1 {
-    font-size:36px
-  }
-  .cloud-footer {
-    font-size:10px
-  }
-  .cloud-host-title {
-    gap:10px
-  }
-  .cloud-host-icon {
-    height:42px;
-    width:42px
-  }
-}
-@media(prefers-reduced-motion:reduce) {
-  .cloud-shell * {
-    scroll-behavior:auto!important;
-    transition:none!important
-  }
-}
-/* Flat grant presentation; Card remains an implementation detail for existing tests. */
-.cloud-grants .cloud-section-heading {
-  font-size:18px;
-  font-weight:660;
-  letter-spacing:-.04em;
-  line-height:1.4
-}
-.cloud-grants [data-slot="card"] {
-  background:transparent;
-  border:0;
-  box-shadow:none;
-  border-radius:0
-}
-.cloud-grants .cloud-host[data-slot="card"] {
-  padding:22px 0 6px;
-  border-top:1px solid #e8e6e1;
-  gap:0
-}
-.cloud-host [data-slot="card-header"],.cloud-host [data-slot="card-content"] {
-  padding-left:0;
-  padding-right:0
-}
-.cloud-host [data-slot="card-header"] {
-  gap:0
-}
-.cloud-host [data-slot="card-content"] {
-  margin-left:62px;
-  gap:14px
-}
-.cloud-host [data-slot="card-title"] {
-  font-size:14px;
-  letter-spacing:-.015em;
-  font-weight:650
-}
-.cloud-host [data-slot="card-description"] {
-  font-size:12px;
-  color:#85827c;
-  margin-top:5px
-}
-.cloud-grants .cloud-host .cloud-host-description {
-  font-size:12px;
-  color:#8b8982;
-  line-height:1.8;
-  margin-top:18px
-}
-.cloud-grants .cloud-mobile-row {
-  border:0;
-  border-top:1px solid #e8e6e1;
-  border-radius:0;
-  padding:18px 0
-}
-.cloud-grants .cloud-mobile-row .cloud-permissions {
-  display:grid;
-  gap:4px;
-  list-style:disc;
-  padding-left:16px;
-  margin-top:9px;
-  margin-bottom:12px;
-  font-size:12px;
-  line-height:1.7;
-  color:#6c6a64
-}
-.cloud-grants .cloud-mobile-row .cloud-permissions li {
-  border:0;
-  border-radius:0;
-  padding:0;
-  background:transparent;
-  font-size:12px;
-  color:#6c6a64;
-  display:list-item
-}
-.cloud-grants .cloud-mobile-row button[variant="outline"] {
-  background:transparent
-}
-.cloud-grants .cloud-mobile-row [class*="rounded-full"] {
-  border:none;
-  background:transparent;
-  padding:0;
-  border-radius:0;
-  color:#60866d;
-  font-size:11px
-}
-.cloud-grants .cloud-mobile-row .flex.flex-wrap.gap-2 button {
-  height:auto;
-  min-height:30px
-}
-.cloud-grants [data-slot="card"].cloud-grants-empty {
-  padding:22px 0;
-  border-top:1px solid #e8e6e1
-}
-.cloud-grants [data-slot="card"].cloud-grants-empty [data-slot="card-header"],.cloud-grants [data-slot="card"].cloud-grants-empty [data-slot="card-content"] {
-  padding-left:0;
-  padding-right:0
-}
-@media(max-width:480px) {
-  .cloud-host [data-slot="card-content"] {
-    margin-left:0
+
+  .cloud-grant-row,
+  .cloud-grant-checkbox::after {
+    transition: none;
   }
 }
