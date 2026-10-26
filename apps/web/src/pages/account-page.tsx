@@ -165,6 +165,9 @@ export function AccountPage() {
             </Button>
           ) : null}
           {status === "unauthenticated" ? (
+            <p className="text-sm text-muted-foreground">{sessionLabels[status]}</p>
+          ) : null}
+          {status === "unauthenticated" ? (
             <Button asChild><Link to="/login">前往登录</Link></Button>
           ) : null}
         </section>
