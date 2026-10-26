@@ -84,16 +84,17 @@ for (const viewport of viewports) {
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
         await page.getByText("pilot").waitFor();
-        await page.getByText("Cloud Session").first().waitFor();
+        await page.getByRole("heading", { name: "我的账户" }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-in", viewport.name);
 
         await page.reload({ waitUntil: "load" });
         await page
-          .getByRole("heading", { level: 1, name: "账户概览" })
+          .getByRole("heading", { level: 1, name: "我的账户" })
           .waitFor();
         await page.getByText("pilot").waitFor();
 
+        await page.getByText("当前登录会话").click();
         await page.getByRole("button", { name: "续期 Session" }).click();
         await page.getByRole("status").waitFor();
         expect(await page.getByRole("status").textContent()).toContain(
@@ -102,27 +103,28 @@ for (const viewport of viewports) {
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "renewed", viewport.name);
 
-        await page.getByText("修改密码").first().waitFor();
+        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByRole("dialog", { name: "修改密码" }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "password-form", viewport.name);
 
         await page.getByLabel("当前密码").fill("wrong current password");
         await page.getByLabel("新密码").fill(newPassword);
-        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByRole("button", { name: "确认修改" }).click();
         await page.getByText("账号或密码不正确。").waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "password-error", viewport.name);
 
         await page.getByLabel("当前密码").fill(password);
         await page.getByLabel("新密码").fill("too short");
-        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByRole("button", { name: "确认修改" }).click();
         await page.getByText(/新密码不符合密码策略/).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "password-policy-error", viewport.name);
 
         await page.getByLabel("当前密码").fill(password);
         await page.getByLabel("新密码").fill(newPassword);
-        await page.getByRole("button", { name: "修改密码" }).click();
+        await page.getByRole("button", { name: "确认修改" }).click();
         await page.getByText("密码已修改，请重新登录。").waitFor();
         await page.getByRole("link", { name: "前往登录" }).waitFor();
         await expectNoHorizontalOverflow(page);
