@@ -21,7 +21,8 @@ export function MobileGrantRow({
   const [selected, setSelected] = useState<RemoteDeviceScope[]>(grant.scopes);
   const [confirmingRevoke, setConfirmingRevoke] = useState(false);
 
-  const busy = grants.pending !== null;
+  // Prevent stale GET results from racing with a new grant mutation.
+  const busy = grants.pending !== null || grants.refreshing;
   const pending = grants.pending;
   const isPending =
     pending?.hostId === hostId &&
