@@ -298,6 +298,30 @@ describe("auth-backed route components", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps password fields in a dismissible dialog and clears them on cancel", async () => {
+    renderWithClient({
+      client: createClient(),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account",
+    });
+
+    await screen.findByText("pilot");
+    expect(screen.queryByLabelText("当前密码")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
+    expect(screen.queryByLabelText("当前密码")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+
+    expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("当前密码"), {
+      target: { value: "an example old password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog", { name: "修改密码" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    expect(screen.getByLabelText("当前密码")).toHaveValue("");
+  });
+
   it("submits a password change, shows pending state, and forces re-login", async () => {
     let resolveChange: () => void = () => undefined;
     const pendingChange = new Promise<void>((resolve) => {
