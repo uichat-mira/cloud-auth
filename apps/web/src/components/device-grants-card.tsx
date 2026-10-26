@@ -165,6 +165,7 @@ function HostGrantCard({
       </CardHeader>
 
       <CardContent className="space-y-3 px-4">
+        <details className="cloud-account-technical"><summary>查看授权细节</summary><p>云端版本 {view.revision}</p></details>
         {view.failure ? (
           <p role="alert" className="text-sm text-destructive">
             {view.failure.message}
