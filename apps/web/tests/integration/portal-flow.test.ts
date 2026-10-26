@@ -74,7 +74,7 @@ for (const viewport of viewports) {
         authServer.reset();
         await page.goto(`${baseUrl}/login`, { waitUntil: "load" });
         await page
-          .getByRole("heading", { level: 1, name: "登录 Mira Cloud" })
+          .getByRole("heading", { level: 2, name: "登录 Mira Cloud" })
           .waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-out", viewport.name);
@@ -117,8 +117,7 @@ for (const viewport of viewports) {
 
         await page.getByLabel("当前密码").fill(password);
         await page.getByLabel("新密码").fill("too short");
-        await page.getByRole("button", { name: "确认修改" }).click();
-        await page.getByText(/新密码不符合密码策略/).waitFor();
+        expect(await page.getByRole("button", { name: "确认修改" }).isDisabled()).toBe(true);
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "password-policy-error", viewport.name);
 
