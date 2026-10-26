@@ -235,3 +235,24 @@
   .cloud-host-icon{height:42px;width:42px}
 }
 @media(prefers-reduced-motion:reduce){.cloud-shell *{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* Flat grant presentation; Card remains an implementation detail for existing tests. */
+.cloud-grants .cloud-section-heading {font-size:18px;font-weight:660;letter-spacing:-.04em;line-height:1.4}
+.cloud-grants [data-slot="card"] {background:transparent;border:0;box-shadow:none;border-radius:0}
+.cloud-grants .cloud-host[data-slot="card"] {padding:22px 0 6px;border-top:1px solid #e8e6e1;gap:0}
+.cloud-host [data-slot="card-header"],.cloud-host [data-slot="card-content"]{padding-left:0;padding-right:0}
+.cloud-host [data-slot="card-header"] {gap:0}
+.cloud-host [data-slot="card-content"]{margin-left:62px;gap:14px}
+.cloud-host [data-slot="card-title"]{font-size:14px;letter-spacing:-.015em;font-weight:650}
+.cloud-host [data-slot="card-description"]{font-size:12px;color:#85827c;margin-top:5px}
+.cloud-grants .cloud-host .cloud-host-description {font-size:12px;color:#8b8982;line-height:1.8;margin-top:18px}
+.cloud-grants .cloud-mobile-row{border:0;border-top:1px solid #e8e6e1;border-radius:0;padding:18px 0}
+.cloud-grants .cloud-mobile-row .cloud-permissions {display:grid;gap:4px;list-style:disc;padding-left:16px;margin-top:9px;margin-bottom:12px;font-size:12px;line-height:1.7;color:#6c6a64}
+.cloud-grants .cloud-mobile-row .cloud-permissions li{border:0;border-radius:0;padding:0;background:transparent;font-size:12px;color:#6c6a64;display:list-item}
+.cloud-grants .cloud-mobile-row button[variant="outline"] {background:transparent}
+.cloud-grants .cloud-mobile-row [class*="rounded-full"] {border:none;background:transparent;padding:0;border-radius:0;color:#60866d;font-size:11px}
+.cloud-grants .cloud-mobile-row .flex.flex-wrap.gap-2 button {height:auto;min-height:30px}
+.cloud-grants [data-slot="card"].cloud-grants-empty {padding:22px 0;border-top:1px solid #e8e6e1}
+.cloud-grants [data-slot="card"].cloud-grants-empty [data-slot="card-header"],.cloud-grants [data-slot="card"].cloud-grants-empty [data-slot="card-content"] {padding-left:0;padding-right:0}
+@media(max-width:480px){.cloud-host [data-slot="card-content"]{margin-left:0}}
