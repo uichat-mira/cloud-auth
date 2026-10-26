@@ -2,95 +2,225 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", "Noto Sans SC", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", monospace;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+/*
+ * Vendored Inter variable font (latin subset, OFL — see public/fonts/LICENSE-Inter.txt).
+ * CJK falls back to the platform UI fonts listed in --font-sans.
+ */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
 }
 
+/*
+ * Mira Console raw tokens (measured from the OpenCode Console design system).
+ * Do not hard-code colors/spacing in page stylesheets — always reference these.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  /* surfaces */
+  --mc-surface-0: #ffffff;
+  --mc-surface-1: #fafafa;
+  --mc-surface-2: #f2f2f2;
+  --mc-surface-3: #eeeeee;
+  --mc-surface-4: #dbdbdb;
+
+  /* text */
+  --mc-text: #161616;
+  --mc-text-secondary: #5c5c5c;
+  /* 5.11:1 on #fafafa — keeps 12px meta labels AA-compliant */
+  --mc-text-faint: #6b6b6b;
+  --mc-text-disabled: #aeaeae;
+  --mc-text-inverse: #ffffff;
+  --mc-accent: #3b5cf6;
+  --mc-accent-hover: #3250df;
+
+  /* borders — translucent hairlines, never 1px solid */
+  --mc-border-muted: rgba(0, 0, 0, 0.08);
+  --mc-border: rgba(0, 0, 0, 0.1);
+  --mc-border-strong: rgba(0, 0, 0, 0.2);
+  /* Focus ring colour is measured: 5.0:1 on white (WCAG 2.4.11 needs 3:1). */
+  --mc-border-focus: #3b5cf6;
+
+  /* states */
+  --mc-success-fg: #14703a;
+  --mc-success-bg: #e7f9ea;
+  --mc-success-border: #b8e9c1;
+  --mc-success-dot: #2eaf5a;
+  --mc-warning-fg: #7a6229;
+  --mc-warning-bg: #fefaec;
+  --mc-warning-border: #f7e5b5;
+  --mc-danger-fg: #b82d35;
+  --mc-danger-bg: #fceceb;
+  --mc-danger-border: #f2bbb7;
+  --mc-info-fg: #2c47c8;
+  --mc-info-bg: #ecf1fe;
+  --mc-info-border: #c3d4fd;
+
+  /* elevation */
+  --mc-hairline: 0 0 0 0.5px var(--mc-border);
+  --mc-hairline-muted: 0 0 0 0.5px var(--mc-border-muted);
+  --mc-el-control: 0 1px 1.5px 0 rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.14);
+  --mc-el-raised: 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.08),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  --mc-el-floating: 0 8px 16px 0 rgba(0, 0, 0, 0.04), 0 4px 8px 0 rgba(0, 0, 0, 0.08),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  --mc-el-overlay: 0 16px 32px 0 rgba(0, 0, 0, 0.04), 0 8px 16px 0 rgba(0, 0, 0, 0.08),
+    0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  --mc-el-contrast: 0 1px 1.5px 0 rgba(0, 0, 0, 0.2), 0 0 0 0.5px #3a3a3a,
+    inset 0 1px 2px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 2px 0 rgba(0, 0, 0, 0.06);
+  --mc-overlay-hover: rgba(0, 0, 0, 0.04);
+  --mc-overlay-pressed: rgba(0, 0, 0, 0.08);
+
+  /* geometry + motion */
+  --mc-r-xs: 4px;
+  --mc-r-sm: 6px;
+  --mc-r-md: 8px;
+  --mc-r-lg: 12px;
+  --mc-ease: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* Dark tokens are defined for future use; nothing toggles them yet. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --mc-surface-0: #080808;
+  --mc-surface-1: #161616;
+  --mc-surface-2: #242424;
+  --mc-surface-3: #2e2e2e;
+  --mc-surface-4: #3a3a3a;
+  --mc-text: #f2f2f2;
+  --mc-text-secondary: #aeaeae;
+  --mc-text-faint: #808080;
+  --mc-text-disabled: #5c5c5c;
+  --mc-border-muted: rgba(255, 255, 255, 0.08);
+  --mc-border: rgba(255, 255, 255, 0.1);
+  --mc-border-strong: rgba(255, 255, 255, 0.2);
+  --mc-border-focus: #7698fd;
+  --mc-hairline: 0 0 0 0.5px var(--mc-border);
+  --mc-hairline-muted: 0 0 0 0.5px var(--mc-border-muted);
+  --mc-el-control: 0 1px 1.5px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+  --mc-el-raised: 0 2px 4px 0 rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  --mc-el-floating: 0 8px 16px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  --mc-el-overlay: 0 16px 32px 0 rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(255, 255, 255, 0.1);
+  --mc-overlay-hover: rgba(255, 255, 255, 0.06);
+  --mc-overlay-pressed: rgba(255, 255, 255, 0.1);
+}
+
+/* Map the shadcn/Tailwind theme onto the Mira Console tokens. */
+@theme inline {
+  --font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+
+  --color-background: var(--mc-surface-0);
+  --color-foreground: var(--mc-text);
+  --color-card: var(--mc-surface-1);
+  --color-card-foreground: var(--mc-text);
+  --color-popover: var(--mc-surface-0);
+  --color-popover-foreground: var(--mc-text);
+  --color-primary: #242424;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--mc-surface-2);
+  --color-secondary-foreground: var(--mc-text);
+  --color-muted: var(--mc-surface-2);
+  --color-muted-foreground: var(--mc-text-secondary);
+  --color-accent: var(--mc-surface-2);
+  --color-accent-foreground: var(--mc-text);
+  --color-destructive: var(--mc-danger-fg);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--mc-border);
+  --color-input: var(--mc-border-strong);
+  --color-ring: var(--mc-border-focus);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *,
+  ::after,
+  ::before {
+    border-color: var(--mc-border);
   }
 
   html {
-    @apply font-sans;
+    color-scheme: light;
   }
 
   body {
     @apply min-h-dvh bg-background text-foreground antialiased;
+    font-size: 14px;
+    line-height: 22px;
+    font-weight: 450;
+    font-variant-numeric: tabular-nums;
+    text-rendering: optimizeLegibility;
+  }
+
+  strong,
+  b {
+    font-weight: 550;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--mc-accent) 18%, transparent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--mc-border-strong);
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
   }
 }
 
-@utility portal-container {
-  @apply mx-auto w-full max-w-5xl px-4 sm:px-6;
+/*
+ * One focus treatment for the whole app. Never remove it.
+ *
+ * Deliberately outside `@layer base`: Tailwind's `outline-none` / `outline-hidden`
+ * utilities live in `@layer utilities`, which wins over `base`, so a ring declared
+ * inside the base layer is silently erased (it computed to `outline-style: none`).
+ * Unlayered rules outrank every layer, so this survives component utilities.
+ */
+:focus-visible {
+  outline: 2px solid var(--mc-border-focus);
+  outline-offset: 2.5px;
+}
+
+/* Fields keep their plate: the ring hugs the control instead of floating off it. */
+:where([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible {
+  outline: 2px solid var(--mc-border-focus);
+  outline-offset: 0;
+  box-shadow: var(--mc-el-control);
+}
+
+/*
+ * Keep native disclosure semantics. Author rules that give a details body a
+ * `display` value would otherwise resurrect closed content (the UA rule that
+ * hides it loses to any author declaration).
+ */
+details:not([open]) > :not(summary) {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

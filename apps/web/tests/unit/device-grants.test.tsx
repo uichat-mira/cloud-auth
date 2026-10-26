@@ -53,7 +53,9 @@ async function renderLoadedGrants(
   client: HostGrantsClient = createFakeHostGrantsClient(),
 ) {
   const harness = renderGrants(client);
-  await screen.findByRole("heading", { level: 2, name: "设备与授权" });
+  // The card no longer owns the page heading (the devices route does), so wait
+  // on the records the card itself renders.
+  await screen.findByRole("button", { name: "刷新列表" });
   await screen.findByText("工作 Desktop");
   return harness;
 }
@@ -430,11 +432,14 @@ describe("Device and Host grants card", () => {
     if (!card) throw new Error("Expected the offline Host card");
     expect(within(card as HTMLElement).getByText("离线")).toBeInTheDocument();
     expect(
-      within(card as HTMLElement).getByText(
-        /云端保存成功不等于 Desktop 已立即执行/,
-      ),
+      within(card as HTMLElement).getByText(/未观察到在线/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/已立即生效/)).not.toBeInTheDocument();
+    // The execution caveat moved to the devices page footer; the record card
+    // must not repeat it (see auth-pages.test.tsx, devices route).
+    expect(
+      screen.queryByText(/云端保存成功不等于 Desktop 已立即执行/),
+    ).not.toBeInTheDocument();
   });
 
   it("reflects the current effective scopes after a loaded snapshot", async () => {
