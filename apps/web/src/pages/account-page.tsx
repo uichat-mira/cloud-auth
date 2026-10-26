@@ -138,6 +138,7 @@ export function AccountPage() {
 
               <button
                 type="button"
+                aria-label="修改密码"
                 onClick={openPasswordDialog}
                 className="flex w-full items-center justify-between gap-3 rounded-md border-b px-1 py-4 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
