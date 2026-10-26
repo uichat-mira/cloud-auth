@@ -83,7 +83,7 @@ for (const viewport of viewports) {
         await page.getByLabel("密码").fill(password);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
-        await page.getByText("pilot").waitFor();
+        await page.getByText("pilot").first().waitFor();
         await page.getByRole("heading", { name: "我的账户" }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-in", viewport.name);
@@ -92,7 +92,7 @@ for (const viewport of viewports) {
         await page
           .getByRole("heading", { level: 1, name: "我的账户" })
           .waitFor();
-        await page.getByText("pilot").waitFor();
+        await page.getByText("pilot").first().waitFor();
 
         await page.getByText("当前登录会话").click();
         await page.getByRole("button", { name: "续期 Session" }).click();
@@ -134,7 +134,7 @@ for (const viewport of viewports) {
         await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
-        await page.getByText("pilot").waitFor();
+        await page.getByText("pilot").first().waitFor();
 
         await page.getByRole("button", { name: "退出登录" }).click();
         await page.getByRole("link", { name: "前往登录" }).waitFor();
@@ -146,7 +146,7 @@ for (const viewport of viewports) {
         await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
-        await page.getByText("pilot").waitFor();
+        await page.getByText("pilot").first().waitFor();
 
         authServer.expireSessions();
         await page.reload({ waitUntil: "load" });
