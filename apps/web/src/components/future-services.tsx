@@ -1,11 +1,3 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
 const futureServices = [
   {
     name: "Cloud Shiyan",
@@ -22,38 +14,24 @@ const futureServices = [
 export function FutureServices() {
   return (
     <section aria-labelledby="future-services-heading" className="space-y-3">
-      <div className="space-y-1">
-        <h2
-          id="future-services-heading"
-          className="text-lg font-semibold tracking-tight"
-        >
-          关联服务
-        </h2>
-        <p className="text-sm leading-6 text-muted-foreground">
-          以下能力尚未连接到此 Portal，仅作为未来集成预览，不会影响当前账户状态。
-        </p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
+      <h2 id="future-services-heading" className="text-sm font-medium">
+        关联服务
+      </h2>
+      <p className="text-xs leading-5 text-muted-foreground">
+        以下能力尚未接入此 Portal，不影响当前账号及设备授权。
+      </p>
+      <ul className="divide-y border-t text-sm">
         {futureServices.map((service) => (
-          <Card key={service.name} className="gap-3 py-4">
-            <CardHeader className="gap-2 px-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-base">{service.name}</CardTitle>
-                <span className="rounded-full border border-dashed px-2 py-0.5 text-[11px] text-muted-foreground">
-                  尚未接入
-                </span>
-              </div>
-              <CardDescription>{service.description}</CardDescription>
-            </CardHeader>
-            <CardContent className="px-4">
-              <p className="text-xs leading-5 text-muted-foreground">
-                {service.detail}
-              </p>
-            </CardContent>
-          </Card>
+          <li key={service.name} className="space-y-1 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium">{service.name}</span>
+              <span className="text-xs text-muted-foreground">尚未接入</span>
+            </div>
+            <p className="text-xs text-muted-foreground">{service.description}</p>
+            <p className="text-xs text-muted-foreground">{service.detail}</p>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }
