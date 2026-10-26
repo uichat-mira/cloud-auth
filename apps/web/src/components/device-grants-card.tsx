@@ -146,31 +146,22 @@ function HostGrantCard({
 
   return (
     <Card className="cloud-host">
-      <CardHeader className="gap-2 px-4">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="space-y-1">
-            <CardTitle className="text-base">
-              {hostLabel(view.host)}
-            </CardTitle>
-            <CardDescription>{hostDescription(view.host)}</CardDescription>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-            <span
-              className={
-                isAvailable
-                  ? "rounded-full border border-emerald-600/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-700 dark:text-emerald-300"
-                  : "rounded-full border px-2 py-0.5 text-muted-foreground"
-              }
-            >
-              {isAvailable ? "最近在线" : "离线"}
+      <CardHeader className="cloud-host-head">
+        <div className="cloud-host-header">
+          <div className="cloud-host-title">
+            <span className="cloud-host-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="12" rx="2" /><path d="M9 20h6M12 16.5V20"/></svg>
             </span>
-            {view.revision > 0 ? (
-              <span className="rounded-full border px-2 py-0.5 text-muted-foreground">
-                云端版本 {view.revision}
-              </span>
-            ) : null}
+            <span>
+              <CardTitle>{hostLabel(view.host)}</CardTitle>
+              <CardDescription>Mira Desktop</CardDescription>
+            </span>
           </div>
+          <span className={isAvailable ? "cloud-host-status" : "cloud-host-status offline"}>
+            {isAvailable ? "最近在线" : "离线"}
+          </span>
         </div>
+        <p className="cloud-host-description">{hostDescription(view.host)}</p>
       </CardHeader>
 
       <CardContent className="space-y-3 px-4">
