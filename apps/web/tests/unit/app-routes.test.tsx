@@ -58,17 +58,17 @@ describe("web route shell", () => {
   it("shows only the login entry while signed out, even on the account URL", async () => {
     const router = renderAt("/login");
 
-    expect(await screen.findByRole("link", { name: "登录", exact: true })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "登录" })).toHaveAttribute(
       "href",
       "/login",
     );
-    expect(screen.queryByRole("link", { name: "账户中心", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /OAuth|授权/ })).not.toBeInTheDocument();
 
     await router.navigate("/account");
     expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "登录", exact: true })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "账户中心", exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "登录" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
   });
 
   it("renders the not-found surface for unknown routes", () => {
@@ -116,7 +116,7 @@ describe("web route shell", () => {
     expect(
       screen.getByRole("navigation", { name: "主导航" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "账户中心" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "登录" })).toHaveAttribute(
       "href",
       "/account",
     );
