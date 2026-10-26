@@ -19,7 +19,7 @@ const viewports = [
 
 const routeCases = [
   { path: "/login", heading: "登录 Mira Cloud", screenshot: "login" },
-  { path: "/account", heading: "账户概览", screenshot: "account" },
+  { path: "/account", heading: "我的账户", screenshot: "account" },
   { path: "/missing", heading: "页面不存在", screenshot: "not-found" },
 ] as const;
 
@@ -117,7 +117,7 @@ describe("browser navigation", () => {
       await page.getByRole("link", { name: "账户", exact: true }).click();
       await page.waitForURL("**/account");
       await page
-        .getByRole("heading", { level: 1, name: "账户概览" })
+        .getByRole("heading", { level: 1, name: "我的账户" })
         .waitFor();
     } finally {
       await page.close();
