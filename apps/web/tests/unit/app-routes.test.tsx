@@ -118,7 +118,7 @@ describe("web route shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "登录" })).toHaveAttribute(
       "href",
-      "/account",
+      "/login",
     );
 
     consoleError.mockRestore();
