@@ -104,6 +104,7 @@ describe("auth-backed route components", () => {
     ]);
     expect(storage.load()?.sessionToken).toBe("token-1");
 
+    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
 
     await waitFor(() => {
@@ -256,7 +257,9 @@ describe("auth-backed route components", () => {
     });
 
     expect(await screen.findByText("pilot")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("账户及会话详情"));
     expect(screen.getByText("account-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("关联服务 · 尚未接入"));
     expect(
       screen.getByRole("heading", { level: 2, name: "关联服务" }),
     ).toBeInTheDocument();
@@ -281,6 +284,7 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
+    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
     fireEvent.click(screen.getByRole("button", { name: "续期 Session" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
@@ -290,7 +294,7 @@ describe("auth-backed route components", () => {
       expect(storage.load()?.sessionToken).toBe("token-2");
     });
     expect(
-      screen.getByRole("heading", { level: 1, name: "账户概览" }),
+      screen.getByRole("heading", { level: 1, name: "我的账户" }),
     ).toBeInTheDocument();
   });
 
@@ -317,13 +321,16 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
+    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("当前密码"), {
       target: { value: "correct horse battery staple" },
     });
     fireEvent.change(screen.getByLabelText("新密码"), {
       target: { value: "another strong replacement passphrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
 
     expect(
       await screen.findByRole("button", { name: "修改中…" }),
@@ -368,13 +375,16 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
+    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("当前密码"), {
       target: { value: "wrong current password" },
     });
     fireEvent.change(screen.getByLabelText("新密码"), {
       target: { value: "another strong replacement passphrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "账号或密码不正确。",
@@ -400,13 +410,16 @@ describe("auth-backed route components", () => {
     });
 
     await screen.findByText("pilot");
+    fireEvent.click(screen.getByRole("button", { name: "账户安全" }));
+    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    expect(screen.getByRole("dialog", { name: "修改密码" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("当前密码"), {
       target: { value: "correct horse battery staple" },
     });
     fireEvent.change(screen.getByLabelText("新密码"), {
-      target: { value: "too short" },
+      target: { value: "a long but rejected new password" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "修改密码" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "新密码不符合密码策略，请使用至少 15 个字符的新密码。",
