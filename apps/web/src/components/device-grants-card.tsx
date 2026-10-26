@@ -72,6 +72,7 @@ export function DeviceGrantsCard() {
       ) : null}
 
       {grants.status === "ready" &&
+      !grants.refreshing &&
       !grants.loadFailure &&
       grants.hosts.length === 0 ? (
         <Card className="gap-3 py-4">
