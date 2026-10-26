@@ -79,8 +79,8 @@ export function LoginPage() {
           </Button>
         </form>
         <p className="cloud-footnote">
-          你的密码仅用于 Mira Cloud 认证。本地、直连与 Tailscale
-          功能无需登录云账号。
+          Mira Cloud 仅用于 Mira 运营的云端服务；密码不会交给其他应用。
+          本地、直连与 Tailscale 功能无需登录。
         </p>
       </section>
     </div>
