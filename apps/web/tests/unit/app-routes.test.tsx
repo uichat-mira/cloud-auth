@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AppProviders } from "@/app/providers";
@@ -26,7 +25,7 @@ describe("web route shell", () => {
     renderAt("/login");
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
+      screen.getByRole("heading", { level: 2, name: "登录 Mira Cloud" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("账号")).toBeEnabled();
     expect(screen.getByLabelText("密码")).toBeEnabled();
@@ -40,7 +39,7 @@ describe("web route shell", () => {
       expect(router.state.location.pathname).toBe("/login");
     });
     expect(
-      await screen.findByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
+      await screen.findByRole("heading", { level: 2, name: "登录 Mira Cloud" }),
     ).toBeInTheDocument();
   });
 
@@ -56,18 +55,20 @@ describe("web route shell", () => {
     ).toHaveAttribute("href", "/login");
   });
 
-  it("navigates between route shells through the primary navigation", async () => {
-    const user = userEvent.setup();
+  it("shows only the login entry while signed out, even on the account URL", async () => {
     const router = renderAt("/login");
 
-    await user.click(screen.getByRole("link", { name: "账户" }));
+    expect(await screen.findByRole("link", { name: "登录" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /OAuth|授权/ })).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/account");
-    });
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "我的账户" }),
-    ).toBeInTheDocument();
+    await router.navigate("/account");
+    expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "登录" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
   });
 
   it("renders the not-found surface for unknown routes", () => {
@@ -115,9 +116,9 @@ describe("web route shell", () => {
     expect(
       screen.getByRole("navigation", { name: "主导航" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "账户" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "登录" })).toHaveAttribute(
       "href",
-      "/account",
+      "/login",
     );
 
     consoleError.mockRestore();

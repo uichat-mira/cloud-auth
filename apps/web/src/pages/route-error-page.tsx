@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 import { PortalShell } from "@/app/root-layout";
 import { Button } from "@/components/ui/button";
+import { useAuthSession } from "@/lib/auth/context";
 
 function describeError(error: unknown): string {
   if (isRouteErrorResponse(error)) {
@@ -20,6 +21,8 @@ function describeError(error: unknown): string {
 
 export function RouteErrorPage() {
   const error = useRouteError();
+  const { status } = useAuthSession();
+  const accountEntry = status === "authenticated" || status === "unavailable";
 
   return (
     <PortalShell>
@@ -33,7 +36,9 @@ export function RouteErrorPage() {
         </p>
         <div className="flex justify-center pt-2">
           <Button asChild>
-            <Link to="/login">返回登录</Link>
+            <Link to={accountEntry ? "/account" : "/login"}>
+              {accountEntry ? "返回账户中心" : "返回登录"}
+            </Link>
           </Button>
         </div>
       </section>

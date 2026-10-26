@@ -18,7 +18,7 @@ const viewports = [
 ] as const;
 
 const routeCases = [
-  { path: "/login", heading: "登录 Mira Cloud", screenshot: "login" },
+  { path: "/login", heading: "欢迎回来。", screenshot: "login" },
   { path: "/account", heading: "我的账户", screenshot: "account" },
   { path: "/missing", heading: "页面不存在", screenshot: "not-found" },
 ] as const;
@@ -102,23 +102,26 @@ describe("browser navigation", () => {
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
       await page.waitForURL("**/login");
       await page
-        .getByRole("heading", { level: 1, name: "登录 Mira Cloud" })
+        .getByRole("heading", { level: 1, name: "欢迎回来。" })
         .waitFor();
     } finally {
       await page.close();
     }
   });
 
-  it("moves between login and account through the primary navigation", async () => {
+  it("keeps logged-out navigation limited to login", async () => {
     const page = await browser.newPage();
 
     try {
       await page.goto(`${baseUrl}/login`, { waitUntil: "load" });
-      await page.getByRole("link", { name: "账户", exact: true }).click();
-      await page.waitForURL("**/account");
-      await page
-        .getByRole("heading", { level: 1, name: "我的账户" })
-        .waitFor();
+      await page.getByRole("link", { name: "登录", exact: true }).waitFor();
+      expect(await page.getByRole("link", { name: "账户中心", exact: true }).count()).toBe(0);
+
+      await page.goto(`${baseUrl}/account`, { waitUntil: "load" });
+      await page.getByRole("heading", { level: 1, name: "我的账户" }).waitFor();
+      await page.getByRole("link", { name: "登录", exact: true }).waitFor();
+      expect(await page.getByRole("link", { name: "账户中心", exact: true }).count()).toBe(0);
+      expect(await page.getByRole("link", { name: /OAuth|授权/ }).count()).toBe(0);
     } finally {
       await page.close();
     }
