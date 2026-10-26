@@ -109,16 +109,19 @@ describe("browser navigation", () => {
     }
   });
 
-  it("moves between login and account through the primary navigation", async () => {
+  it("keeps logged-out navigation limited to login", async () => {
     const page = await browser.newPage();
 
     try {
       await page.goto(`${baseUrl}/login`, { waitUntil: "load" });
-      await page.getByRole("link", { name: "账户中心", exact: true }).click();
-      await page.waitForURL("**/account");
-      await page
-        .getByRole("heading", { level: 1, name: "我的账户" })
-        .waitFor();
+      await page.getByRole("link", { name: "登录", exact: true }).waitFor();
+      expect(await page.getByRole("link", { name: "账户中心", exact: true }).count()).toBe(0);
+
+      await page.goto(`${baseUrl}/account`, { waitUntil: "load" });
+      await page.getByRole("heading", { level: 1, name: "我的账户" }).waitFor();
+      await page.getByRole("link", { name: "登录", exact: true }).waitFor();
+      expect(await page.getByRole("link", { name: "账户中心", exact: true }).count()).toBe(0);
+      expect(await page.getByRole("link", { name: /OAuth|授权/ }).count()).toBe(0);
     } finally {
       await page.close();
     }
