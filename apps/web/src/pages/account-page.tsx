@@ -99,7 +99,7 @@ export function AccountPage() {
                 <p>密码与当前浏览器会话。</p>
               </div>
               <div className="cloud-action-list">
-                <button type="button" className="cloud-action-row" onClick={openPasswordDialog}>
+                <button type="button" aria-label="修改密码" className="cloud-action-row" onClick={openPasswordDialog}>
                   <span>
                     <strong>修改密码</strong>
                     <small>修改后，云端会话需要重新登录</small>
@@ -126,6 +126,7 @@ export function AccountPage() {
                 <Button
                   type="button"
                   variant="ghost"
+                  aria-label="退出登录"
                   className="cloud-action-row cloud-signout"
                   onClick={() => void logout()}
                   disabled={pending !== null}
