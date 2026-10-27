@@ -19,7 +19,7 @@ services:
     volumes:
       - ./data:/data
       - ./backups:/backups
-    mem_limit: 512m
+    mem_limit: 256m
     cpus: 1.0
     read_only: true
     tmpfs:
