@@ -38,7 +38,7 @@ export function AssociatedServices() {
             {service.href ? (
               // Same-tab navigation preserves the origin's tab-scoped Cloud Session.
               <a className="console-section-link" href={service.href}>
-                进入 DC 控制台
+                进入 {service.name}
               </a>
             ) : (
               <span className="cloud-service-pill">尚未接入</span>
