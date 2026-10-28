@@ -4,6 +4,11 @@ cloud-auth.tomzlab.cn {
     reverse_proxy 127.0.0.1:8788
   }
 
+  # /dc/ routes to a locally bound, non-root authenticated controller.
+  handle /dc/* {
+    reverse_proxy 127.0.0.1:8792
+  }
+
   handle {
     root * /opt/cloud-auth/web
     try_files {path} /index.html
