@@ -23,7 +23,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("host DC client boundary", () => {
   it("uses the Cloud Session only for the same-origin loopback-proxied status API", async () => {
-    const fetcher = vi.fn(async () => reply(status));
+    const fetcher = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     const client = createDcControlClient(fetcher as typeof fetch);
     expect(await client.status("session-secret")).toMatchObject(status);
     expect(fetcher).toHaveBeenCalledWith("/dc/api/status", expect.objectContaining({
@@ -36,16 +36,16 @@ describe("host DC client boundary", () => {
   });
 
   it("fails closed on a different owner, malformed data and invalid policy", async () => {
-    const forbidden = vi.fn(async () => reply({ error: "no access" }, 403));
+    const forbidden = vi.fn(async (..._args: Parameters<typeof fetch>) => reply({ error: "no access" }, 403));
     await expect(createDcControlClient(forbidden as typeof fetch).status("token")).rejects.toMatchObject({
       httpStatus: 403,
       message: "当前云账号没有这台服务器的管理权限。",
     });
 
-    const malformed = vi.fn(async () => reply({ running: false }));
+    const malformed = vi.fn(async (..._args: Parameters<typeof fetch>) => reply({ running: false }));
     await expect(createDcControlClient(malformed as typeof fetch).status("token")).rejects.toBeInstanceOf(DcControlError);
 
-    const calls = vi.fn(async () => reply(status));
+    const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     await expect(createDcControlClient(calls as typeof fetch).savePolicy("token", {
       ...status.policy, durationMinutes: 999 as 15,
     })).rejects.toMatchObject({ httpStatus: 400 });
@@ -53,7 +53,7 @@ describe("host DC client boundary", () => {
   });
 
   it("never sends a mutation without a bearer token", async () => {
-    const calls = vi.fn(async () => reply(status));
+    const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     await expect(createDcControlClient(calls as typeof fetch).start("")).rejects.toMatchObject({ httpStatus: 401 });
     expect(calls).not.toHaveBeenCalled();
   });
@@ -61,7 +61,7 @@ describe("host DC client boundary", () => {
 
 describe("DC inside Mira account", () => {
   it("does not mount the control page or call its API when signed out", async () => {
-    const calls = vi.fn(async () => reply(status));
+    const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: null });
     expect(await screen.findByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login");
@@ -70,7 +70,7 @@ describe("DC inside Mira account", () => {
   });
 
   it("renders the real Cloud Account shell and keeps navigation active", async () => {
-    const calls = vi.fn(async () => reply(status));
+    const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
 
@@ -78,13 +78,13 @@ describe("DC inside Mira account", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
     const nav = screen.getByRole("navigation", { name: "账户分区" });
     expect(within(nav).getByRole("link", { name: "关联服务" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "关联服务" })).toHaveAttribute("href", "/account/services");
+    expect(screen.getAllByRole("link", { name: "关联服务" }).some((link) => link.getAttribute("href") === "/account/services")).toBe(true);
     expect(screen.getAllByRole("button", { name: "退出登录" })).toHaveLength(1);
     expect(calls).toHaveBeenCalledWith("/dc/api/status", expect.any(Object));
   });
 
   it("saves a changed policy before start and keeps actions bound to the DC API", async () => {
-    const calls = vi.fn(async () => reply(status));
+    const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
     await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
@@ -106,7 +106,7 @@ describe("DC inside Mira account", () => {
   });
 
   it("shows an owner-denied response without enabling host controls", async () => {
-    const calls = vi.fn(async () => reply({ error: "forbidden" }, 403));
+    const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply({ error: "forbidden" }, 403));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
     expect(await screen.findByRole("alert")).toHaveTextContent("没有这台服务器的管理权限");
