@@ -46,9 +46,9 @@ describe("host DC client boundary", () => {
     await expect(createDcControlClient(malformed as typeof fetch).status("token")).rejects.toBeInstanceOf(DcControlError);
 
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
-    await expect(createDcControlClient(calls as typeof fetch).savePolicy("token", {
+    expect(() => createDcControlClient(calls as typeof fetch).savePolicy("token", {
       ...status.policy, durationMinutes: 999 as 15,
-    })).rejects.toMatchObject({ httpStatus: 400 });
+    })).toThrow(DcControlError);
     expect(calls).not.toHaveBeenCalled();
   });
 
