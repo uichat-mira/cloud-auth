@@ -375,10 +375,9 @@ describe("auth-backed route components", () => {
     expect(within(services).getByText("Hosted Relay")).toBeInTheDocument();
     expect(within(services).getAllByText("尚未接入")).toHaveLength(2);
 
-    // /dc/ is a separate same-origin app: do not use SPA routing or open a new tab,
-    // because the existing Cloud Session is stored per tab.
+    // The migrated DC page must stay inside the same account route and session.
     const dcLink = within(services).getByRole("link", { name: "进入 DC 控制台" });
-    expect(dcLink).toHaveAttribute("href", "/dc/");
+    expect(dcLink).toHaveAttribute("href", "/account/services/dc");
     expect(dcLink).not.toHaveAttribute("target");
 
     // The account navigation and page heading remain single instances.

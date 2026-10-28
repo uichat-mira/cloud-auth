@@ -96,6 +96,7 @@ describe("console section navigation", () => {
     ["/account/devices", "设备与授权"],
     ["/account/security", "账户安全"],
     ["/account/services", "关联服务"],
+    ["/account/services/dc", "关联服务"],
   ] as const)("offers the four sections on %s and marks %s active", async (path, activeLabel) => {
     mountConsole({ path, status: "authenticated" });
 
