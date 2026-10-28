@@ -289,10 +289,10 @@ export function useDeviceGrants({
         }));
         return true;
       } catch (error) {
-        return handleMutationFailure(error, refresh, setState);
+        return handleMutationFailure(error, refresh, setState, sessionToken, onSessionExpired);
       }
     },
-    [client, getSessionToken, refresh],
+    [client, getSessionToken, refresh, onSessionExpired],
   );
 
   return { ...state, refresh, narrow, revoke };
