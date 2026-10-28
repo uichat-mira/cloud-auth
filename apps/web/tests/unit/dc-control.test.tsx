@@ -105,6 +105,23 @@ describe("DC inside Mira account", () => {
     expect(paths.indexOf("/dc/api/policy")).toBeLessThan(paths.indexOf("/dc/api/start"));
   });
 
+  it("confirms stop and preserves a host-side failure instead of dismissing it", async () => {
+    const running = { ...status, running: true, remainingSeconds: 1800, memoryBytes: 100000000 };
+    const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
+      String(input) === "/dc/api/stop"
+        ? reply({ error: "本机控制服务暂不可用" }, 503)
+        : reply(running),
+    );
+    vi.stubGlobal("fetch", calls);
+    mountPortal({ path: "/account/services/dc", session: storedSession });
+    await waitFor(() => expect(screen.getByRole("button", { name: "停止服务" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "停止服务" }));
+    expect(screen.getByRole("dialog", { name: "停止 DC 服务？" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认停止" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("本机控制服务暂不可用");
+    expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/stop")).toHaveLength(1);
+  });
+
   it("shows an owner-denied response without enabling host controls", async () => {
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply({ error: "forbidden" }, 403));
     vi.stubGlobal("fetch", calls);
