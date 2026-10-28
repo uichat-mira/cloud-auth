@@ -9,6 +9,9 @@ const sourceRoot = fileURLToPath(new URL("./src", import.meta.url));
 // the Portal talks to a same-origin API, matching production behind Caddy.
 const apiOrigin = process.env.MIRA_AUTH_DEV_API_ORIGIN ?? "http://127.0.0.1:8788";
 const apiProxy = { target: apiOrigin, changeOrigin: true };
+// DC is a separate host-local controller; only proxy its fixed API path.
+// The controller still validates the Cloud Session, administrator and Origin.
+const dcProxy = { target: "http://127.0.0.1:8792", changeOrigin: false };
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -22,6 +25,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/v1": apiProxy,
+      "/dc/api": dcProxy,
       "/health": apiProxy,
       "/ready": apiProxy,
       "/.well-known": apiProxy,
@@ -32,6 +36,7 @@ export default defineConfig({
     port: 4173,
     proxy: {
       "/v1": apiProxy,
+      "/dc/api": dcProxy,
       "/health": apiProxy,
       "/ready": apiProxy,
       "/.well-known": apiProxy,
