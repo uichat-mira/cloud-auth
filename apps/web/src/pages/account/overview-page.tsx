@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { futureServicesCount } from "@/components/future-services";
+import { associatedServicesCount, unconnectedServicesCount } from "@/components/associated-services";
 import { useAuthSession } from "@/lib/auth/context";
 import { sessionLabels } from "@/lib/auth/session-labels";
 import { useHostGrantsClient } from "@/lib/grants/context";
@@ -8,7 +8,7 @@ import { formatExpiry } from "@/lib/format";
 
 /**
  * /account — the account at a glance. Three sections, each one screenful:
- * who you are, what is authorised, what is not connected yet. Every section
+ * who you are, what is authorised, and associated services. Every section
  * links to the page that owns the detail instead of duplicating it.
  */
 export function OverviewPage() {
@@ -112,13 +112,13 @@ export function OverviewPage() {
         <div className="console-section-head">
           <div>
             <h2 id="overview-services">关联服务</h2>
-            <p className="console-section-caption">以下能力尚未接入此 Portal。</p>
+            <p className="console-section-caption">Mira Cloud 的服务与子系统。</p>
           </div>
           <Link className="console-section-link" to="/account/services">
             查看
           </Link>
         </div>
-        <p className="console-inline-note">{futureServicesCount} 项能力 · 尚未接入</p>
+        <p className="console-inline-note">{associatedServicesCount} 项服务 · {unconnectedServicesCount} 项尚未接入</p>
       </section>
     </section>
   );
