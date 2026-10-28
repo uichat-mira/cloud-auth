@@ -55,6 +55,8 @@ OPS-001 intentionally provides only the service boundary, persistence/migration 
 - `pnpm run dev:api`: API only.
 - `pnpm run dev:web`: Portal only, expects an API at the proxy target above.
 
+DC control development: the Portal routes `/account/services/dc` inside the same React account shell. Both Vite dev and preview proxy `/dc/api/*` to the **local** `127.0.0.1:8792` host controller, when explicitly installed. If no local controller exists, it remains unavailable; do not silently tunnel to the production host or bypass its owner/session/Origin checks. The production Caddy `/dc/*` proxy remains the independent host-service integration boundary.
+
 The API default local database path is `./data/auth.sqlite` relative to `apps/api`. Use `pnpm run build` to produce the Portal's production bundle under `apps/web/dist`.
 
 ## Endpoints

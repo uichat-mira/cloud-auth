@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 type AssociatedService = {
   name: string;
   description: string;
@@ -10,7 +12,7 @@ const services: readonly AssociatedService[] = [
     name: "DC 控制台",
     description: "广州服务器 · Desktop Commander",
     detail: "查看运行状态，管理单次启停与资源策略。",
-    href: "/dc/",
+    href: "/account/services/dc",
   },
   {
     name: "Cloud Shiyan",
@@ -36,10 +38,9 @@ export function AssociatedServices() {
           <div className="cloud-service-row-head">
             <span className="cloud-service-name">{service.name}</span>
             {service.href ? (
-              // Same-tab navigation preserves the origin's tab-scoped Cloud Session.
-              <a className="console-section-link" href={service.href}>
+              <Link className="console-section-link" to={service.href}>
                 进入 {service.name}
-              </a>
+              </Link>
             ) : (
               <span className="cloud-service-pill">尚未接入</span>
             )}
