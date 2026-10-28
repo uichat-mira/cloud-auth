@@ -19,7 +19,9 @@ export function safeAccountReturnTo(value: string | null): string {
 }
 
 export function loginUrlForAccount(accountLocation: string): string {
-  const params = new URLSearchParams({ returnTo: safeAccountReturnTo(accountLocation) });
+  const returnTo = safeAccountReturnTo(accountLocation);
+  if (returnTo === "/account") return "/login";
+  const params = new URLSearchParams({ returnTo });
   return "/login?" + params.toString();
 }
 
