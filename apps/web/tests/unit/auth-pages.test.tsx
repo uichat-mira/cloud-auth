@@ -476,7 +476,7 @@ describe("auth-backed route components", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
       "href",
-      "/login",
+      "/login?returnTo=%2Faccount%2Fsecurity",
     );
     expect(screen.queryByLabelText("当前密码")).not.toBeInTheDocument();
     expect(calls).toEqual([
