@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useAuthSession } from "@/lib/auth/context";
 import {
   createDcControlClient,
+  DcControlError,
   dcCpuLimits,
   dcDurations,
   dcMemoryLimits,
@@ -34,7 +35,7 @@ function errorMessage(error: unknown): string {
 
 /** An account-owned view; the privileged HTTP service remains on the host. */
 export function DcControlPage() {
-  const { getSessionToken } = useAuthSession();
+  const { getSessionToken, invalidateSession } = useAuthSession();
   const client = useMemo(() => createDcControlClient(), []);
   const [snapshot, setSnapshot] = useState<DcStatus | null>(null);
   const [draft, setDraft] = useState<DcPolicy | null>(null);
@@ -64,8 +65,10 @@ export function DcControlPage() {
   const refresh = useCallback(async (quiet = false, signal?: AbortSignal) => {
     if (busyRef.current) return;
     if (!quiet) setLoading(true);
+    let requestToken: string | null = null;
     try {
       const token = getSessionToken();
+      requestToken = token;
       if (!token) throw new Error("请先登录 Mira Cloud Account。");
       const result = await client.status(token, signal);
       if (signal?.aborted) return;
@@ -73,12 +76,16 @@ export function DcControlPage() {
       setError("");
     } catch (cause) {
       if (signal?.aborted) return;
+      if (cause instanceof DcControlError && cause.httpStatus === 401 && requestToken) {
+        invalidateSession(requestToken);
+        return;
+      }
       setSnapshot(null);
       setError(errorMessage(cause));
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [applySnapshot, client, getSessionToken]);
+  }, [applySnapshot, client, getSessionToken, invalidateSession]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -140,7 +147,11 @@ export function DcControlPage() {
       setClock(Date.now());
       completed = true;
     } catch (cause) {
-      setError(errorMessage(cause));
+      if (cause instanceof DcControlError && cause.httpStatus === 401) {
+        invalidateSession(token);
+      } else {
+        setError(errorMessage(cause));
+      }
     } finally {
       busyRef.current = false;
       setBusy(null);
