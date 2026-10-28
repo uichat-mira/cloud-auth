@@ -779,10 +779,10 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Future services                                                     */
+/* Associated services                                                 */
 /* ------------------------------------------------------------------ */
 
-.cloud-future-list {
+.cloud-service-list {
   display: flex;
   flex-direction: column;
   margin: 0;
@@ -791,25 +791,25 @@
   list-style: none;
 }
 
-.cloud-future-row {
+.cloud-service-row {
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 12px 0;
 }
 
-.cloud-future-row + .cloud-future-row {
+.cloud-service-row + .cloud-service-row {
   box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
 }
 
-.cloud-future-row-head {
+.cloud-service-row-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.cloud-future-name {
+.cloud-service-name {
   color: var(--mc-text);
   font-size: 13.5px;
   font-weight: 550;
@@ -817,7 +817,7 @@
   overflow-wrap: anywhere;
 }
 
-.cloud-future-pill {
+.cloud-service-pill {
   display: inline-flex;
   height: 18px;
   flex: none;
@@ -832,8 +832,8 @@
   white-space: nowrap;
 }
 
-.cloud-future-description,
-.cloud-future-detail {
+.cloud-service-description,
+.cloud-service-detail {
   margin: 0;
   color: var(--mc-text-secondary);
   font-size: 13px;

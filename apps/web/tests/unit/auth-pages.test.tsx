@@ -298,7 +298,7 @@ describe("auth-backed route components", () => {
     expect(within(counts).getByText("有效授权")).toBeInTheDocument();
     expect(within(counts).getAllByRole("listitem")).toHaveLength(3);
 
-    expect(screen.getByText("2 项能力 · 尚未接入")).toBeInTheDocument();
+    expect(screen.getByText("3 项服务 · 2 项尚未接入")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 2, name: "关联服务" }),
     ).toBeInTheDocument();
@@ -357,7 +357,7 @@ describe("auth-backed route components", () => {
     expect(screen.getAllByText(formatExpiry(expiresAt)).length).toBeGreaterThan(0);
   });
 
-  it("lists the not-yet-connected services on the services route", async () => {
+  it("lists DC alongside other services without introducing a second login or navigation area", async () => {
     renderWithClient({
       client: createClient(),
       initialSession: { sessionToken: "token-1", expiresAt },
@@ -367,10 +367,22 @@ describe("auth-backed route components", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "关联服务" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Cloud Shiyan")).toBeInTheDocument();
-    expect(screen.getByText("Hosted Relay")).toBeInTheDocument();
-    expect(screen.getAllByText("尚未接入")).toHaveLength(2);
-    // The page owns the only heading; the list must not repeat an h2.
+
+    const services = screen.getByRole("list");
+    expect(within(services).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(services).getByText("DC 控制台")).toBeInTheDocument();
+    expect(within(services).getByText("Cloud Shiyan")).toBeInTheDocument();
+    expect(within(services).getByText("Hosted Relay")).toBeInTheDocument();
+    expect(within(services).getAllByText("尚未接入")).toHaveLength(2);
+
+    // /dc/ is a separate same-origin app: do not use SPA routing or open a new tab,
+    // because the existing Cloud Session is stored per tab.
+    const dcLink = within(services).getByRole("link", { name: "进入 DC 控制台" });
+    expect(dcLink).toHaveAttribute("href", "/dc/");
+    expect(dcLink).not.toHaveAttribute("target");
+
+    // The account navigation and page heading remain single instances.
+    expect(screen.getAllByRole("navigation", { name: "账户分区" })).toHaveLength(1);
     expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0);
   });
 
