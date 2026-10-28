@@ -1,22 +1,19 @@
-import { FutureServices } from "@/components/future-services";
+import { AssociatedServices } from "@/components/associated-services";
 
-/**
- * /account/services — what this Portal deliberately does not connect yet. The
- * page owns the heading; the list only renders records.
- */
+/** /account/services — links to Mira Cloud subsystems and planned integrations. */
 export function ServicesPage() {
   return (
     <section className="console-page">
       <header className="console-page-head">
-        <h1 id="future-services-heading" tabIndex={-1}>
+        <h1 id="associated-services-heading" tabIndex={-1}>
           关联服务
         </h1>
         <p className="console-page-caption">
-          以下能力尚未接入此 Portal，不影响当前账号及设备授权。
+          统一管理与 Mira Cloud Account 关联的服务。
         </p>
       </header>
 
-      <FutureServices />
+      <AssociatedServices />
     </section>
   );
 }
