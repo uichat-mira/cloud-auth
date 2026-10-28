@@ -4,8 +4,17 @@ cloud-auth.tomzlab.cn {
     reverse_proxy 127.0.0.1:8788
   }
 
-  # /dc/ routes to a locally bound, non-root authenticated controller.
+  # Keep this origin's account session. Non-root backend validates every action.
+  @dc_root path /dc
+  redir @dc_root /dc/ 308
   handle /dc/* {
+    header {
+      Cache-Control "no-store"
+      X-Frame-Options "DENY"
+      X-Content-Type-Options "nosniff"
+      Referrer-Policy "same-origin"
+      Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    }
     reverse_proxy 127.0.0.1:8792
   }
 
