@@ -117,6 +117,7 @@ export function DcControlPage() {
     setBusy(action);
     setNotice("");
     setError("");
+    let completed = false;
     try {
       let result: DcStatus;
       if (action === "save") {
@@ -137,12 +138,13 @@ export function DcControlPage() {
       setSnapshot(result);
       setLastRead(Date.now());
       setClock(Date.now());
+      completed = true;
     } catch (cause) {
       setError(errorMessage(cause));
     } finally {
       busyRef.current = false;
       setBusy(null);
-      await refresh(true);
+      if (completed) await refresh(true);
     }
   }
 
