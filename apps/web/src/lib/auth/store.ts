@@ -103,7 +103,7 @@ export function createAuthStore({
         notice: null,
       });
 
-      await runSessionOperation(set, storage, get, persisted.sessionToken, async () => {
+      await runSessionOperation(set, storage, persisted.sessionToken, async () => {
         const session = await client.getSession(persisted.sessionToken);
         return { sessionToken: persisted.sessionToken, session };
       });
@@ -220,7 +220,6 @@ export function createAuthStore({
 async function runSessionOperation(
   set: StoreApi<AuthStoreState>["setState"],
   storage: SessionStorageAdapter,
-  get: StoreApi<AuthStoreState>["getState"],
   expectedToken: string,
   operation: () => Promise<{ sessionToken: string; session: CloudSession }>,
 ): Promise<void> {
@@ -232,9 +231,6 @@ async function runSessionOperation(
     if (storage.load()?.sessionToken !== expectedToken) return;
     applySessionFailure(set, storage, error);
   }
-  // An expired response must not revive a session invalidated during the request.
-  // The caller can observe status through the shared store.
-  void get;
 }
 
 function setUnauthenticated(
