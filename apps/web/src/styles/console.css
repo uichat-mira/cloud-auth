@@ -262,6 +262,21 @@
   display: none;
 }
 
+.console-expiry-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-1);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
 /* ------------------------------------------------------------ page head --- */
 
 .console-page {
