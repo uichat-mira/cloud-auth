@@ -61,6 +61,7 @@ export interface DeviceGrantsState {
 export interface UseDeviceGrantsOptions {
   client: HostGrantsClient;
   getSessionToken: () => string | null;
+  onSessionExpired?: (token: string) => void;
   accountId: string | null;
   enabled: boolean;
 }
@@ -94,6 +95,7 @@ const initialState: DeviceGrantsState = {
 export function useDeviceGrants({
   client,
   getSessionToken,
+  onSessionExpired,
   accountId,
   enabled,
 }: UseDeviceGrantsOptions): DeviceGrantsController {
@@ -134,6 +136,9 @@ export function useDeviceGrants({
         client.listDevices(sessionToken),
       ]);
       if (managementResult.status === "rejected") throw managementResult.reason;
+      if (deviceResult.status === "rejected" && toHostGrantsFailure(deviceResult.reason).kind === "reauth_required") {
+        throw deviceResult.reason;
+      }
       const managed = managementResult.value;
       const devices = deviceResult.status === "fulfilled" ? deviceResult.value : [];
 
@@ -172,6 +177,10 @@ export function useDeviceGrants({
       }));
     } catch (error) {
       if (requestSequence !== sequence.current) return;
+      if (toHostGrantsFailure(error).kind === "reauth_required") {
+        onSessionExpired?.(sessionToken);
+        return;
+      }
       setState((current) => ({
         ...current,
         status: "ready",
@@ -182,7 +191,7 @@ export function useDeviceGrants({
         loadFailure: toHostGrantsFailure(error),
       }));
     }
-  }, [client, getSessionToken, accountId]);
+  }, [client, getSessionToken, accountId, onSessionExpired]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -233,10 +242,10 @@ export function useDeviceGrants({
         }));
         return true;
       } catch (error) {
-        return handleMutationFailure(error, refresh, setState);
+        return handleMutationFailure(error, refresh, setState, sessionToken, onSessionExpired);
       }
     },
-    [client, getSessionToken, refresh],
+    [client, getSessionToken, refresh, onSessionExpired],
   );
 
   const revoke: DeviceGrantsController["revoke"] = useCallback(
@@ -293,8 +302,14 @@ async function handleMutationFailure(
   error: unknown,
   refresh: () => Promise<void>,
   setState: Dispatch<SetStateAction<DeviceGrantsState>>,
+  sessionToken: string,
+  onSessionExpired?: (token: string) => void,
 ): Promise<boolean> {
   const failure = toHostGrantsFailure(error);
+  if (failure.kind === "reauth_required") {
+    onSessionExpired?.(sessionToken);
+    return false;
+  }
 
   if (
     failure.kind === "stale_revision" ||
