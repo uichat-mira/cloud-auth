@@ -174,7 +174,9 @@ for (const viewport of viewports) {
         await page.getByLabel("账号").fill("pilot");
         await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
-        await page.waitForURL("**/account");
+        // Re-authentication returns to the protected page from which it began.
+        await page.waitForURL("**/account/security");
+        await page.getByRole("heading", { name: "账户安全" }).waitFor();
         await page.getByText("pilot").first().waitFor();
 
         await page.getByRole("button", { name: "退出登录" }).click();
