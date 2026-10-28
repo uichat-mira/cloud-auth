@@ -120,7 +120,7 @@ export function createAuthStore({
 
       set({ pending: "renew", failure: null, notice: null });
 
-      await runSessionOperation(set, storage, get, persisted.sessionToken, async () => {
+      await runSessionOperation(set, storage, persisted.sessionToken, async () => {
         const issued = await client.renewSession(persisted.sessionToken);
         return { sessionToken: issued.sessionToken, session: issued };
       });
