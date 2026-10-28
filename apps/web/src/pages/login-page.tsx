@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { returnToFromLoginSearch } from "@/lib/auth/return-location";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,13 @@ import { useAuthSession } from "@/lib/auth/context";
 
 export function LoginPage() {
   const { status, failure, pending, login, clearFailure } = useAuthSession();
+  const location = useLocation();
+  const destination = returnToFromLoginSearch(location.search);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
   if (status === "authenticated") {
-    return <Navigate to="/account" replace />;
+    return <Navigate to={destination} replace />;
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
