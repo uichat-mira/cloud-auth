@@ -60,7 +60,7 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
         credentials: "same-origin",
         cache: "no-store",
         mode: "same-origin",
-        signal,
+        ...(signal ? { signal } : {}),
         headers: {
           Authorization: "Bearer " + sessionToken,
           ...(method === "GET" ? {} : { "Content-Type": "application/json" }),
