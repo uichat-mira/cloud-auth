@@ -3,6 +3,7 @@ import { AccountLayout } from "@/app/account-layout";
 import { PublicLayout } from "@/app/root-layout";
 import { HomePage } from "@/pages/home-page";
 import { DevicesPage } from "@/pages/account/devices-page";
+import { DcControlPage } from "@/pages/account/dc-control-page";
 import { OverviewPage } from "@/pages/account/overview-page";
 import { SecurityPage } from "@/pages/account/security-page";
 import { ServicesPage } from "@/pages/account/services-page";
@@ -56,6 +57,10 @@ export const routes: RouteObject[] = [
       {
         path: "services",
         element: <ServicesPage />,
+      },
+      {
+        path: "services/dc",
+        element: <DcControlPage />,
       },
       {
         path: "*",
