@@ -149,7 +149,7 @@ describe("console section navigation", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
       "href",
-      "/login",
+      "/login?returnTo=%2Faccount%2Fdevices",
     );
 
     // The route is preserved; only the content inside the shell is the recovery.
