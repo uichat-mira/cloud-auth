@@ -197,7 +197,10 @@ describe("shared Cloud Session recovery", () => {
     await act(async () => { await store.getState().renew(); });
     const renewedToken = storage.load()?.sessionToken;
     await act(async () => { rejectOld?.(new HostGrantsError(createHostGrantsFailure("reauth_required", { status: 401 }))); });
-    await waitFor(() => expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled());
+    // The confirmation remains open after a failed mutation, but is no longer busy.
+    await waitFor(() => expect(screen.getByRole("button", { name: "确认撤销" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled();
     expect(revocations).toEqual([session().sessionToken]);
     expect(storage.load()?.sessionToken).toBe(renewedToken);
     expect(store.getState().status).toBe("authenticated");
