@@ -149,6 +149,28 @@ describe("auth store", () => {
     expect(storage.load()).toEqual({ sessionToken: "token-2", expiresAt });
   });
 
+  it("does not report renewal success when an older pending renew finishes after a new login", async () => {
+    let finishRenew: ((value: ReturnType<typeof issuedSession>) => void) | undefined;
+    const storage = createMemoryStorage({ sessionToken: "old", expiresAt });
+    const store = createAuthStore({
+      storage,
+      client: createClient({
+        login: async () => issuedSession("new-login"),
+        renewSession: async () => new Promise<ReturnType<typeof issuedSession>>((resolve) => {
+          finishRenew = resolve;
+        }),
+      }),
+    });
+    await store.getState().restore();
+    const staleRenew = store.getState().renew();
+    store.getState().invalidateSession("old");
+    await store.getState().login("pilot", "password");
+    finishRenew?.(issuedSession("stale-renew"));
+    await staleRenew;
+    expect(storage.load()?.sessionToken).toBe("new-login");
+    expect(store.getState()).toMatchObject({ status: "authenticated", notice: null, pending: null });
+  });
+
   it("clears the local session and announces forced re-login after a password change", async () => {
     const storage = createMemoryStorage({ sessionToken: "token-1", expiresAt });
     const calls: Array<{
