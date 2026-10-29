@@ -179,6 +179,20 @@ export function useDeviceGrants({
       if (requestSequence !== sequence.current) return;
       if (toHostGrantsFailure(error).kind === "reauth_required") {
         onSessionExpired?.(sessionToken);
+        const latestToken = getSessionToken();
+        if (latestToken && latestToken !== sessionToken) {
+          // Only the old bearer was rejected. Reload using the renewed token.
+          void refresh();
+        } else {
+          // Also clear loading if this caller has no session owner callback.
+          setState((current) => ({
+            ...current,
+            status: "ready",
+            refreshing: false,
+            pending: null,
+            loadFailure: toHostGrantsFailure(error),
+          }));
+        }
         return;
       }
       setState((current) => ({
@@ -242,7 +256,7 @@ export function useDeviceGrants({
         }));
         return true;
       } catch (error) {
-        return handleMutationFailure(error, refresh, setState, sessionToken, onSessionExpired);
+        return handleMutationFailure(error, refresh, setState, sessionToken, getSessionToken, onSessionExpired);
       }
     },
     [client, getSessionToken, refresh, onSessionExpired],
@@ -289,7 +303,7 @@ export function useDeviceGrants({
         }));
         return true;
       } catch (error) {
-        return handleMutationFailure(error, refresh, setState, sessionToken, onSessionExpired);
+        return handleMutationFailure(error, refresh, setState, sessionToken, getSessionToken, onSessionExpired);
       }
     },
     [client, getSessionToken, refresh, onSessionExpired],
@@ -303,11 +317,20 @@ async function handleMutationFailure(
   refresh: () => Promise<void>,
   setState: Dispatch<SetStateAction<DeviceGrantsState>>,
   sessionToken: string,
+  getSessionToken: () => string | null,
   onSessionExpired?: (token: string) => void,
 ): Promise<boolean> {
   const failure = toHostGrantsFailure(error);
   if (failure.kind === "reauth_required") {
     onSessionExpired?.(sessionToken);
+    // Do not retry a privileged mutation. Only refresh its read-only state.
+    setState((current) => ({ ...current, pending: null }));
+    const latestToken = getSessionToken();
+    if (latestToken && latestToken !== sessionToken) {
+      await refresh();
+    } else if (latestToken === sessionToken) {
+      setState((current) => ({ ...current, notice: { tone: "error", message: failure.message } }));
+    }
     return false;
   }
 
