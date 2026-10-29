@@ -120,12 +120,13 @@ export function createAuthStore({
 
       set({ pending: "renew", failure: null, notice: null });
 
-      await runSessionOperation(set, storage, persisted.sessionToken, async () => {
+      const applied = await runSessionOperation(set, storage, persisted.sessionToken, async () => {
         const issued = await client.renewSession(persisted.sessionToken);
         return { sessionToken: issued.sessionToken, session: issued };
       });
 
-      if (get().status === "authenticated" && get().failure === null) {
+      // A stale request must not claim success for a newer login.
+      if (applied && get().status === "authenticated" && get().failure === null) {
         set({ notice: "session_renewed" });
       }
     },
@@ -222,14 +223,16 @@ async function runSessionOperation(
   storage: SessionStorageAdapter,
   expectedToken: string,
   operation: () => Promise<{ sessionToken: string; session: CloudSession }>,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { sessionToken, session } = await operation();
-    if (storage.load()?.sessionToken !== expectedToken) return;
+    if (storage.load()?.sessionToken !== expectedToken) return false;
     applySession(set, storage, sessionToken, session);
+    return true;
   } catch (error) {
-    if (storage.load()?.sessionToken !== expectedToken) return;
+    if (storage.load()?.sessionToken !== expectedToken) return false;
     applySessionFailure(set, storage, error);
+    return false;
   }
 }
 
