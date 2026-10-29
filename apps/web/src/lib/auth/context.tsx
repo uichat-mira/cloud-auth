@@ -51,16 +51,25 @@ export function AuthProvider({
     if (status !== "authenticated" || !expiresAt) return;
     const deadline = Date.parse(expiresAt);
     if (!Number.isFinite(deadline)) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const enforce = () => {
       if (Date.now() >= deadline) void activeStore.getState().getSessionToken();
     };
-    enforce();
-    const delay = Math.max(0, Math.min(deadline - Date.now(), 2_147_483_647));
-    const timer = window.setTimeout(enforce, delay);
+    // setTimeout caps at ~24.8 days while Cloud Sessions can last 90 days:
+    // schedule the next slice until the actual deadline is reached.
+    const schedule = () => {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        enforce();
+        return;
+      }
+      timer = window.setTimeout(schedule, Math.min(remaining, 2_147_483_647));
+    };
+    schedule();
     window.addEventListener("focus", enforce);
     document.addEventListener("visibilitychange", enforce);
     return () => {
-      window.clearTimeout(timer);
+      if (timer !== null) window.clearTimeout(timer);
       window.removeEventListener("focus", enforce);
       document.removeEventListener("visibilitychange", enforce);
     };
