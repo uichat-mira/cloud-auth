@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAuthStore } from "@/lib/auth/store";
 import { loginUrlForAccount, returnToFromLoginSearch, safeAccountReturnTo } from "@/lib/auth/return-location";
@@ -114,6 +114,72 @@ describe("shared Cloud Session recovery", () => {
     expect(await screen.findByText(/登录已过期/)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "设备与授权" })).not.toBeInTheDocument();
     expect(storage.load()).toBeNull();
+  });
+
+  it("account overview also enters shared recovery on grants 401", async () => {
+    const grantsClient = createFakeHostGrantsClient({
+      listManagement: async () => {
+        throw new HostGrantsError(createHostGrantsFailure("reauth_required", { status: 401 }));
+      },
+    });
+    const { store, storage } = mountPortal({
+      path: "/account", client: authClient(), session: session(), grantsClient,
+    });
+    expect(await screen.findByText(/登录已过期/)).toBeInTheDocument();
+    expect(store.getState().status).toBe("unauthenticated");
+    expect(storage.load()).toBeNull();
+  });
+
+  it("recovers an old in-flight grants 401 by reading with the newer session", async () => {
+    const original = createFakeHostGrantsClient();
+    const tokens: string[] = [];
+    let rejectOld: ((reason: unknown) => void) | undefined;
+    const grantsClient = createFakeHostGrantsClient({
+      listManagement: async (token) => {
+        tokens.push(token);
+        if (tokens.length === 1) {
+          return new Promise((_, reject) => { rejectOld = reject; });
+        }
+        return original.listManagement(token);
+      },
+    });
+    const { store, storage } = mountPortal({
+      path: "/account/devices", client: authClient(), session: session(), grantsClient,
+    });
+    await waitFor(() => expect(tokens).toHaveLength(1));
+    await act(async () => { await store.getState().renew(); });
+    const renewedToken = storage.load()?.sessionToken;
+    expect(renewedToken).not.toBe(tokens[0]);
+    await act(async () => { rejectOld?.(new HostGrantsError(createHostGrantsFailure("reauth_required", { status: 401 }))); });
+    expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
+    await waitFor(() => expect(tokens).toEqual([session().sessionToken, renewedToken]));
+    expect(screen.getByRole("button", { name: "刷新列表" })).toBeEnabled();
+    expect(store.getState().status).toBe("authenticated");
+  });
+
+  it("clears a stale mutation's busy state without replaying revocation after renewal", async () => {
+    let rejectOld: ((reason: unknown) => void) | undefined;
+    const revocations: string[] = [];
+    const grantsClient = createFakeHostGrantsClient({
+      revokeGrant: async (token) => {
+        revocations.push(token);
+        return new Promise((_, reject) => { rejectOld = reject; });
+      },
+    });
+    const { store, storage } = mountPortal({
+      path: "/account/devices", client: authClient(), session: session(), grantsClient,
+    });
+    await screen.findByText("工作 Desktop");
+    fireEvent.click(screen.getByRole("button", { name: "撤销授权" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
+    await waitFor(() => expect(revocations).toHaveLength(1));
+    await act(async () => { await store.getState().renew(); });
+    const renewedToken = storage.load()?.sessionToken;
+    await act(async () => { rejectOld?.(new HostGrantsError(createHostGrantsFailure("reauth_required", { status: 401 }))); });
+    await waitFor(() => expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled());
+    expect(revocations).toEqual([session().sessionToken]);
+    expect(storage.load()?.sessionToken).toBe(renewedToken);
+    expect(store.getState().status).toBe("authenticated");
   });
 
   it("a DC 403 owner-denial does not sign the user out", async () => {
