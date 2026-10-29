@@ -12,11 +12,12 @@ import { formatExpiry } from "@/lib/format";
  * links to the page that owns the detail instead of duplicating it.
  */
 export function OverviewPage() {
-  const { status, account, expiresAt, getSessionToken } = useAuthSession();
+  const { status, account, expiresAt, getSessionToken, invalidateSession } = useAuthSession();
   const client = useHostGrantsClient();
   const grants = useDeviceGrants({
     client,
     getSessionToken,
+    onSessionExpired: invalidateSession,
     accountId: account?.id ?? null,
     enabled: status === "authenticated",
   });
