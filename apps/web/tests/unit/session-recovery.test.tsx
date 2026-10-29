@@ -71,6 +71,27 @@ describe("shared Cloud Session recovery", () => {
     expect(screen.queryByText(/本次登录将在约/)).not.toBeInTheDocument();
   });
 
+  it("reschedules expiry enforcement when a session lasts beyond the browser timer ceiling", async () => {
+    const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60_000).toISOString();
+    const spy = vi.spyOn(window, "setTimeout");
+    try {
+      mountPortal({
+        path: "/account/services",
+        session: { sessionToken: "long-lived", expiresAt },
+        client: authClient(expiresAt),
+      });
+      await screen.findByRole("heading", { name: "关联服务" });
+      const largeTimers = () => spy.mock.calls.filter(([, delay]) => delay === 2_147_483_647);
+      expect(largeTimers().length).toBeGreaterThan(0);
+      const firstTimer = largeTimers()[0]?.[0];
+      expect(typeof firstTimer).toBe("function");
+      act(() => { if (typeof firstTimer === "function") firstTimer(); });
+      expect(largeTimers().length).toBeGreaterThan(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("invalidates only the failed token so an old 401 cannot log out a renewed account", async () => {
     const storage = createMemoryStorage({ sessionToken: "old", expiresAt: future() });
     const store = createAuthStore({ client: authClient(), storage });
