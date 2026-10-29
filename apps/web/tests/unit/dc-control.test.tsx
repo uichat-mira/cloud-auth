@@ -64,7 +64,7 @@ describe("DC inside Mira account", () => {
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: null });
-    expect(await screen.findByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login");
+    expect(await screen.findByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login?returnTo=%2Faccount%2Fservices%2Fdc");
     expect(screen.queryByRole("heading", { name: "DC 控制台" })).not.toBeInTheDocument();
     expect(calls).not.toHaveBeenCalled();
   });

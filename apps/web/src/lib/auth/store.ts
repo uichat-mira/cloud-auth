@@ -40,6 +40,8 @@ export interface AuthStoreState {
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
   logout(): Promise<void>;
   clearFailure(): void;
+  /** Invalidate only the token that actually failed (never revoke a newer session). */
+  invalidateSession(sessionToken: string): void;
   /**
    * Returns the persisted bearer for the current Cloud Session without changing
    * auth state. Consumers such as the Host grant client must treat it as an
@@ -101,7 +103,7 @@ export function createAuthStore({
         notice: null,
       });
 
-      await runSessionOperation(set, storage, async () => {
+      await runSessionOperation(set, storage, persisted.sessionToken, async () => {
         const session = await client.getSession(persisted.sessionToken);
         return { sessionToken: persisted.sessionToken, session };
       });
@@ -118,12 +120,13 @@ export function createAuthStore({
 
       set({ pending: "renew", failure: null, notice: null });
 
-      await runSessionOperation(set, storage, async () => {
+      const applied = await runSessionOperation(set, storage, persisted.sessionToken, async () => {
         const issued = await client.renewSession(persisted.sessionToken);
         return { sessionToken: issued.sessionToken, session: issued };
       });
 
-      if (get().status === "authenticated" && get().failure === null) {
+      // A stale request must not claim success for a newer login.
+      if (applied && get().status === "authenticated" && get().failure === null) {
         set({ notice: "session_renewed" });
       }
     },
@@ -197,8 +200,20 @@ export function createAuthStore({
       set({ failure: null });
     },
 
+    invalidateSession(sessionToken) {
+      if (!sessionToken || storage.load()?.sessionToken !== sessionToken) return;
+      storage.clear();
+      setUnauthenticated(set, createAuthFailure("reauth_required"));
+    },
+
     getSessionToken() {
-      return storage.load()?.sessionToken ?? null;
+      const session = storage.load();
+      if (!session) return null;
+      if (Date.parse(session.expiresAt) <= Date.now()) {
+        get().invalidateSession(session.sessionToken);
+        return null;
+      }
+      return session.sessionToken;
     },
   }));
 }
@@ -206,13 +221,18 @@ export function createAuthStore({
 async function runSessionOperation(
   set: StoreApi<AuthStoreState>["setState"],
   storage: SessionStorageAdapter,
+  expectedToken: string,
   operation: () => Promise<{ sessionToken: string; session: CloudSession }>,
-): Promise<void> {
+): Promise<boolean> {
   try {
     const { sessionToken, session } = await operation();
+    if (storage.load()?.sessionToken !== expectedToken) return false;
     applySession(set, storage, sessionToken, session);
+    return true;
   } catch (error) {
+    if (storage.load()?.sessionToken !== expectedToken) return false;
     applySessionFailure(set, storage, error);
+    return false;
   }
 }
 

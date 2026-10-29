@@ -27,10 +27,11 @@ const noticeToneClass: Record<HostGrantsNotice["tone"], string> = {
  */
 export function DeviceGrantsCard() {
   const client = useHostGrantsClient();
-  const { status, account, getSessionToken } = useAuthSession();
+  const { status, account, getSessionToken, invalidateSession } = useAuthSession();
   const grants = useDeviceGrants({
     client,
     getSessionToken,
+    onSessionExpired: invalidateSession,
     accountId: account?.id ?? null,
     enabled: status === "authenticated",
   });

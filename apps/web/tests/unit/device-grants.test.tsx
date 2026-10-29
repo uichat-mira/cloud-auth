@@ -237,7 +237,7 @@ describe("Device and Host grants card", () => {
     expect(screen.getByRole("button", { name: "确认撤销" })).toBeEnabled();
   });
 
-  it("keeps the Cloud Session after a grants 401 and shows an expired-session message", async () => {
+  it("invalidates the Cloud Session after a grants 401 so the protected controls disappear", async () => {
     const { store, storage } = renderGrants(
       createFakeHostGrantsClient({
         listHosts: async () => {
@@ -251,11 +251,9 @@ describe("Device and Host grants card", () => {
       }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Cloud Session 已失效",
-    );
-    expect(store.getState().status).toBe("authenticated");
-    expect(storage.load()?.sessionToken).toBe("mcs_v1.session.secret");
+    await waitFor(() => expect(store.getState().status).toBe("unauthenticated"));
+    expect(storage.load()).toBeNull();
+    expect(screen.queryByRole("button", { name: "撤销授权" })).not.toBeInTheDocument();
   });
 
   it("distinguishes forbidden mutations from session expiry", async () => {
