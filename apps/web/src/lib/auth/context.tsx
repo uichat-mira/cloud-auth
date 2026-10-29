@@ -51,7 +51,7 @@ export function AuthProvider({
     if (status !== "authenticated" || !expiresAt) return;
     const deadline = Date.parse(expiresAt);
     if (!Number.isFinite(deadline)) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let timer: number | null = null;
     const enforce = () => {
       if (Date.now() >= deadline) void activeStore.getState().getSessionToken();
     };
