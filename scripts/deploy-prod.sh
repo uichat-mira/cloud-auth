@@ -33,6 +33,22 @@ fi
 test -s "$SIGNING_DIR/active.pem"
 test -s "$SIGNING_DIR/active.kid"
 test "$(stat -c %a "$SIGNING_DIR/active.pem")" = 600
+# Validate persisted material *before* any backup, stop or container recreation.
+# No PEM enters command arguments, logs, or a network-enabled validator.
+docker run --rm --network none --user 0:0 \
+  --mount "type=bind,src=$SIGNING_DIR,dst=/signing,readonly" \
+  --entrypoint node mira-cloud-auth:prod -e '
+const fs = require("node:fs");
+const { createPrivateKey } = require("node:crypto");
+const kid = fs.readFileSync("/signing/active.kid", "utf8").trim();
+if (!/^[A-Za-z0-9._-]{1,64}$/.test(kid)) process.exit(1);
+try {
+  const key = createPrivateKey(fs.readFileSync("/signing/active.pem", "utf8"));
+  if (key.type !== "private" || key.asymmetricKeyType !== "ed25519") process.exit(1);
+} catch {
+  process.exit(1);
+}
+'
 export MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_KID="$(cat "$SIGNING_DIR/active.kid")"
 export MIRA_AUTH_SERVICE_CREDENTIAL_ACTIVE_PRIVATE_KEY="$(cat "$SIGNING_DIR/active.pem")"
 
