@@ -74,6 +74,15 @@ feat/* → dev → test → prod
 
 **不要**手动删除 `/opt/cloud-auth/data`，也不要将测试 SQLite 数据库拷贝进生产。生产 Compose 把数据、备份目录作为持久卷映射，容器重建不等于清空数据库。
 
+### REL-005：生产 Ed25519 服务凭证密钥（不可公开）
+
+生产部署脚本在首次启用时于主机 `/opt/cloud-auth/secrets/service-credential-v0/` 原子创建 Ed25519 私钥 `active.pem` 和随机 `active.kid`，目录仅限宿主机 root 访问；后续部署只复用，不自动轮换。密钥由生产容器镜像内的 Node crypto 生成，**不经过 GitHub、源码或标准输出日志**；启动时由部署脚本注入 Docker 容器环境，仅用于既有的 `mira:cloud-auth` 两类服务凭证签发。
+
+- **密钥属于生产状态，不属于代码回滚物。** 需单独将该受限目录纳入安全备份/恢复；不要复制进公开仓库、Cloudflare、日志、通用 SQLite 备份或测试环境。
+- 缺失或损坏的已有密钥目录会拒绝发布，不应为“修绿”随意重建。真正换钥必须遵循 OPS-008 的新旧 JWKS overlap 与票据过期窗口；本脚本不提供自动换钥。
+- 生产 `deploy-prod.sh` 在切换 Caddy 前请求回环 `/.well-known/jwks.json`，必须取得有效的 Ed25519 **公钥** JSON。之后仍需从独立公网入口确认 JWKS、登录、DC 等 T5；JWKS 存在不等于 REL-005 Cloud ticket / Worker WebSocket 联调验收。
+- 私钥会注入容器环境变量，拥有宿主机 Docker 管理权限的管理员可以读取容器配置；严格保护 Docker socket、主机 root 和生产操作日志。
+
 ## 4. 关键：Caddy 监听地址必须一致
 
 2026-10-24 事故根因：现有 `mira-ai.tomzlab.cn` 使用**明确的内网网卡 `bind`**，旧版 Cloud Auth 片段只有通配监听。请求落在具体网卡的 Caddy 监听入口时，Cloud Auth 可能得到 **200 OK + Content-Length: 0**，而经 `127.0.0.1:443` 请求却得到正常 JSON。
