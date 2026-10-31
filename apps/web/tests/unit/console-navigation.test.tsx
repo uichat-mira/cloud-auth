@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
@@ -105,11 +105,33 @@ describe("console section navigation", () => {
     expect(active[0]).toHaveTextContent(activeLabel);
   });
 
-  it("keeps exactly one 退出登录 control in the console rail", async () => {
+  it("shows one logout action only inside the header account dropdown", async () => {
     mountConsole({ path: "/account", status: "authenticated" });
-
     await screen.findByRole("heading", { level: 1, name: "我的账户" });
-    expect(screen.getAllByRole("button", { name: "退出登录" })).toHaveLength(1);
+
+    const trigger = screen.getByRole("button", { name: "账户菜单" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "退出登录" })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const actions = screen.getByRole("group", { name: "账户操作" });
+    expect(within(actions).getAllByRole("button", { name: "退出登录" })).toHaveLength(1);
+    expect(screen.getByRole("navigation", { name: "账户分区" })).not.toContainElement(actions);
+  });
+
+  it("closes the account dropdown with Escape or outside pointer input", async () => {
+    mountConsole({ path: "/account", status: "authenticated" });
+    const trigger = await screen.findByRole("button", { name: "账户菜单" });
+
+    fireEvent.click(trigger);
+    fireEvent.keyDown(trigger, { key: "Escape" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("group", { name: "账户操作" })).not.toBeInTheDocument();
+
+    fireEvent.click(trigger);
+    fireEvent.pointerDown(document.body);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "退出登录" })).not.toBeInTheDocument();
   });
 
   it.each(["unauthenticated", "unavailable", "idle", "restoring"] as const)(
