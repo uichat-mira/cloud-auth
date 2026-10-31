@@ -131,7 +131,7 @@ describe("DC inside Mira account", () => {
     expect(within(reopened).getByRole("button", { name: "确认保存" })).toBeDisabled();
   });
 
-  it("commits runtime policy only on confirmation and keeps start bound to the DC API", async () => {
+  it("saves only on confirmation and starts through the DC API", async () => {
     let current = status;
     const calls = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === "/dc/api/policy") {
@@ -186,7 +186,9 @@ describe("DC inside Mira account", () => {
     expect(calls.mock.calls.filter((row) => row[0] === "/dc/api/policy")).toHaveLength(1);
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
     fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
-    expect(within(screen.getByRole("dialog", { name: "运行策略" })).getByLabelText("内存上限")).toHaveValue("384");
+    expect(
+      within(screen.getByRole("dialog", { name: "运行策略" })).getByLabelText("内存上限"),
+    ).toHaveValue("384");
   });
 
   it("confirms stop and preserves a host-side failure instead of dismissing it", async () => {
