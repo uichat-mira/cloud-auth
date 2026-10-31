@@ -1,5 +1,6 @@
 test.cloud-auth.tomzlab.cn {
-  @api path /health /ready /v1/*
+  # JWKS must reach Fastify, never the SPA fallback (REL-005).
+  @api path /health /ready /v1/* /.well-known/jwks.json
   handle @api {
     reverse_proxy 127.0.0.1:8788
   }

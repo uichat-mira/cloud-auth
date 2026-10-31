@@ -1,0 +1,6 @@
+dist
+coverage
+node_modules
+.screenshots
+pnpm-lock.yaml
+public/**

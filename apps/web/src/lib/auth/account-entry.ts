@@ -4,9 +4,7 @@ import type { AuthStatus } from "./store";
 export function getAccountEntry(status: AuthStatus) {
   const checking = status === "idle" || status === "restoring";
   const destination =
-    status === "authenticated" || status === "unavailable"
-      ? "/account"
-      : "/login";
+    status === "authenticated" || status === "unavailable" ? "/account" : "/login";
 
   if (status === "authenticated") {
     return {

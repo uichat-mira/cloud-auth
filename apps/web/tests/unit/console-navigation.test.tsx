@@ -6,12 +6,7 @@ import type { HostGrantsClient } from "@/lib/grants/client";
 import { createFakeAuthClient, createFakeHostGrantsClient } from "../helpers/host-grants-fixtures";
 import { mountPortal, storedSession } from "../helpers/render-portal";
 
-type ConsoleStatus =
-  | "authenticated"
-  | "unauthenticated"
-  | "unavailable"
-  | "idle"
-  | "restoring";
+type ConsoleStatus = "authenticated" | "unauthenticated" | "unavailable" | "idle" | "restoring";
 
 const sections = [
   { href: "/account", label: "概览" },
@@ -33,14 +28,6 @@ function countingGrantsClient(): { client: HostGrantsClient; calls: string[] } {
     listDevices: async (token) => {
       calls.push("listDevices");
       return base.listDevices(token);
-    },
-    listHosts: async (token) => {
-      calls.push("listHosts");
-      return base.listHosts(token);
-    },
-    getSnapshot: async (token, hostId) => {
-      calls.push("getSnapshot");
-      return base.getSnapshot(token, hostId);
     },
   };
   return { client, calls };
@@ -144,19 +131,15 @@ describe("console section navigation", () => {
       grantsClient: client,
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "我的账户" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
       "href",
-      "/login",
+      "/login?returnTo=%2Faccount%2Fdevices",
     );
 
     // The route is preserved; only the content inside the shell is the recovery.
     expect(router.state.location.pathname).toBe("/account/devices");
-    expect(
-      screen.queryByRole("heading", { level: 1, name: "设备与授权" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "设备与授权" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "刷新列表" })).not.toBeInTheDocument();
 
     // No grant read may be attempted without a confirmed session.

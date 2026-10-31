@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 interface ModalOpenValue {
   open: boolean;
@@ -26,9 +20,7 @@ export function ModalOpenProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <ModalOpenContext.Provider value={{ open, setOpen }}>
-      {children}
-    </ModalOpenContext.Provider>
+    <ModalOpenContext.Provider value={{ open, setOpen }}>{children}</ModalOpenContext.Provider>
   );
 }
 

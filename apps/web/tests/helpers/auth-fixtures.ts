@@ -19,10 +19,7 @@ export function expectLoggedOutState(store: AuthStore): void {
   });
 }
 
-export function expectUnavailableState(
-  store: AuthStore,
-  kind = "service_unavailable",
-): void {
+export function expectUnavailableState(store: AuthStore, kind = "service_unavailable"): void {
   expect(store.getState()).toMatchObject({
     status: "unavailable",
     failure: { kind },

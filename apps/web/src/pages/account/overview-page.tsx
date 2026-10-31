@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
-import { associatedServicesCount, unconnectedServicesCount } from "@/components/associated-services";
+import {
+  associatedServicesCount,
+  unconnectedServicesCount,
+} from "@/components/associated-services";
 import { useAuthSession } from "@/lib/auth/context";
 import { sessionLabels } from "@/lib/auth/session-labels";
 import { useHostGrantsClient } from "@/lib/grants/context";
@@ -12,11 +15,12 @@ import { formatExpiry } from "@/lib/format";
  * links to the page that owns the detail instead of duplicating it.
  */
 export function OverviewPage() {
-  const { status, account, expiresAt, getSessionToken } = useAuthSession();
+  const { status, account, expiresAt, getSessionToken, invalidateSession } = useAuthSession();
   const client = useHostGrantsClient();
   const grants = useDeviceGrants({
     client,
     getSessionToken,
+    onSessionExpired: invalidateSession,
     accountId: account?.id ?? null,
     enabled: status === "authenticated",
   });
@@ -118,7 +122,9 @@ export function OverviewPage() {
             查看
           </Link>
         </div>
-        <p className="console-inline-note">{associatedServicesCount} 项服务 · {unconnectedServicesCount} 项尚未接入</p>
+        <p className="console-inline-note">
+          {associatedServicesCount} 项服务 · {unconnectedServicesCount} 项尚未接入
+        </p>
       </section>
     </section>
   );

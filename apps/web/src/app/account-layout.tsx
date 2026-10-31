@@ -6,6 +6,8 @@ import { ModalOpenProvider, useModalOpen } from "@/components/modal-open-context
 import { SessionBlock } from "@/components/session-block";
 import { SessionRecovery } from "@/components/session-recovery";
 import { useAuthSession } from "@/lib/auth/context";
+import { loginUrlForAccount } from "@/lib/auth/return-location";
+import { SessionExpiryNotice } from "@/components/session-expiry-notice";
 
 /**
  * Account console shell: sticky header, section rail, session block and the
@@ -29,7 +31,8 @@ function AccountConsole() {
   const authenticated = status === "authenticated";
   const checking = status === "idle" || status === "restoring";
   const modalOpen = useModalOpen();
-  const { pathname } = useLocation();
+  const { pathname, search, hash } = useLocation();
+  const loginHref = loginUrlForAccount(pathname + search + hash);
 
   useRouteEntryFocus(pathname);
 
@@ -37,11 +40,12 @@ function AccountConsole() {
     <div className="console-shell">
       <header className="console-header">
         <div className="console-container console-header-inner">
-          <Link to={authenticated ? "/account" : "/login"} className="console-brand">
-            <span aria-hidden="true" className="console-brand-mark">M.</span>
+          <Link to={authenticated ? "/account" : loginHref} className="console-brand">
+            <span aria-hidden="true" className="console-brand-mark">
+              <img src="/brand/mira-logo-mark.png" alt="" width={96} height={96} />
+            </span>
             <span className="console-brand-copy">
               <strong>Mira Cloud</strong>
-              <small>Your account</small>
             </span>
           </Link>
 
@@ -55,7 +59,7 @@ function AccountConsole() {
               </span>
             </div>
           ) : (
-            <Link to="/login" className="console-header-action">
+            <Link to={loginHref} className="console-header-action">
               登录
             </Link>
           )}
@@ -70,6 +74,7 @@ function AccountConsole() {
 
         <main className="console-main">
           <div className="console-notices">
+            {authenticated ? <SessionExpiryNotice /> : null}
             <AuthFailureAlert failure={modalOpen ? null : failure} />
             {notice === "session_renewed" ? (
               <p role="status" className="cloud-notice cloud-notice-success">
@@ -101,9 +106,7 @@ function AccountConsole() {
             </>
           )}
 
-          <p className="console-note">
-            Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用
-          </p>
+          <p className="console-note">Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用</p>
         </main>
       </div>
     </div>

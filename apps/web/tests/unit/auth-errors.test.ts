@@ -13,21 +13,16 @@ function envelope(code: string) {
 
 describe("auth failure classification", () => {
   it("maps canonical 401 errors", () => {
-    expect(
-      failureFromErrorResponse(401, envelope("AUTH_REAUTH_REQUIRED"), null).kind,
-    ).toBe("reauth_required");
-    expect(
-      failureFromErrorResponse(401, envelope("AUTH_INVALID_CREDENTIALS"), null)
-        .kind,
-    ).toBe("invalid_credentials");
+    expect(failureFromErrorResponse(401, envelope("AUTH_REAUTH_REQUIRED"), null).kind).toBe(
+      "reauth_required",
+    );
+    expect(failureFromErrorResponse(401, envelope("AUTH_INVALID_CREDENTIALS"), null).kind).toBe(
+      "invalid_credentials",
+    );
   });
 
   it("maps password policy rejections to a distinct failure", () => {
-    const failure = failureFromErrorResponse(
-      400,
-      envelope("AUTH_INVALID_PASSWORD"),
-      null,
-    );
+    const failure = failureFromErrorResponse(400, envelope("AUTH_INVALID_PASSWORD"), null);
     expect(failure).toMatchObject({
       kind: "invalid_password",
       code: "AUTH_INVALID_PASSWORD",
@@ -37,11 +32,7 @@ describe("auth failure classification", () => {
   });
 
   it("maps rate limiting and transient service states", () => {
-    const rateLimited = failureFromErrorResponse(
-      429,
-      envelope("AUTH_RATE_LIMITED"),
-      12,
-    );
+    const rateLimited = failureFromErrorResponse(429, envelope("AUTH_RATE_LIMITED"), 12);
     expect(rateLimited.kind).toBe("rate_limited");
     expect(rateLimited.retryAfterSeconds).toBe(12);
 
@@ -51,12 +42,8 @@ describe("auth failure classification", () => {
   });
 
   it("classifies malformed error payloads without throwing", () => {
-    expect(failureFromErrorResponse(401, { error: "nope" }, null).kind).toBe(
-      "malformed_response",
-    );
-    expect(failureFromErrorResponse(500, null, null).kind).toBe(
-      "malformed_response",
-    );
+    expect(failureFromErrorResponse(401, { error: "nope" }, null).kind).toBe("malformed_response");
+    expect(failureFromErrorResponse(500, null, null).kind).toBe("malformed_response");
   });
 
   it("parses only non-negative integer retry-after headers", () => {

@@ -19,10 +19,28 @@
     "test:contract": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test:contract && pnpm --filter @uichat-mira/cloud-auth-web run test:contract",
     "test:integration": "pnpm --filter @uichat-mira/cloud-auth-contracts run build && pnpm --filter @uichat-mira/cloud-auth-api run test:integration && pnpm --filter @uichat-mira/cloud-auth-web run test:integration",
     "check": "pnpm run typecheck && pnpm run test",
+    "lint": "pnpm --filter @uichat-mira/cloud-auth-web run lint",
+    "format:check": "pnpm --filter @uichat-mira/cloud-auth-web run format:check",
+    "format": "pnpm --filter @uichat-mira/cloud-auth-web run format",
     "db:migrate": "pnpm --filter @uichat-mira/cloud-auth-api run db:migrate",
     "admin:dev": "pnpm --filter @uichat-mira/cloud-auth-api run admin:dev",
     "admin": "pnpm --filter @uichat-mira/cloud-auth-api run admin",
+    "seed:dev": "pnpm --filter @uichat-mira/cloud-auth-api run seed:dev",
     "benchmark:argon2": "pnpm --filter @uichat-mira/cloud-auth-api run benchmark:argon2",
     "backup": "pnpm --filter @uichat-mira/cloud-auth-api run backup"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript-eslint": "^8.72.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "minimatch": "^11.0.3"
+    }
   }
 }

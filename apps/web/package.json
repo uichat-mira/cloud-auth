@@ -15,7 +15,10 @@
     "test": "vitest run",
     "test:unit": "vitest run",
     "test:contract": "vitest run --config vitest.contract.config.ts",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.5.0",

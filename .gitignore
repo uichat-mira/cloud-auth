@@ -9,4 +9,5 @@ data/
 .env
 .env.*
 !.env.example
+.pnpm-store/
 .DS_Store

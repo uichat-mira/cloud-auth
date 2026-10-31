@@ -89,10 +89,7 @@ export function failureFromErrorResponse(
   });
 }
 
-function kindForErrorResponse(
-  status: number,
-  code: PublicAuthErrorCode,
-): AuthFailureKind {
+function kindForErrorResponse(status: number, code: PublicAuthErrorCode): AuthFailureKind {
   if (status === 429 || code === "AUTH_RATE_LIMITED") return "rate_limited";
   if (status === 503 || code === "AUTH_BUSY") return "service_unavailable";
   if (code === "AUTH_REAUTH_REQUIRED") return "reauth_required";

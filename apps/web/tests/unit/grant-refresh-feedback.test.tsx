@@ -6,10 +6,7 @@ import { createAuthStore } from "@/lib/auth/store";
 import { HostGrantsError, createHostGrantsFailure } from "@/lib/grants/client";
 import { HostGrantsProvider } from "@/lib/grants/context";
 import { expiresAt } from "../helpers/auth-fixtures";
-import {
-  createFakeAuthClient,
-  createFakeHostGrantsClient,
-} from "../helpers/host-grants-fixtures";
+import { createFakeAuthClient, createFakeHostGrantsClient } from "../helpers/host-grants-fixtures";
 import { createMemoryStorage } from "../helpers/session-storage";
 
 function mount(client: ReturnType<typeof createFakeHostGrantsClient>) {
@@ -38,7 +35,9 @@ describe("manual cloud authorization list refresh", () => {
       listManagement: async (token) => {
         calls += 1;
         if (calls === 2) {
-          await new Promise<void>((resolve) => { resolveRefresh = resolve; });
+          await new Promise<void>((resolve) => {
+            resolveRefresh = resolve;
+          });
         }
         return original.listManagement(token);
       },

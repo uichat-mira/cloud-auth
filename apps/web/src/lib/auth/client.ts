@@ -6,7 +6,12 @@ import {
   type IssuedCloudSession,
   type LoginRequest,
 } from "@uichat-mira/cloud-auth-contracts";
-import type { z } from "zod";
+import {
+  authenticatedRequest,
+  bearerHeaders,
+  createHttpTransport,
+  type FailedResponse,
+} from "@/lib/http/transport";
 import {
   CloudAuthError,
   createAuthFailure,
@@ -18,10 +23,7 @@ export interface CloudAuthClient {
   login(request: LoginRequest): Promise<IssuedCloudSession>;
   getSession(sessionToken: string): Promise<CloudSession>;
   renewSession(sessionToken: string): Promise<IssuedCloudSession>;
-  changePassword(
-    sessionToken: string,
-    request: ChangePasswordRequest,
-  ): Promise<void>;
+  changePassword(sessionToken: string, request: ChangePasswordRequest): Promise<void>;
   logout(sessionToken: string): Promise<void>;
 }
 
@@ -30,42 +32,20 @@ export interface CreateCloudAuthClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-type AuthenticatedMethod = "GET" | "POST";
-
-export function createCloudAuthClient(
-  options: CreateCloudAuthClientOptions = {},
-): CloudAuthClient {
-  const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
-  const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
-
-  async function send(path: string, init: RequestInit): Promise<Response> {
-    try {
-      return await fetchImpl(`${baseUrl}${path}`, init);
-    } catch {
-      throw new CloudAuthError(createAuthFailure("network_unavailable"));
-    }
-  }
-
-  async function requestJson<T>(
-    path: string,
-    init: RequestInit,
-    schema: z.ZodType<T>,
-  ): Promise<T> {
-    const response = await send(path, init);
-    if (response.status !== 200) throw await failureFor(response);
-    return parseBody(response, schema);
-  }
-
-  async function requestNoContent(
-    path: string,
-    init: RequestInit,
-  ): Promise<void> {
-    const response = await send(path, init);
-    if (response.status !== 204) throw await failureFor(response);
-  }
+export function createCloudAuthClient(options: CreateCloudAuthClientOptions = {}): CloudAuthClient {
+  const transport = createHttpTransport({
+    ...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
+    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    hooks: {
+      networkUnavailable: () => new CloudAuthError(createAuthFailure("network_unavailable")),
+      malformedResponse: (status) =>
+        new CloudAuthError(createAuthFailure("malformed_response", { status })),
+      responseFailed: failedResponseToError,
+    },
+  });
 
   function login(request: LoginRequest): Promise<IssuedCloudSession> {
-    return requestJson(
+    return transport.json(
       "/v1/auth/login",
       {
         method: "POST",
@@ -80,110 +60,59 @@ export function createCloudAuthClient(
   }
 
   function getSession(sessionToken: string): Promise<CloudSession> {
-    return requestSession(
+    return transport.json(
       "/v1/auth/session",
-      "GET",
-      sessionToken,
+      authenticatedRequest("GET", sessionToken),
       cloudSessionSchema,
     );
   }
 
   function renewSession(sessionToken: string): Promise<IssuedCloudSession> {
-    return requestSession(
+    return transport.json(
       "/v1/auth/session/renew",
-      "POST",
-      sessionToken,
+      authenticatedRequest("POST", sessionToken),
       issuedCloudSessionSchema,
     );
   }
 
   function logout(sessionToken: string): Promise<void> {
-    return requestNoContent(
-      "/v1/auth/logout",
-      authenticatedRequest("POST", sessionToken),
-    );
+    return transport.empty("/v1/auth/logout", authenticatedRequest("POST", sessionToken), 204);
   }
 
-  function changePassword(
-    sessionToken: string,
-    request: ChangePasswordRequest,
-  ): Promise<void> {
-    return requestNoContent("/v1/auth/password", {
-      method: "POST",
-      headers: {
-        ...bearerHeaders(sessionToken),
-        "content-type": "application/json",
+  function changePassword(sessionToken: string, request: ChangePasswordRequest): Promise<void> {
+    return transport.empty(
+      "/v1/auth/password",
+      {
+        method: "POST",
+        headers: {
+          ...bearerHeaders(sessionToken),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(request),
       },
-      body: JSON.stringify(request),
-    });
-  }
-
-  function requestSession<T>(
-    path: string,
-    method: AuthenticatedMethod,
-    sessionToken: string,
-    schema: z.ZodType<T>,
-  ): Promise<T> {
-    return requestJson(path, authenticatedRequest(method, sessionToken), schema);
+      204,
+    );
   }
 
   return { login, getSession, renewSession, changePassword, logout };
 }
 
-function authenticatedRequest(
-  method: AuthenticatedMethod,
-  sessionToken: string,
-): RequestInit {
-  return {
-    method,
-    headers: bearerHeaders(sessionToken),
-  };
-}
-
-function bearerHeaders(sessionToken: string): Record<string, string> {
-  return {
-    accept: "application/json",
-    authorization: `Bearer ${sessionToken}`,
-  };
-}
-
-async function failureFor(response: Response): Promise<CloudAuthError> {
-  let body: unknown;
-  try {
-    body = await readJsonBody(response);
-  } catch (error) {
-    return error as CloudAuthError;
+/**
+ * Auth failures are classified from the canonical `AUTH_*` envelope; the
+ * `Retry-After` header is kept so the UI can count down a rate limit. A
+ * non-JSON body cannot carry that envelope, which is itself a malformed
+ * response rather than a policy decision.
+ */
+function failedResponseToError(response: FailedResponse): CloudAuthError {
+  if (!response.bodyParsed) {
+    return new CloudAuthError(createAuthFailure("malformed_response", { status: response.status }));
   }
 
   return new CloudAuthError(
     failureFromErrorResponse(
       response.status,
-      body,
+      response.body,
       parseRetryAfterSeconds(response.headers.get("retry-after")),
     ),
   );
-}
-
-async function parseBody<T>(
-  response: Response,
-  schema: z.ZodType<T>,
-): Promise<T> {
-  const body = await readJsonBody(response);
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    throw new CloudAuthError(
-      createAuthFailure("malformed_response", { status: response.status }),
-    );
-  }
-  return parsed.data;
-}
-
-async function readJsonBody(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    throw new CloudAuthError(
-      createAuthFailure("malformed_response", { status: response.status }),
-    );
-  }
 }

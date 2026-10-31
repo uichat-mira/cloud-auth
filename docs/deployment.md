@@ -10,7 +10,7 @@
 cloud-auth.tomzlab.cn (DNS)
   → 服务器公网入口/NAT
   → Caddy 所绑定的主机内网网卡 :443
-  ├─ /health、/ready、/v1/* → reverse_proxy 127.0.0.1:8788 → Docker: Fastify API
+  ├─ /health、/ready、/v1/*、/.well-known/jwks.json → reverse_proxy 127.0.0.1:8788 → Docker: Fastify API
   └─ 其他路径 → /opt/cloud-auth/web → React Account Portal（SPA fallback）
   → 持久化 SQLite WAL (/opt/cloud-auth/data)
 ```
@@ -93,7 +93,7 @@ feat/* → dev → test → prod
 cloud-auth.tomzlab.cn {
     bind <与现有公网 Caddy 站点相同的主机内网地址>
 
-    @api path /health /ready /v1/*
+    @api path /health /ready /v1/* /.well-known/jwks.json
     handle @api {
         reverse_proxy 127.0.0.1:8788
     }

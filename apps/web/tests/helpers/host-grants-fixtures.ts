@@ -15,16 +15,9 @@ export const offlineHostId = "33333333-3333-4333-8333-333333333333";
 export const activeMobileId = "22222222-2222-4222-8222-222222222222";
 export const revokedMobileId = "44444444-4444-4444-8444-444444444444";
 
-export const policyScopes: RemoteDeviceScope[] = [
-  "threads:read",
-  "tools:read",
-  "tools:invoke",
-];
+export const policyScopes: RemoteDeviceScope[] = ["threads:read", "tools:read", "tools:invoke"];
 
-export const effectiveScopes: RemoteDeviceScope[] = [
-  "threads:read",
-  "tools:read",
-];
+export const effectiveScopes: RemoteDeviceScope[] = ["threads:read", "tools:read"];
 
 export const hostAvailable: DesktopHost = {
   id: grantHostId,
@@ -125,32 +118,12 @@ export function mutationResponse(input: {
 export function createFakeHostGrantsClient(
   overrides: Partial<HostGrantsClient> = {},
 ): HostGrantsClient {
-  // Legacy per-Host fake inputs are composed into the new Portal-only
-  // management response, so component regressions keep testing the same
-  // scope/revision interactions without issuing execution proofs.
+  // The Portal only reads the account-owned management ledger, so the fake
+  // builds that response directly instead of composing it from Host-facing
+  // endpoints the Portal no longer calls.
   const client: HostGrantsClient = {
-    listManagement: async (token) => {
-      const hosts = await client.listHosts(token);
-      return Promise.all(hosts.map(async (host): Promise<HostGrantManagementEntry> => {
-        const snapshot = await client.getSnapshot(token, host.id);
-        return {
-          host: {
-            id: host.id,
-            displayName: host.displayName,
-            clientVersion: host.clientVersion,
-            availability: host.availability,
-          },
-          accountId: snapshot.accountId,
-          policyConfigured: snapshot.policyConfigured,
-          policyScopes: snapshot.policyScopes,
-          revision: snapshot.revision,
-          grants: snapshot.grants,
-        };
-      }));
-    },
-    listHosts: async () => [hostAvailable],
+    listManagement: async () => [managementEntry(snapshotGranted)],
     listDevices: async () => [mobileActive],
-    getSnapshot: async () => snapshotGranted,
     narrowGrant: async (_token, hostId, mobileDeviceId, request) =>
       mutationResponse({
         hostId,
@@ -172,9 +145,27 @@ export function createFakeHostGrantsClient(
   return client;
 }
 
-export function createFakeAuthClient(
-  overrides: Partial<CloudAuthClient> = {},
-): CloudAuthClient {
+/** The management-ledger entry the Portal's single read consumes. */
+export function managementEntry(
+  snapshot: HostGrantSnapshot,
+  host: DesktopHost = hostAvailable,
+): HostGrantManagementEntry {
+  return {
+    host: {
+      id: host.id,
+      displayName: host.displayName,
+      clientVersion: host.clientVersion,
+      availability: host.availability,
+    },
+    accountId: snapshot.accountId,
+    policyConfigured: snapshot.policyConfigured,
+    policyScopes: snapshot.policyScopes,
+    revision: snapshot.revision,
+    grants: snapshot.grants,
+  };
+}
+
+export function createFakeAuthClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient {
   return {
     login: async () => issuedSession("token-1"),
     getSession: async () => ({ account, expiresAt }),

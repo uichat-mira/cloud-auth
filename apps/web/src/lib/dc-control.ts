@@ -10,12 +10,20 @@ export const dcMemoryLimits = [256, 384, 512] as const;
 export const dcCpuLimits = [25, 50, 100] as const;
 export const dcMinimumAvailable = [384, 512, 640] as const;
 
-const policySchema = z.object({
-  durationMinutes: z.union([z.literal(15), z.literal(30), z.literal(60), z.literal(120), z.literal(240)]),
-  memoryMiB: z.union([z.literal(256), z.literal(384), z.literal(512)]),
-  cpuPercent: z.union([z.literal(25), z.literal(50), z.literal(100)]),
-  minAvailableMiB: z.union([z.literal(384), z.literal(512), z.literal(640)]),
-}).strict();
+const policySchema = z
+  .object({
+    durationMinutes: z.union([
+      z.literal(15),
+      z.literal(30),
+      z.literal(60),
+      z.literal(120),
+      z.literal(240),
+    ]),
+    memoryMiB: z.union([z.literal(256), z.literal(384), z.literal(512)]),
+    cpuPercent: z.union([z.literal(25), z.literal(50), z.literal(100)]),
+    minAvailableMiB: z.union([z.literal(384), z.literal(512), z.literal(640)]),
+  })
+  .strict();
 
 const statusSchema = z.object({
   running: z.boolean(),
@@ -30,7 +38,10 @@ export type DcPolicy = z.infer<typeof policySchema>;
 export type DcStatus = z.infer<typeof statusSchema>;
 
 export class DcControlError extends Error {
-  constructor(message: string, readonly httpStatus: number | null = null) {
+  constructor(
+    message: string,
+    readonly httpStatus: number | null = null,
+  ) {
     super(message);
     this.name = "DcControlError";
   }
@@ -81,13 +92,18 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
 
     if (!response.ok) {
       const serverMessage =
-        typeof body === "object" && body !== null && "error" in body &&
-        typeof body.error === "string" ? body.error : null;
-      const message = response.status === 401
-        ? "云账号会话已失效，请重新登录。"
-        : response.status === 403
-          ? "当前云账号没有这台服务器的管理权限。"
-          : serverMessage ?? "DC 控制请求失败（HTTP " + response.status + "）";
+        typeof body === "object" &&
+        body !== null &&
+        "error" in body &&
+        typeof body.error === "string"
+          ? body.error
+          : null;
+      const message =
+        response.status === 401
+          ? "云账号会话已失效，请重新登录。"
+          : response.status === 403
+            ? "当前云账号没有这台服务器的管理权限。"
+            : (serverMessage ?? "DC 控制请求失败（HTTP " + response.status + "）");
       throw new DcControlError(message, response.status);
     }
 
@@ -111,8 +127,10 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
 }
 
 export function sameDcPolicy(a: DcPolicy, b: DcPolicy): boolean {
-  return a.durationMinutes === b.durationMinutes &&
+  return (
+    a.durationMinutes === b.durationMinutes &&
     a.memoryMiB === b.memoryMiB &&
     a.cpuPercent === b.cpuPercent &&
-    a.minAvailableMiB === b.minAvailableMiB;
+    a.minAvailableMiB === b.minAvailableMiB
+  );
 }
