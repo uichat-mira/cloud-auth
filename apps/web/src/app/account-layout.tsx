@@ -10,7 +10,7 @@ import { loginUrlForAccount } from "@/lib/auth/return-location";
 import { SessionExpiryNotice } from "@/components/session-expiry-notice";
 
 /**
- * Account console shell: sticky header, section rail, session block and the
+ * Account console shell: sticky header with account menu, section rail and the
  * routed page in a single 960px content column.
  *
  * Auth gate: while the session is unknown the page body is a skeleton; when the
@@ -134,4 +134,3 @@ function useRouteEntryFocus(pathname: string) {
     heading.focus({ preventScroll: true });
   }, [pathname]);
 }
-
