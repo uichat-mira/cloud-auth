@@ -25,6 +25,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run lint
+      - name: Diagnostic formatting diff (temporary)
+        run: pnpm exec prettier apps/web/src/components/mobile-grant-row.tsx | diff -u apps/web/src/components/mobile-grant-row.tsx - || true
       - run: pnpm run format:check
       - run: pnpm audit --audit-level=moderate
       - name: Validate deployment scripts
