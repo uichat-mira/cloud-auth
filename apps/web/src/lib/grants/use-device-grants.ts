@@ -355,6 +355,14 @@ async function handleMutationFailure(
     );
     if (rotated) {
       await refresh();
+      // Refresh clears its own notice. Keep the failed write visible after it.
+      setState((current) => ({
+        ...current,
+        notice: {
+          tone: "error",
+          message: "Cloud Session 已更新，本次授权变更未执行，请重新确认后重试。",
+        },
+      }));
     } else if (currentToken === sessionToken) {
       setState((current) => ({ ...current, notice: { tone: "error", message: failure.message } }));
     }

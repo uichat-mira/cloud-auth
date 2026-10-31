@@ -133,6 +133,7 @@ export function DcControlPage() {
     setNotice("");
     setError("");
     let completed = false;
+    let policySavedBeforeStart = false;
     try {
       let result: DcStatus;
       if (action === "save") {
@@ -141,6 +142,7 @@ export function DcControlPage() {
       } else if (action === "start") {
         if (!sameDcPolicy(draft, snapshot.policy)) {
           await client.savePolicy(token, draft);
+          policySavedBeforeStart = true;
         }
         result = await client.start(token);
         setNotice("启动命令已执行，远程连接状态请以设备端为准。");
@@ -163,7 +165,11 @@ export function DcControlPage() {
         // poller re-reads the authoritative status on its next tick.
         if (rotated) {
           setNotice("");
-          setError("Cloud Session 已更新，此操作未执行，请重新提交。");
+          setError(
+            policySavedBeforeStart
+              ? "运行策略已保存，但 DC 启动未执行，请确认状态后重新提交。"
+              : "Cloud Session 已更新，此操作未执行，请重新提交。",
+          );
         }
       } else {
         setError(errorMessage(cause));

@@ -161,6 +161,34 @@ describe("DC inside Mira account", () => {
     expect(screen.getByRole("button", { name: "保存策略" })).toBeDisabled();
   });
 
+  it("distinguishes a saved policy from a rejected start after session renewal", async () => {
+    const startGate: { release?: () => void } = {};
+    const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      if (String(input) === "/dc/api/start") {
+        await new Promise<void>((resolve) => {
+          startGate.release = resolve;
+        });
+        return reply({ error: "expired" }, 401);
+      }
+      if (String(input) === "/dc/api/policy") {
+        return reply({ ...status, policy: { ...status.policy, memoryMiB: 512 } });
+      }
+      return reply(status);
+    });
+    vi.stubGlobal("fetch", calls);
+    const { store } = mountPortal({ path: "/account/services/dc", session: storedSession });
+    await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("内存上限"), { target: { value: "512" } });
+    fireEvent.click(screen.getByRole("button", { name: "启动 DC" }));
+    await waitFor(() => expect(startGate.release).toBeDefined());
+    expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/policy")).toHaveLength(1);
+    await store.getState().renew();
+    startGate.release?.();
+    expect(await screen.findByRole("alert")).toHaveTextContent("运行策略已保存，但 DC 启动未执行");
+    expect(store.getState().getSessionToken()).toBe("token-2");
+    expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/start")).toHaveLength(1);
+  });
+
   it("tells the user a rotated-token 401 did not execute the write", async () => {
     // The write is rejected only after the Cloud Session has been renewed, so
     // the store keeps the newer session. The operation must not be replayed,
