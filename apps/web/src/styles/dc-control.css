@@ -42,7 +42,7 @@
 
 .dc-layout {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
   margin-top: 24px;
@@ -62,6 +62,12 @@
   align-items: center;
   gap: 8px;
   min-height: 28px;
+}
+
+.dc-panel-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .dc-panel-head h2 {
@@ -114,6 +120,14 @@
 
 .dc-panel > .dc-muted {
   margin: 14px 0 0;
+}
+
+.dc-policy-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.dc-policy-dialog .dc-field {
+  margin-top: 4px;
 }
 
 .dc-field {
@@ -202,12 +216,6 @@
 .dc-policy-fact strong {
   color: var(--mc-success-fg);
   font-weight: 550;
-}
-
-.dc-policy-save {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 24px;
 }
 
 @media (max-width: 800px) {
