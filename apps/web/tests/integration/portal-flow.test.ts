@@ -174,9 +174,8 @@ for (const viewport of viewports) {
 
         expect(await page.getByRole("button", { name: "退出登录" }).count()).toBe(0);
         await page.getByRole("button", { name: "账户菜单" }).click();
-        await page.getByRole("group", { name: "账户操作" })
-          .getByRole("button", { name: "退出登录" })
-          .click();
+        const accountActions = page.getByRole("group", { name: "账户操作" });
+        await accountActions.getByRole("button", { name: "退出登录" }).click();
         await page.waitForURL("**/login");
         await page.getByLabel("账号").waitFor();
         await expectNoHorizontalOverflow(page);
