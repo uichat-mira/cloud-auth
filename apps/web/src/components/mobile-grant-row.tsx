@@ -209,9 +209,7 @@ export function MobileGrantRow({
               </div>
             </fieldset>
             {selectedScopes.length === 0 ? (
-              <p className="cloud-grant-editor-warning">
-                如需完全收回权限，请使用“撤销授权”。
-              </p>
+              <p className="cloud-grant-editor-warning">如需完全收回权限，请使用“撤销授权”。</p>
             ) : null}
             {editorError ? (
               <p className="cloud-grant-editor-warning" role="alert">
