@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { createCloudAuthClient } from "./client";
 import { createBrowserSessionStorage } from "./session-storage";
@@ -13,13 +6,7 @@ import { createAuthStore, type AuthStore, type AuthStoreState } from "./store";
 
 const AuthStoreContext = createContext<AuthStore | null>(null);
 
-export function AuthProvider({
-  children,
-  store,
-}: {
-  children: ReactNode;
-  store?: AuthStore;
-}) {
+export function AuthProvider({ children, store }: { children: ReactNode; store?: AuthStore }) {
   const [defaultStore] = useState<AuthStore | null>(() =>
     store
       ? null
@@ -75,11 +62,7 @@ export function AuthProvider({
     };
   }, [activeStore, status, expiresAt]);
 
-  return (
-    <AuthStoreContext.Provider value={activeStore}>
-      {children}
-    </AuthStoreContext.Provider>
-  );
+  return <AuthStoreContext.Provider value={activeStore}>{children}</AuthStoreContext.Provider>;
 }
 
 export function useAuthSession(): AuthStoreState {

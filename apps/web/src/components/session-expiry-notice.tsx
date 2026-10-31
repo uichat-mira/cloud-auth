@@ -30,7 +30,13 @@ export function SessionExpiryNotice() {
   return (
     <div className="console-expiry-notice" role="status">
       <span>本次登录将在约 {Math.max(1, Math.ceil(remainingMs / 60_000))} 分钟后过期。</span>
-      <Button type="button" size="sm" variant="outline" onClick={() => void renew()} disabled={pending !== null}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => void renew()}
+        disabled={pending !== null}
+      >
         {pending === "renew" ? "续期中…" : "保持登录"}
       </Button>
     </div>

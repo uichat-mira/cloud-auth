@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
-import { associatedServicesCount, unconnectedServicesCount } from "@/components/associated-services";
+import {
+  associatedServicesCount,
+  unconnectedServicesCount,
+} from "@/components/associated-services";
 import { useAuthSession } from "@/lib/auth/context";
 import { sessionLabels } from "@/lib/auth/session-labels";
 import { useHostGrantsClient } from "@/lib/grants/context";
@@ -119,7 +122,9 @@ export function OverviewPage() {
             查看
           </Link>
         </div>
-        <p className="console-inline-note">{associatedServicesCount} 项服务 · {unconnectedServicesCount} 项尚未接入</p>
+        <p className="console-inline-note">
+          {associatedServicesCount} 项服务 · {unconnectedServicesCount} 项尚未接入
+        </p>
       </section>
     </section>
   );

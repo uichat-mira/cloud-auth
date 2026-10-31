@@ -41,10 +41,11 @@ function AccountConsole() {
       <header className="console-header">
         <div className="console-container console-header-inner">
           <Link to={authenticated ? "/account" : loginHref} className="console-brand">
-            <span aria-hidden="true" className="console-brand-mark">M.</span>
+            <span aria-hidden="true" className="console-brand-mark">
+              <img src="/brand/mira-logo-mark.png" alt="" width={96} height={96} />
+            </span>
             <span className="console-brand-copy">
               <strong>Mira Cloud</strong>
-              <small>Your account</small>
             </span>
           </Link>
 
@@ -105,9 +106,7 @@ function AccountConsole() {
             </>
           )}
 
-          <p className="console-note">
-            Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用
-          </p>
+          <p className="console-note">Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用</p>
         </main>
       </div>
     </div>

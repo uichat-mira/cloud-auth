@@ -1,18 +1,20 @@
 import {
-  desktopHostListResponseSchema,
   deviceListResponseSchema,
-  hostGrantSnapshotSchema,
   hostGrantManagementListResponseSchema,
   hostMobileGrantMutationResponseSchema,
   updateHostMobileGrantRequestSchema,
-  type DesktopHost,
-  type HostGrantSnapshot,
   type HostGrantManagementEntry,
   type HostMobileGrantMutationResponse,
   type MiraDevice,
   type RemoteDeviceScope,
 } from "@uichat-mira/cloud-auth-contracts";
 import { z } from "zod";
+import {
+  authenticatedRequest,
+  bearerHeaders,
+  createHttpTransport,
+  type FailedResponse,
+} from "@/lib/http/transport";
 
 export type HostGrantsFailureKind =
   | "reauth_required"
@@ -80,11 +82,17 @@ export interface NarrowHostMobileGrantRequest {
   scopes: RemoteDeviceScope[];
 }
 
+/**
+ * What the Portal may ask the Cloud Auth grants API.
+ *
+ * Deliberately narrow: the Portal reads the account-owned grant ledger and
+ * mutates it. The Host inventory and Host-side snapshot endpoints stay with the
+ * clients that actually consume them, so this interface cannot grow a second,
+ * never-called read path.
+ */
 export interface HostGrantsClient {
   listManagement(sessionToken: string): Promise<HostGrantManagementEntry[]>;
-  listHosts(sessionToken: string): Promise<DesktopHost[]>;
   listDevices(sessionToken: string): Promise<MiraDevice[]>;
-  getSnapshot(sessionToken: string, hostId: string): Promise<HostGrantSnapshot>;
   narrowGrant(
     sessionToken: string,
     hostId: string,
@@ -118,70 +126,31 @@ const errorEnvelopeSchema = z
 export function createHostGrantsClient(
   options: CreateHostGrantsClientOptions = {},
 ): HostGrantsClient {
-  const baseUrl = (options.baseUrl ?? "").replace(/\/+$/, "");
-  const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
-
-  async function send(path: string, init: RequestInit): Promise<Response> {
-    try {
-      return await fetchImpl(`${baseUrl}${path}`, init);
-    } catch {
-      throw new HostGrantsError(createHostGrantsFailure("network_unavailable"));
-    }
-  }
-
-  async function requestJson<T>(
-    path: string,
-    init: RequestInit,
-    schema: z.ZodType<T>,
-  ): Promise<T> {
-    const response = await send(path, init);
-    if (response.status !== 200) throw await failureFor(response);
-
-    const body = await readJsonBody(response);
-    const parsed = schema.safeParse(body);
-    if (!parsed.success) {
-      throw new HostGrantsError(
-        createHostGrantsFailure("malformed_response", { status: response.status }),
-      );
-    }
-    return parsed.data;
-  }
+  const transport = createHttpTransport({
+    ...(options.baseUrl === undefined ? {} : { baseUrl: options.baseUrl }),
+    ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    hooks: {
+      networkUnavailable: () => new HostGrantsError(createHostGrantsFailure("network_unavailable")),
+      malformedResponse: (status) =>
+        new HostGrantsError(createHostGrantsFailure("malformed_response", { status })),
+      responseFailed: failedResponseToError,
+    },
+  });
 
   function listManagement(sessionToken: string): Promise<HostGrantManagementEntry[]> {
-    return requestJson(
-      "/v1/hosts/grant-management",
-      authenticatedRequest("GET", sessionToken),
-      hostGrantManagementListResponseSchema,
-    ).then((response) => response.hosts);
-  }
-
-  function listHosts(sessionToken: string): Promise<DesktopHost[]> {
-    return requestJson(
-      "/v1/hosts",
-      authenticatedRequest("GET", sessionToken),
-      desktopHostListResponseSchema,
-    ).then((response) => response.hosts);
+    return transport
+      .json(
+        "/v1/hosts/grant-management",
+        authenticatedRequest("GET", sessionToken),
+        hostGrantManagementListResponseSchema,
+      )
+      .then((response) => response.hosts);
   }
 
   function listDevices(sessionToken: string): Promise<MiraDevice[]> {
-    return requestJson(
-      "/v1/devices",
-      authenticatedRequest("GET", sessionToken),
-      deviceListResponseSchema,
-    ).then((response) => response.devices);
-  }
-
-  async function getSnapshot(
-    sessionToken: string,
-    hostId: string,
-  ): Promise<HostGrantSnapshot> {
-    const snapshot = await requestJson(
-      `/v1/hosts/${encodeURIComponent(hostId)}/grants`,
-      authenticatedRequest("GET", sessionToken),
-      hostGrantSnapshotSchema,
-    );
-    if (snapshot.hostId !== hostId) throw inconsistentResponse();
-    return snapshot;
+    return transport
+      .json("/v1/devices", authenticatedRequest("GET", sessionToken), deviceListResponseSchema)
+      .then((response) => response.devices);
   }
 
   async function narrowGrant(
@@ -195,8 +164,8 @@ export function createHostGrantsClient(
       throw new HostGrantsError(createHostGrantsFailure("invalid_request"));
     }
 
-    const result = await requestJson(
-      `/v1/hosts/${encodeURIComponent(hostId)}/grants/${encodeURIComponent(mobileDeviceId)}`,
+    const result = await transport.json(
+      grantPath(hostId, mobileDeviceId),
       {
         method: "PATCH",
         headers: {
@@ -207,12 +176,7 @@ export function createHostGrantsClient(
       },
       hostMobileGrantMutationResponseSchema,
     );
-    if (
-      result.hostId !== hostId ||
-      result.mobileDeviceId !== mobileDeviceId
-    ) {
-      throw inconsistentResponse();
-    }
+    assertMutationTarget(result, hostId, mobileDeviceId);
     return result;
   }
 
@@ -226,48 +190,42 @@ export function createHostGrantsClient(
       throw new HostGrantsError(createHostGrantsFailure("invalid_request"));
     }
 
-    const result = await requestJson(
-      `/v1/hosts/${encodeURIComponent(hostId)}/grants/${encodeURIComponent(mobileDeviceId)}?expectedRevision=${expectedRevision}`,
+    const result = await transport.json(
+      `${grantPath(hostId, mobileDeviceId)}?expectedRevision=${expectedRevision}`,
       authenticatedRequest("DELETE", sessionToken),
       hostMobileGrantMutationResponseSchema,
     );
-    if (
-      result.hostId !== hostId ||
-      result.mobileDeviceId !== mobileDeviceId
-    ) {
-      throw inconsistentResponse();
-    }
+    assertMutationTarget(result, hostId, mobileDeviceId);
     return result;
   }
 
-  return { listManagement, listHosts, listDevices, getSnapshot, narrowGrant, revokeGrant };
+  return { listManagement, listDevices, narrowGrant, revokeGrant };
 }
 
-function authenticatedRequest(
-  method: "GET" | "DELETE",
-  sessionToken: string,
-): RequestInit {
-  return {
-    method,
-    headers: bearerHeaders(sessionToken),
-  };
+function grantPath(hostId: string, mobileDeviceId: string): string {
+  return `/v1/hosts/${encodeURIComponent(hostId)}/grants/${encodeURIComponent(mobileDeviceId)}`;
 }
 
-function bearerHeaders(sessionToken: string): Record<string, string> {
-  return {
-    accept: "application/json",
-    authorization: `Bearer ${sessionToken}`,
-  };
+function assertMutationTarget(
+  result: HostMobileGrantMutationResponse,
+  hostId: string,
+  mobileDeviceId: string,
+): void {
+  if (result.hostId !== hostId || result.mobileDeviceId !== mobileDeviceId) {
+    throw new HostGrantsError(createHostGrantsFailure("unexpected_response", { status: 200 }));
+  }
 }
 
-async function failureFor(response: Response): Promise<HostGrantsError> {
+/**
+ * Grants failures carry a canonical `{ error: { code } }` envelope when the
+ * service produced them. A proxy or a total outage may answer with HTML
+ * instead; the status alone then still classifies the failure.
+ */
+function failedResponseToError(response: FailedResponse): HostGrantsError {
   let code: string | null = null;
-  try {
-    const body = await readJsonBody(response);
-    const parsed = errorEnvelopeSchema.safeParse(body);
+  if (response.bodyParsed) {
+    const parsed = errorEnvelopeSchema.safeParse(response.body);
     if (parsed.success) code = parsed.data.error.code;
-  } catch {
-    // A proxy or outage may return a non-JSON error body; classify by status.
   }
 
   return new HostGrantsError(
@@ -278,10 +236,7 @@ async function failureFor(response: Response): Promise<HostGrantsError> {
   );
 }
 
-function kindForResponse(
-  status: number,
-  code: string | null,
-): HostGrantsFailureKind {
+function kindForResponse(status: number, code: string | null): HostGrantsFailureKind {
   if (status === 401) return "reauth_required";
   if (status === 403) return "forbidden";
   if (status === 404) return "not_found";
@@ -292,20 +247,4 @@ function kindForResponse(
   if (status === 429) return "rate_limited";
   if (status >= 500) return "service_unavailable";
   return "unexpected_response";
-}
-
-function inconsistentResponse(): HostGrantsError {
-  return new HostGrantsError(
-    createHostGrantsFailure("unexpected_response", { status: 200 }),
-  );
-}
-
-async function readJsonBody(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    throw new HostGrantsError(
-      createHostGrantsFailure("malformed_response", { status: response.status }),
-    );
-  }
 }

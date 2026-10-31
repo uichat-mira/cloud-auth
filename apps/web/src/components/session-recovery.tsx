@@ -43,9 +43,7 @@ export function SessionRecovery() {
 
         {status === "unavailable" ? (
           <>
-            <p className="console-recovery-copy">
-              暂时无法确认此浏览器的登录状态，请重新检查。
-            </p>
+            <p className="console-recovery-copy">暂时无法确认此浏览器的登录状态，请重新检查。</p>
             <div className="console-recovery-actions">
               <Button type="button" onClick={() => void restore()} disabled={pending !== null}>
                 {pending === "restore" ? "正在检查…" : "重新检查登录状态"}

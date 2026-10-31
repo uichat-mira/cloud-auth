@@ -19,6 +19,7 @@ import {
   type HostGrantsClient,
   type HostGrantsFailure,
 } from "./client";
+import { revokeFailedSession } from "@/lib/auth/reauth";
 
 export interface HostGrantItem {
   mobileDeviceId: string;
@@ -26,14 +27,16 @@ export interface HostGrantItem {
   status: "active" | "revoked";
 }
 
+/**
+ * One Host record as the Portal may manage it. Every field here is rendered;
+ * the ledger's execution-proof fields (validUntil, policyScopes) belong to the
+ * Desktop Host, not to this account-owned view.
+ */
 export interface HostGrantView {
   host: HostGrantManagementEntry["host"];
   revision: number;
   policyConfigured: boolean;
-  policyScopes: RemoteDeviceScope[];
-  validUntil: string | null;
   grants: HostGrantItem[];
-  failure: HostGrantsFailure | null;
 }
 
 export interface HostGrantsNotice {
@@ -102,110 +105,121 @@ export function useDeviceGrants({
   const [state, setState] = useState<DeviceGrantsState>(initialState);
   const sequence = useRef(0);
 
-  const refresh = useCallback(async (options?: { announce?: boolean }) => {
-    const announce = options?.announce === true;
-    const requestSequence = (sequence.current += 1);
-    const sessionToken = getSessionToken();
+  const refresh = useCallback(
+    async (options?: { announce?: boolean }) => {
+      const announce = options?.announce === true;
+      const requestSequence = (sequence.current += 1);
+      const sessionToken = getSessionToken();
 
-    if (!sessionToken || !accountId) {
-      setState((current) => ({
-        ...current,
-        status: "ready",
-        hosts: [],
-        mobiles: [],
-        revokedMobiles: [],
-        refreshing: false,
-        loadFailure: createHostGrantsFailure("reauth_required"),
-        notice: null,
-      }));
-      return;
-    }
-
-    setState((current) => ({
-      ...current,
-      refreshing: announce,
-      loadFailure: null,
-      notice: null,
-    }));
-
-    try {
-      // Device metadata decorates labels only. A failure to load friendly
-      // names must never make an otherwise valid grant impossible to revoke.
-      const [managementResult, deviceResult] = await Promise.allSettled([
-        client.listManagement(sessionToken),
-        client.listDevices(sessionToken),
-      ]);
-      if (managementResult.status === "rejected") throw managementResult.reason;
-      if (deviceResult.status === "rejected" && toHostGrantsFailure(deviceResult.reason).kind === "reauth_required") {
-        throw deviceResult.reason;
-      }
-      const managed = managementResult.value;
-      const devices = deviceResult.status === "fulfilled" ? deviceResult.value : [];
-
-      // Management is account-owned state, not a runtime Host grant snapshot.
-      // The backend never attaches a TTL or current execution credential.
-      if (managed.some((entry) => entry.accountId !== accountId)) {
-        throw new Error("Cross-account grant-management response");
-      }
-      const hostViews = managed.map(toHostView);
-
-      if (requestSequence !== sequence.current) return;
-
-      setState((current) => ({
-        ...current,
-        status: "ready",
-        refreshing: false,
-        hosts: hostViews,
-        mobiles: devices.filter(
-          (device) => device.platform === "mobile" && device.revokedAt === null,
-        ),
-        revokedMobiles: devices.filter(
-          (device) => device.platform === "mobile" && device.revokedAt !== null,
-        ),
-        loadFailure: null,
-        notice: deviceResult.status === "rejected"
-          ? {
-              tone: "warning",
-              message: "手机设备名称暂时无法读取，授权仍可管理；暂以通用名称显示。",
-            }
-          : announce
-            ? {
-                tone: "success",
-                message: "已读取最新云端设备与授权；如果数据没变化，列表会保持原样。Desktop 的实际授权执行仍取决于自身同步。",
-              }
-            : null,
-      }));
-    } catch (error) {
-      if (requestSequence !== sequence.current) return;
-      if (toHostGrantsFailure(error).kind === "reauth_required") {
-        onSessionExpired?.(sessionToken);
-        const latestToken = getSessionToken();
-        if (latestToken && latestToken !== sessionToken) {
-          // Only the old bearer was rejected. Reload using the renewed token.
-          void refresh();
-        } else {
-          // Also clear loading if this caller has no session owner callback.
-          setState((current) => ({
-            ...current,
-            status: "ready",
-            refreshing: false,
-            pending: null,
-            loadFailure: toHostGrantsFailure(error),
-          }));
-        }
+      if (!sessionToken || !accountId) {
+        setState((current) => ({
+          ...current,
+          status: "ready",
+          hosts: [],
+          mobiles: [],
+          revokedMobiles: [],
+          refreshing: false,
+          loadFailure: createHostGrantsFailure("reauth_required"),
+          notice: null,
+        }));
         return;
       }
+
       setState((current) => ({
         ...current,
-        status: "ready",
-        hosts: [],
-        mobiles: [],
-        revokedMobiles: [],
-        refreshing: false,
-        loadFailure: toHostGrantsFailure(error),
+        refreshing: announce,
+        loadFailure: null,
+        notice: null,
       }));
-    }
-  }, [client, getSessionToken, accountId, onSessionExpired]);
+
+      try {
+        // Device metadata decorates labels only. A failure to load friendly
+        // names must never make an otherwise valid grant impossible to revoke.
+        const [managementResult, deviceResult] = await Promise.allSettled([
+          client.listManagement(sessionToken),
+          client.listDevices(sessionToken),
+        ]);
+        if (managementResult.status === "rejected") throw managementResult.reason;
+        if (
+          deviceResult.status === "rejected" &&
+          toHostGrantsFailure(deviceResult.reason).kind === "reauth_required"
+        ) {
+          throw deviceResult.reason;
+        }
+        const managed = managementResult.value;
+        const devices = deviceResult.status === "fulfilled" ? deviceResult.value : [];
+
+        // Management is account-owned state, not a runtime Host grant snapshot.
+        // The backend never attaches a TTL or current execution credential.
+        if (managed.some((entry) => entry.accountId !== accountId)) {
+          throw new Error("Cross-account grant-management response");
+        }
+        const hostViews = managed.map(toHostView);
+
+        if (requestSequence !== sequence.current) return;
+
+        setState((current) => ({
+          ...current,
+          status: "ready",
+          refreshing: false,
+          hosts: hostViews,
+          mobiles: devices.filter(
+            (device) => device.platform === "mobile" && device.revokedAt === null,
+          ),
+          revokedMobiles: devices.filter(
+            (device) => device.platform === "mobile" && device.revokedAt !== null,
+          ),
+          loadFailure: null,
+          notice:
+            deviceResult.status === "rejected"
+              ? {
+                  tone: "warning",
+                  message: "手机设备名称暂时无法读取，授权仍可管理；暂以通用名称显示。",
+                }
+              : announce
+                ? {
+                    tone: "success",
+                    message:
+                      "已读取最新云端设备与授权；如果数据没变化，列表会保持原样。Desktop 的实际授权执行仍取决于自身同步。",
+                  }
+                : null,
+        }));
+      } catch (error) {
+        if (requestSequence !== sequence.current) return;
+        if (toHostGrantsFailure(error).kind === "reauth_required") {
+          const { rotated } = revokeFailedSession(
+            sessionToken,
+            getSessionToken,
+            onSessionExpired ?? (() => undefined),
+          );
+          if (rotated) {
+            // Only the old bearer was rejected. Reload using the renewed token.
+            void refresh();
+          } else {
+            // Also clear loading if this caller has no session owner callback.
+            setState((current) => ({
+              ...current,
+              status: "ready",
+              refreshing: false,
+              pending: null,
+              loadFailure: toHostGrantsFailure(error),
+            }));
+          }
+          return;
+        }
+        setState((current) => ({
+          ...current,
+          status: "ready",
+          hosts: [],
+          mobiles: [],
+          revokedMobiles: [],
+          refreshing: false,
+          loadFailure: toHostGrantsFailure(error),
+        }));
+      }
+    },
+    [client, getSessionToken, accountId, onSessionExpired],
+  );
 
   useEffect(() => {
     if (!enabled) return;
@@ -234,15 +248,10 @@ export function useDeviceGrants({
       }));
 
       try {
-        const result = await client.narrowGrant(
-          sessionToken,
-          hostId,
-          mobileDeviceId,
-          {
-            expectedRevision,
-            scopes: canonicalRemoteDeviceScopes(scopes),
-          },
-        );
+        const result = await client.narrowGrant(sessionToken, hostId, mobileDeviceId, {
+          expectedRevision,
+          scopes: canonicalRemoteDeviceScopes(scopes),
+        });
 
         setState((current) => ({
           ...current,
@@ -256,7 +265,14 @@ export function useDeviceGrants({
         }));
         return true;
       } catch (error) {
-        return handleMutationFailure(error, refresh, setState, sessionToken, getSessionToken, onSessionExpired);
+        return handleMutationFailure(
+          error,
+          refresh,
+          setState,
+          sessionToken,
+          getSessionToken,
+          onSessionExpired,
+        );
       }
     },
     [client, getSessionToken, refresh, onSessionExpired],
@@ -303,7 +319,14 @@ export function useDeviceGrants({
         }));
         return true;
       } catch (error) {
-        return handleMutationFailure(error, refresh, setState, sessionToken, getSessionToken, onSessionExpired);
+        return handleMutationFailure(
+          error,
+          refresh,
+          setState,
+          sessionToken,
+          getSessionToken,
+          onSessionExpired,
+        );
       }
     },
     [client, getSessionToken, refresh, onSessionExpired],
@@ -322,13 +345,17 @@ async function handleMutationFailure(
 ): Promise<boolean> {
   const failure = toHostGrantsFailure(error);
   if (failure.kind === "reauth_required") {
-    onSessionExpired?.(sessionToken);
-    // Do not retry a privileged mutation. Only refresh its read-only state.
+    // A privileged mutation is never replayed; only its read-only state is
+    // refreshed, and only when the failed token had already been renewed.
     setState((current) => ({ ...current, pending: null }));
-    const latestToken = getSessionToken();
-    if (latestToken && latestToken !== sessionToken) {
+    const { currentToken, rotated } = revokeFailedSession(
+      sessionToken,
+      getSessionToken,
+      onSessionExpired ?? (() => undefined),
+    );
+    if (rotated) {
       await refresh();
-    } else if (latestToken === sessionToken) {
+    } else if (currentToken === sessionToken) {
       setState((current) => ({ ...current, notice: { tone: "error", message: failure.message } }));
     }
     return false;
@@ -370,7 +397,6 @@ function applyMutation(
     return {
       ...view,
       revision: result.revision,
-      validUntil: null,
       grants,
     };
   });
@@ -381,13 +407,10 @@ function toHostView(entry: HostGrantManagementEntry): HostGrantView {
     host: entry.host,
     revision: entry.revision,
     policyConfigured: entry.policyConfigured,
-    policyScopes: entry.policyScopes,
-    validUntil: null,
     grants: entry.grants.map((grant) => ({
       mobileDeviceId: grant.mobileDeviceId,
       scopes: grant.scopes,
       status: grant.status,
     })),
-    failure: null,
   };
 }

@@ -27,9 +27,7 @@ export function LoginPage() {
       <section className="cloud-auth-card" aria-labelledby="login-title">
         <div className="cloud-auth-card-head">
           <h1 id="login-title">登录 Mira Cloud</h1>
-          <p className="cloud-auth-caption">
-            登录后继续管理你的设备和访问权限。
-          </p>
+          <p className="cloud-auth-caption">登录后继续管理你的设备和访问权限。</p>
         </div>
 
         <form className="cloud-auth-form" onSubmit={handleSubmit}>
@@ -80,9 +78,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <p className="cloud-auth-card-note">
-          登录状态仅保存在此浏览器，可随时退出登录。
-        </p>
+        <p className="cloud-auth-card-note">登录状态仅保存在此浏览器，可随时退出登录。</p>
       </section>
     </div>
   );

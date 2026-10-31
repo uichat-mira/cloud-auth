@@ -3,7 +3,13 @@
  * No token, secret or raw referrer is stored in this redirect.
  */
 export function safeAccountReturnTo(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\r\n]/.test(value)) {
+  if (
+    !value ||
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\") ||
+    /[\r\n]/.test(value)
+  ) {
     return "/account";
   }
   try {
