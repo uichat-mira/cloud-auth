@@ -1,29 +1,12 @@
-import type {
-  AccountIdentity,
-  CloudSession,
-} from "@uichat-mira/cloud-auth-contracts";
+import type { AccountIdentity, CloudSession } from "@uichat-mira/cloud-auth-contracts";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { CloudAuthClient } from "./client";
-import {
-  createAuthFailure,
-  toAuthFailure,
-  type AuthFailure,
-} from "./errors";
+import { createAuthFailure, toAuthFailure, type AuthFailure } from "./errors";
 import type { SessionStorageAdapter } from "./session-storage";
 
-export type AuthStatus =
-  | "idle"
-  | "restoring"
-  | "authenticated"
-  | "unauthenticated"
-  | "unavailable";
+export type AuthStatus = "idle" | "restoring" | "authenticated" | "unauthenticated" | "unavailable";
 
-export type AuthOperation =
-  | "login"
-  | "restore"
-  | "renew"
-  | "changePassword"
-  | "logout";
+export type AuthOperation = "login" | "restore" | "renew" | "changePassword" | "logout";
 
 export type AuthNotice = "session_renewed" | "password_changed";
 
@@ -57,10 +40,7 @@ export interface AuthStoreDependencies {
 
 export type AuthStore = StoreApi<AuthStoreState>;
 
-export function createAuthStore({
-  client,
-  storage,
-}: AuthStoreDependencies): AuthStore {
+export function createAuthStore({ client, storage }: AuthStoreDependencies): AuthStore {
   return createStore<AuthStoreState>((set, get) => ({
     status: "idle",
     account: null,
@@ -79,8 +59,7 @@ export function createAuthStore({
       } catch (error) {
         const failure = toAuthFailure(error);
         set((state) => ({
-          status:
-            state.status === "authenticated" ? state.status : "unauthenticated",
+          status: state.status === "authenticated" ? state.status : "unauthenticated",
           failure,
           pending: null,
         }));

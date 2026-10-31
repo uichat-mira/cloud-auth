@@ -78,6 +78,7 @@ Raw tokens (`:root`):
 --mc-surface-2: #f2f2f2;   /* inset / control track */
 --mc-surface-3: #eeeeee;   /* chips, bars */
 --mc-surface-4: #dbdbdb;   /* bar tracks */
+--mc-brand-canvas: #fcecd7; /* logo artwork canvas — part of the mark, never keyed out */
 /* text */
 --mc-text: #161616;
 --mc-text-secondary: #5c5c5c;
@@ -220,6 +221,7 @@ just its tokens. Full build contract: `console-ia-contract.md`.
 
 | Route | h1 | Rail label | Reading order |
 | --- | --- | --- | --- |
+| `/` | `Mira Cloud 账户` | — | page head + entry action → destination rows (设备与授权 / 账户安全 / 关联服务) → local-boundary note |
 | `/account` | `我的账户` | 概览 | caption (账号 · 状态) → 账户 facts (账号/Account ID/登录状态/会话到期 + 管理会话) → 设备与授权 counts (Desktop Host / 手机设备 / 有效授权 + 管理) → 关联服务 summary (2 项 · 尚未接入 + 查看) |
 | `/account/devices` | `设备与授权` | 设备与授权 | caption → toolbar (counts strip + 刷新列表) → notices → host records (name + status chip + 云端版本 → facts → policy/empty inset → grant rows) → single footer note |
 | `/account/security` | `账户安全` | 账户安全 | caption → 密码 (修改密码 row) → 当前登录会话 (状态/到期 facts + 续期 Session) → dialog |
@@ -256,20 +258,44 @@ devices, actions on security, status-only information on services.
 
 ### Public shell (`app/root-layout.tsx` + `styles/cloud-shell.css`)
 
-Used by `/login` and the public 404 only.
+Used by `/`, `/login` and the public 404.
 - Header: 56px, `background:rgba(255,255,255,.85)`, `backdrop-filter: blur(8px)`, sticky top 0,
   hairline bottom (`box-shadow: inset 0 -0.5px 0 var(--mc-border-muted)`).
-  Brand: 28px square, radius 7px, `#161616`, white glyph, 13px/1 600. Copy: strong 13/18 600,
-  small 11/16 uppercase `letter-spacing:.08em` secondary.
+  Brand: 28px square logo chip — `/brand/mira-logo-mark.png` (96×96 artwork, `alt=""`,
+  `aria-hidden` wrapper) in a 7px-radius `--mc-brand-canvas` box with `--mc-hairline-muted`;
+  no text glyph, no recolor and no keyed-out background. Copy: a single `strong`
+  `Mira Cloud` at 13/18 600 — no secondary line under the brand.
   Nav (`主导航`): a single contextual entry — `登录` when signed out, `账户中心` when signed in
   (only reachable on the public 404), 28px tall items, 13px 550, radius 6, `padding:0 10px`;
   idle secondary, hover overlay, active `background:var(--mc-surface-2)`.
 - Container: `max-width:1120px`, `padding-inline:24px` (`16px` ≤640).
 - Footer: `padding-block:20px 28px`, 12/18 secondary, hairline top, flex space-between, stack ≤640.
 
+### Home (`pages/home-page.tsx` + `styles/cloud-home.css`)
+
+Public entry at `/`. Console language, not a landing page: one screen at 1440×900, no
+hero, no illustration, no marketing paragraphs.
+- Page head: `console-page-head` recipe (h1 26/32 600, `clamp(22px,3vw,26px)`, tracking 0)
+  + `console-page-caption` 13/20 secondary. Copy is factual: `Mira Cloud 账户` /
+  `登录后查看 Mira 设备、调整访问授权，并管理账户安全。` Column `max-width:720px`.
+- Entry action: exactly one contextual `xl` button from `getAccountEntry()`
+  (`登录 Mira Cloud` / `进入账户中心` / `检查登录状态`), `gap:8px`, 36px tall.
+  While the saved session restores, a `role="status"` line (`正在检查登录状态…`, 13/20)
+  replaces the button, so no destination is guessed and no layout jumps.
+- Destinations: a `ul` of record rows — 32px icon tile (white, hairline, radius 6,
+  16px icon), 14/20 550 title, 13/20 secondary caption, faint `→`. Rows use the
+  full-bleed hover recipe (`margin-inline:-12px; padding-inline:12px; radius 8;
+  background:var(--mc-overlay-hover)`), hairline between rows, 14px block padding.
+  `设备与授权` → `/account/devices`, `账户安全` → `/account/security`. `关联服务` is a
+  **static** row (no link, no chevron) with a `尚未接入` pill (11/16 550, surface-3,
+  radius 4) — no fake entry for a service that is not connected.
+- Boundary note: 13/20 secondary, `max-width:62ch`, hairline top, 32px above.
+- ≤640: `padding-block:32px 24px`, rows `14px 8px`; still one column. The page must stay
+  under one viewport at 1440×900 and under ~1.2 viewports at 390×844.
+
 ### Console shell (`app/account-layout.tsx` + `styles/console.css`)
 
-- Header: same recipe as the public shell, but the right slot is the identity chip
+- Header: same recipe as the public shell (same 28px logo chip), but the right slot is the identity chip
   (28px avatar, name 13/18 550, `status dot + 已登录` 11/16) when authenticated, otherwise
   a single `登录` link.
 - Body: `grid-template-columns: 212px minmax(0,1fr)`, gap 40, container 1120 + 24 gutters.
@@ -357,7 +383,7 @@ Used by `/login` and the public 404 only.
 ## 10. Must-preserve contract (from the test suite)
 Accessible names/strings that tests query (do not rename, retranslate or remove):
 
-- headings: `欢迎回来。` (login h1), `登录 Mira Cloud` (h2), `我的账户` (overview h1),
+- headings: `Mira Cloud 账户` (home h1), `欢迎回来。` (login h1), `登录 Mira Cloud` (h2), `我的账户` (overview h1),
   `设备与授权` (devices h1), `账户安全` (security h1), `关联服务` (services h1),
   `页面不存在` (h1)
 - labels/inputs: `账号`, `密码`, `当前密码`, `新密码`; placeholders unchanged

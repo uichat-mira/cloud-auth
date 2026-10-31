@@ -435,18 +435,7 @@
   padding: 0 16px 16px;
 }
 
-/* Host-level failure and explanatory blocks. */
-.cloud-host-failure {
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: var(--mc-r-sm);
-  background: var(--mc-danger-bg);
-  color: var(--mc-danger-fg);
-  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
-  font-size: 13px;
-  line-height: 20px;
-}
-
+/* Host-level explanatory blocks. */
 .cloud-host-block {
   display: flex;
   flex-direction: column;

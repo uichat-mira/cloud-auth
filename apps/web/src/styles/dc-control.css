@@ -32,9 +32,13 @@
   background: var(--mc-text-disabled);
 }
 
-.dc-dot-on { background: var(--mc-success-dot); }
+.dc-dot-on {
+  background: var(--mc-success-dot);
+}
 
-.dc-feedback { margin-top: 18px; }
+.dc-feedback {
+  margin-top: 18px;
+}
 
 .dc-layout {
   display: grid;
@@ -104,9 +108,13 @@
   margin-top: 20px;
 }
 
-.dc-actions [data-slot="button"] { width: 100%; }
+.dc-actions [data-slot="button"] {
+  width: 100%;
+}
 
-.dc-panel > .dc-muted { margin: 14px 0 0; }
+.dc-panel > .dc-muted {
+  margin: 14px 0 0;
+}
 
 .dc-field {
   display: flex;
@@ -121,7 +129,9 @@
   font-weight: 550;
 }
 
-.dc-field legend { padding: 0 0 10px; }
+.dc-field legend {
+  padding: 0 0 10px;
+}
 
 .dc-duration-group {
   display: flex;
@@ -141,7 +151,10 @@
   font-size: 12px;
 }
 
-.dc-duration[disabled] { opacity: 0.45; cursor: not-allowed; }
+.dc-duration[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 
 .dc-duration-active,
 .dc-duration[aria-pressed="true"] {
@@ -170,7 +183,9 @@
   font-weight: 450;
 }
 
-.dc-field select:disabled { opacity: 0.45; }
+.dc-field select:disabled {
+  opacity: 0.45;
+}
 
 .dc-policy-fact {
   display: flex;
@@ -184,17 +199,37 @@
   font-size: 12px;
 }
 
-.dc-policy-fact strong { color: var(--mc-success-fg); font-weight: 550; }
+.dc-policy-fact strong {
+  color: var(--mc-success-fg);
+  font-weight: 550;
+}
 
-.dc-policy-save { display: flex; justify-content: flex-end; margin-top: 24px; }
+.dc-policy-save {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
 
 @media (max-width: 800px) {
-  .dc-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .dc-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
 }
 
 @media (max-width: 480px) {
-  .dc-page-heading { flex-direction: column; align-items: flex-start; }
-  .dc-panel { padding: 16px; }
-  .dc-select-grid { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .dc-duration { flex: 1 1 auto; }
+  .dc-page-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .dc-panel {
+    padding: 16px;
+  }
+  .dc-select-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .dc-duration {
+    flex: 1 1 auto;
+  }
 }

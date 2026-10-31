@@ -57,31 +57,23 @@ export function HostGrantCard({
       </CardHeader>
 
       <CardContent className="cloud-host-body">
-        {view.failure ? (
-          <p role="alert" className="cloud-host-failure">
-            {view.failure.message}
-          </p>
-        ) : null}
-
-        {!view.failure && !view.policyConfigured ? (
+        {!view.policyConfigured ? (
           <div className="cloud-host-block">
             <p className="cloud-host-block-title">Desktop 尚未为此 Host 设置授权范围。</p>
             <p className="cloud-host-block-copy">
               Portal 不能在这里新增权限；请先在 Mira Desktop 登录时选择允许范围。
-              {hasMobiles
-                ? `账户中的 ${mobiles.length} 台手机设备当前没有此 Host 的权限。`
-                : null}
+              {hasMobiles ? `账户中的 ${mobiles.length} 台手机设备当前没有此 Host 的权限。` : null}
             </p>
           </div>
         ) : null}
 
-        {!view.failure && view.policyConfigured && view.grants.length === 0 ? (
+        {view.policyConfigured && view.grants.length === 0 ? (
           <p className="cloud-host-empty-row">
             {hasMobiles ? "此 Host 还没有授权给任何手机设备。" : "此账户还没有手机设备。"}
           </p>
         ) : null}
 
-        {!view.failure && view.grants.length > 0 ? (
+        {view.grants.length > 0 ? (
           <ul className="cloud-grant-list">
             {view.grants.map((grant) => (
               <MobileGrantRow

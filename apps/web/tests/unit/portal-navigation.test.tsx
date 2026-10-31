@@ -102,11 +102,11 @@ describe("Mira Cloud single entry navigation", () => {
     async (status) => {
       mountPublicShell(status);
 
-      expect(await screen.findByRole("status")).toHaveTextContent(
-        "正在检查登录状态",
-      );
+      expect(await screen.findByRole("status")).toHaveTextContent("正在检查登录状态");
       expect(publicNavLinks()).toHaveLength(0);
-      expect(within(screen.getByRole("navigation", { name: "主导航" })).queryByRole("link")).toBeNull();
+      expect(
+        within(screen.getByRole("navigation", { name: "主导航" })).queryByRole("link"),
+      ).toBeNull();
     },
   );
 
@@ -114,39 +114,48 @@ describe("Mira Cloud single entry navigation", () => {
     ["unauthenticated", "/login"],
     ["authenticated", "/account"],
     ["unavailable", "/account"],
-  ] as const)("keeps the home page with the appropriate entry for %s", async (status, destination) => {
-    const client: CloudAuthClient =
-      status === "unavailable"
-        ? createFakeAuthClient({
-            getSession: async () => {
-              throw new CloudAuthError(createAuthFailure("service_unavailable"));
-            },
-          })
-        : createFakeAuthClient();
+  ] as const)(
+    "keeps the home page with the appropriate entry for %s",
+    async (status, destination) => {
+      const client: CloudAuthClient =
+        status === "unavailable"
+          ? createFakeAuthClient({
+              getSession: async () => {
+                throw new CloudAuthError(createAuthFailure("service_unavailable"));
+              },
+            })
+          : createFakeAuthClient();
 
-    const { router } = mountPortal({
-      path: "/",
-      client,
-      session: status === "unauthenticated" ? null : storedSession,
-    });
+      const { router } = mountPortal({
+        path: "/",
+        client,
+        session: status === "unauthenticated" ? null : storedSession,
+      });
 
-    const main = screen.getByRole("main");
-    expect(await within(main).findByRole("heading", { level: 1, name: "你的 Mira 云端账户" })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(within(main).getByRole("link", {
-        name: status === "authenticated" ? "进入账户中心" : status === "unavailable" ? "检查登录状态" : "登录 Mira Cloud",
-      })).toHaveAttribute("href", destination);
-    });
-    expect(router.state.location.pathname).toBe("/");
-    expect(screen.getByRole("link", { name: /Mira Cloud\s*Your account/ })).toHaveAttribute("href", "/");
-    expect(screen.queryByLabelText("密码")).not.toBeInTheDocument();
-    // The route tree must mount cleanly: a missing provider used to throw into
-    // the route errorElement while the redirect assertion still passed.
-    expect(
-      screen.queryByRole("heading", { name: "页面暂时无法显示" }),
-    ).not.toBeInTheDocument();
-
-  });
+      const main = screen.getByRole("main");
+      expect(
+        await within(main).findByRole("heading", { level: 1, name: "Mira Cloud 账户" }),
+      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          within(main).getByRole("link", {
+            name:
+              status === "authenticated"
+                ? "进入账户中心"
+                : status === "unavailable"
+                  ? "检查登录状态"
+                  : "登录 Mira Cloud",
+          }),
+        ).toHaveAttribute("href", destination);
+      });
+      expect(router.state.location.pathname).toBe("/");
+      expect(screen.getByRole("link", { name: "Mira Cloud" })).toHaveAttribute("href", "/");
+      expect(screen.queryByLabelText("密码")).not.toBeInTheDocument();
+      // The route tree must mount cleanly: a missing provider used to throw into
+      // the route errorElement while the redirect assertion still passed.
+      expect(screen.queryByRole("heading", { name: "页面暂时无法显示" })).not.toBeInTheDocument();
+    },
+  );
 
   it("keeps home content visible while restoring without guessing an entry", () => {
     const { router } = mountPortal({
@@ -155,9 +164,13 @@ describe("Mira Cloud single entry navigation", () => {
       client: createFakeAuthClient({ getSession: () => new Promise<never>(() => undefined) }),
     });
     const main = screen.getByRole("main");
-    expect(within(main).getByRole("heading", { level: 1, name: "你的 Mira 云端账户" })).toBeInTheDocument();
+    expect(
+      within(main).getByRole("heading", { level: 1, name: "Mira Cloud 账户" }),
+    ).toBeInTheDocument();
     expect(within(main).getByRole("status")).toHaveTextContent("正在检查登录状态");
-    expect(within(main).queryByRole("link", { name: /登录 Mira Cloud|进入账户中心|检查登录状态/ })).toBeNull();
+    expect(
+      within(main).queryByRole("link", { name: /登录 Mira Cloud|进入账户中心|检查登录状态/ }),
+    ).toBeNull();
     expect(router.state.location.pathname).toBe("/");
   });
 });

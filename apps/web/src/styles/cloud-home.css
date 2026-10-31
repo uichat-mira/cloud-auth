@@ -1,297 +1,171 @@
+/*
+ * Public account home (`/`).
+ *
+ * Console language, not landing page: one page head, the single contextual
+ * entry action, then the destinations the console owns as record rows.
+ * Type scale, radii, elevation and row hover all come from the Mira Console
+ * tokens — no display sizes for an entry page.
+ */
 .cloud-home {
-  padding-block: 64px 40px;
+  max-width: 720px;
+  padding-block: 48px 40px;
 }
 
-.cloud-home-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  align-items: center;
-  gap: 48px;
-  padding-block: 24px 72px;
-}
-
-.cloud-home-eyebrow {
-  margin: 0 0 24px;
-  color: var(--mc-text-faint);
-  font-size: 11px;
-  font-weight: 550;
-  letter-spacing: 0.12em;
-}
-
-.cloud-home-intro h1 {
-  margin: 0;
-  max-width: 9em;
-  font-size: clamp(32px, 4vw, 52px);
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.cloud-home-lede {
-  margin: 24px 0 12px;
-  font-size: 18px;
-  line-height: 1.7;
-}
-
-.cloud-home-description {
-  max-width: 32em;
-  margin: 0;
-  color: var(--mc-text-secondary);
-  font-size: 14px;
-  line-height: 1.9;
-}
-
-.cloud-home-actions {
+.cloud-home-entry {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
-  margin-top: 32px;
-  min-height: 40px;
+  gap: 16px;
+  margin-top: 24px;
+  min-height: 36px;
 }
 
-.cloud-home-actions [data-slot="button"] {
-  min-height: 40px;
-  gap: 16px;
-}
-.cloud-home-secondary {
-  display: inline-flex;
-  align-items: center;
+/* The arrow is part of the label; 8px keeps it readable without widening the button. */
+.cloud-home-entry [data-slot="button"] {
   gap: 8px;
-  min-height: 40px;
-  font-size: 13px;
-  color: var(--mc-text-secondary);
-  text-decoration: none;
 }
-.cloud-home-secondary:hover {
-  color: var(--mc-text);
-}
+
 .cloud-home-checking {
   margin: 0;
   color: var(--mc-text-faint);
   font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
 }
 
-.cloud-home-visual {
-  position: relative;
-  width: 100%;
-  max-width: 400px;
-  aspect-ratio: 5 / 4;
-  justify-self: center;
-}
+/* ------------------------------------------------------ destinations --- */
 
-.cloud-home-orbit {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  box-shadow: var(--mc-hairline-muted);
-}
-.cloud-home-orbit-outer {
-  width: 88%;
-  height: 88%;
-}
-.cloud-home-orbit-inner {
-  width: 62%;
-  height: 62%;
-  background: var(--mc-surface-1);
-}
-.cloud-home-connections {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  stroke: var(--mc-border-strong);
-  stroke-width: 1;
-  stroke-dasharray: 3 5;
-}
-.cloud-home-account {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-}
-.cloud-home-account > span {
-  display: grid;
-  place-items: center;
-  width: 76px;
-  height: 76px;
-  border-radius: 20px;
-  background: var(--mc-text);
-  color: var(--mc-text-inverse);
-  font-size: 32px;
-  font-weight: 600;
-  box-shadow: var(--mc-el-raised);
-}
-.cloud-home-account small {
-  color: var(--mc-text-secondary);
-  font-size: 11px;
-}
-.cloud-home-node {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-radius: var(--mc-r-lg);
-  background: var(--mc-surface-0);
-  box-shadow: var(--mc-el-raised);
-  font-size: 12px;
-  color: var(--mc-text-secondary);
-}
-.cloud-home-node svg {
-  width: 20px;
-  height: 20px;
-}
-.cloud-home-node-desktop {
-  left: 7%;
-  top: 22%;
-}
-.cloud-home-node-security {
-  right: 4%;
-  top: 17%;
-}
-.cloud-home-node-access {
-  right: 9%;
-  bottom: 20%;
-}
-.cloud-home-visual-caption {
-  position: absolute;
-  bottom: -12px;
-  left: 0;
-  width: 100%;
-  text-align: center;
-  font-size: 11px;
-  color: var(--mc-text-faint);
-}
-
-.cloud-home-capabilities {
-  padding-block: 32px 40px;
+.cloud-home-sections {
+  margin-top: 36px;
   box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
-  scroll-margin-top: 80px;
-}
-.cloud-home-section-head h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 550;
-  line-height: 1.6;
-}
-.cloud-home-section-head > p {
-  margin: 8px 0 0;
-  color: var(--mc-text-secondary);
-  font-size: 13px;
-  line-height: 1.7;
-}
-.cloud-home-feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 36px;
-  margin-top: 32px;
-}
-.cloud-home-feature-icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--mc-r-md);
-  background: var(--mc-surface-2);
-}
-.cloud-home-feature-icon svg {
-  width: 20px;
-  height: 20px;
-}
-.cloud-home-feature h3 {
-  margin: 16px 0 8px;
-  font-size: 15px;
-  font-weight: 550;
-}
-.cloud-home-feature p {
-  margin: 0;
-  color: var(--mc-text-secondary);
-  font-size: 13px;
-  line-height: 1.9;
-}
-.cloud-home-feature small {
-  display: block;
-  margin-top: 16px;
-  color: var(--mc-text-faint);
-  font-size: 11px;
-  line-height: 1.8;
-}
-.cloud-home-local {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 20px 24px;
-  border-radius: var(--mc-r-lg);
-  background: var(--mc-surface-1);
-}
-.cloud-home-local-mark {
-  flex: none;
-  padding-top: 2px;
-  color: var(--mc-text-secondary);
-}
-.cloud-home-local-mark svg {
-  width: 20px;
-  height: 20px;
-}
-.cloud-home-local h2 {
-  margin: 0 0 6px;
-  font-size: 13px;
-  font-weight: 550;
-}
-.cloud-home-local p {
-  margin: 0;
-  color: var(--mc-text-secondary);
-  font-size: 12px;
-  line-height: 1.8;
 }
 
-@media (max-width: 767px) {
+.cloud-home-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-home-list > li + li {
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+}
+
+.cloud-home-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-inline: -12px;
+  border-radius: var(--mc-r-md);
+  padding: 14px 12px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 85ms var(--mc-ease);
+}
+
+a.cloud-home-row:hover {
+  background: var(--mc-overlay-hover);
+}
+
+a.cloud-home-row:active {
+  background: var(--mc-overlay-pressed);
+}
+
+/* Static rows (e.g. not-yet-connected services) keep the layout, not the affordance. */
+.cloud-home-row-static {
+  cursor: default;
+}
+
+.cloud-home-row-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: var(--mc-r-sm);
+  /* A white tile would disappear on the white page; the inset surface keeps the glyph anchored. */
+  background: var(--mc-surface-2);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text-secondary);
+}
+
+.cloud-home-row-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cloud-home-row-body {
+  min-width: 0;
+}
+
+.cloud-home-row-title {
+  display: block;
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 20px;
+}
+
+.cloud-home-row-caption {
+  display: block;
+  margin-top: 2px;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+}
+
+.cloud-home-row-trail {
+  color: var(--mc-text-faint);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.cloud-home-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding-inline: 6px;
+  border-radius: 4px;
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------- boundary --- */
+
+.cloud-home-boundary {
+  max-width: 62ch;
+  margin: 32px 0 0;
+  padding-top: 16px;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+}
+
+@media (max-width: 640px) {
   .cloud-home {
     padding-block: 32px 24px;
   }
-  .cloud-home-hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    padding-block: 8px 40px;
-  }
-  .cloud-home-eyebrow {
-    margin-bottom: 20px;
-  }
-  .cloud-home-intro h1 {
-    max-width: none;
-    font-size: clamp(29px, 6vw, 40px);
-  }
-  .cloud-home-lede {
+
+  .cloud-home-entry {
     margin-top: 20px;
-    font-size: 16px;
   }
-  .cloud-home-visual {
-    max-width: 300px;
+
+  .cloud-home-sections {
+    margin-top: 28px;
   }
-  .cloud-home-feature-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
+
+  .cloud-home-row {
+    gap: 12px;
+    margin-inline: -8px;
+    padding: 14px 8px;
   }
-  .cloud-home-feature {
-    position: relative;
-    padding-left: 52px;
-  }
-  .cloud-home-feature-icon {
-    position: absolute;
-    top: 0;
-    left: 0;
-  }
-  .cloud-home-feature h3 {
-    margin-top: 0;
-  }
-  .cloud-home-feature small {
-    margin-top: 8px;
-  }
-  .cloud-home-local {
-    padding: 20px 16px;
+
+  .cloud-home-boundary {
+    margin-top: 28px;
   }
 }

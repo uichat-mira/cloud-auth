@@ -8,9 +8,7 @@ export function ServicesPage() {
         <h1 id="associated-services-heading" tabIndex={-1}>
           关联服务
         </h1>
-        <p className="console-page-caption">
-          统一管理与 Mira Cloud Account 关联的服务。
-        </p>
+        <p className="console-page-caption">统一管理与 Mira Cloud Account 关联的服务。</p>
       </header>
 
       <AssociatedServices />

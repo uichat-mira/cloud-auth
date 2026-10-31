@@ -10,11 +10,7 @@ import { formatExpiry } from "@/lib/format";
 import { HostGrantsProvider } from "@/lib/grants/context";
 import { createFakeHostGrantsClient } from "../helpers/host-grants-fixtures";
 import { createMemoryStorage } from "../helpers/session-storage";
-import {
-  account,
-  expiresAt,
-  issuedSession,
-} from "../helpers/auth-fixtures";
+import { account, expiresAt, issuedSession } from "../helpers/auth-fixtures";
 
 function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient {
   return {
@@ -29,7 +25,7 @@ function createClient(overrides: Partial<CloudAuthClient> = {}): CloudAuthClient
 
 function emptyGrantsClient() {
   return createFakeHostGrantsClient({
-    listHosts: async () => [],
+    listManagement: async () => [],
     listDevices: async () => [],
   });
 }
@@ -110,9 +106,7 @@ describe("auth-backed route components", () => {
       expect(router.state.location.pathname).toBe("/account");
     });
     expect(await findIdentity()).toBeInTheDocument();
-    expect(loginCalls).toEqual([
-      { username: "pilot", password: "correct horse battery staple" },
-    ]);
+    expect(loginCalls).toEqual([{ username: "pilot", password: "correct horse battery staple" }]);
     expect(storage.load()?.sessionToken).toBe("token-1");
 
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
@@ -128,15 +122,11 @@ describe("auth-backed route components", () => {
   it("keeps login focused on the form and browser session note", () => {
     renderWithClient({ client: createClient(), path: "/login" });
 
-    expect(
-      screen.getByText(/登录状态仅保存在此浏览器/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/登录状态仅保存在此浏览器/)).toBeInTheDocument();
     expect(screen.queryByText("欢迎回来。")).not.toBeInTheDocument();
     expect(screen.queryByText("Cloud Shiyan")).not.toBeInTheDocument();
     expect(screen.queryByText("Hosted Relay")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/只是想查看账户页面/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/只是想查看账户页面/)).not.toBeInTheDocument();
   });
 
   it("disables submission with a pending label while login is in flight", async () => {
@@ -163,9 +153,7 @@ describe("auth-backed route components", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "登录" }));
 
-    expect(
-      await screen.findByRole("button", { name: "登录中…" }),
-    ).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "登录中…" })).toBeDisabled();
     expect(router.state.location.pathname).toBe("/login");
 
     resolveLogin();
@@ -192,9 +180,7 @@ describe("auth-backed route components", () => {
       path: "/login",
     });
 
-    expect(
-      await screen.findByText("正在恢复登录状态…"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("正在恢复登录状态…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "登录" })).toBeDisabled();
 
     resolveSession();
@@ -227,9 +213,7 @@ describe("auth-backed route components", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "登录" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "账号或密码不正确。",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("账号或密码不正确。");
     expect(screen.getByRole("button", { name: "登录" })).toBeEnabled();
     expect(storage.load()).toBeNull();
   });
@@ -264,9 +248,7 @@ describe("auth-backed route components", () => {
       path: "/account",
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "我的账户" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
     await findIdentity();
 
     // Account facts: the identifier is visible without expanding anything.
@@ -282,14 +264,8 @@ describe("auth-backed route components", () => {
       "href",
       "/account/security",
     );
-    expect(screen.getByRole("link", { name: "管理" })).toHaveAttribute(
-      "href",
-      "/account/devices",
-    );
-    expect(screen.getByRole("link", { name: "查看" })).toHaveAttribute(
-      "href",
-      "/account/services",
-    );
+    expect(screen.getByRole("link", { name: "管理" })).toHaveAttribute("href", "/account/devices");
+    expect(screen.getByRole("link", { name: "查看" })).toHaveAttribute("href", "/account/services");
 
     // Grant counts come from the same controller the devices page uses.
     const counts = await screen.findByRole("list");
@@ -299,9 +275,7 @@ describe("auth-backed route components", () => {
     expect(within(counts).getAllByRole("listitem")).toHaveLength(3);
 
     expect(screen.getByText("3 项服务 · 2 项尚未接入")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: "关联服务" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "关联服务" })).toBeInTheDocument();
   });
 
   it("lists the owned device records on the devices route with one page-level caveat", async () => {
@@ -317,9 +291,7 @@ describe("auth-backed route components", () => {
     expect(router.state.location.pathname).toBe("/account/devices");
     expect(screen.getByRole("button", { name: "刷新列表" })).toBeInTheDocument();
 
-    expect(
-      await screen.findByText("没有可管理的 Desktop Host"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("没有可管理的 Desktop Host")).toBeInTheDocument();
 
     // The execution caveat lives once on the page, not inside every record card.
     const caveats = screen.getAllByText(/云端保存成功不等于 Desktop 已立即执行/);
@@ -334,23 +306,13 @@ describe("auth-backed route components", () => {
       path: "/account/security",
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "账户安全" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 2, name: "密码" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "修改密码" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "账户安全" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "密码" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "修改密码" })).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("heading", { level: 2, name: "当前登录会话" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "当前登录会话" })).toBeInTheDocument();
     // Renewal has to be reachable without expanding a disclosure.
-    expect(
-      screen.getByRole("button", { name: "续期 Session" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "续期 Session" })).toBeEnabled();
     expect(screen.getByText("状态")).toBeInTheDocument();
     expect(screen.getByText("到期时间")).toBeInTheDocument();
     expect(screen.getAllByText("已登录").length).toBeGreaterThan(0);
@@ -364,9 +326,7 @@ describe("auth-backed route components", () => {
       path: "/account/services",
     });
 
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "关联服务" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "关联服务" })).toBeInTheDocument();
 
     const services = screen.getByRole("list");
     expect(within(services).getAllByRole("listitem")).toHaveLength(3);
@@ -398,16 +358,12 @@ describe("auth-backed route components", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "续期 Session" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Cloud Session 已续期",
-    );
+    expect(await screen.findByRole("status")).toHaveTextContent("Cloud Session 已续期");
     await waitFor(() => {
       expect(storage.load()?.sessionToken).toBe("token-2");
     });
     expect(router.state.location.pathname).toBe("/account/security");
-    expect(
-      screen.getByRole("heading", { level: 1, name: "账户安全" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "账户安全" })).toBeInTheDocument();
   });
 
   it("keeps password fields in a dismissible dialog and clears them on cancel", async () => {
@@ -465,15 +421,11 @@ describe("auth-backed route components", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "确认修改" }));
 
-    expect(
-      await screen.findByRole("button", { name: "修改中…" }),
-    ).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "修改中…" })).toBeDisabled();
 
     resolveChange();
 
-    expect(
-      await screen.findByText("密码已修改，请重新登录。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("密码已修改，请重新登录。")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
       "href",
       "/login?returnTo=%2Faccount%2Fsecurity",
@@ -520,9 +472,7 @@ describe("auth-backed route components", () => {
 
     // While the dialog is open it owns the alert region: the console must not
     // answer the same failure twice.
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-      "账号或密码不正确。",
-    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("账号或密码不正确。");
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(screen.getByLabelText("当前密码")).toBeInTheDocument();
     expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
@@ -579,13 +529,8 @@ describe("auth-backed route components", () => {
       path: "/account",
     });
 
-    expect(
-      await screen.findByText("登录状态已失效或已过期，请重新登录。"),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(await screen.findByText("登录状态已失效或已过期，请重新登录。")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login");
     expect(storage.load()).toBeNull();
   });
 
@@ -593,9 +538,7 @@ describe("auth-backed route components", () => {
     const { storage } = renderWithClient({
       client: createClient({
         login: async () => {
-          throw new CloudAuthError(
-            createAuthFailure("rate_limited", { retryAfterSeconds: 30 }),
-          );
+          throw new CloudAuthError(createAuthFailure("rate_limited", { retryAfterSeconds: 30 }));
         },
       }),
       path: "/login",
@@ -633,8 +576,6 @@ describe("auth-backed route components", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "登录" }));
 
-    expect(
-      await screen.findByText("认证服务暂时不可用，请稍后重试。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("认证服务暂时不可用，请稍后重试。")).toBeInTheDocument();
   });
 });

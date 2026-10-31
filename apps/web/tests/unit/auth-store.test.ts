@@ -156,9 +156,10 @@ describe("auth store", () => {
       storage,
       client: createClient({
         login: async () => issuedSession("new-login"),
-        renewSession: async () => new Promise<ReturnType<typeof issuedSession>>((resolve) => {
-          finishRenew = resolve;
-        }),
+        renewSession: async () =>
+          new Promise<ReturnType<typeof issuedSession>>((resolve) => {
+            finishRenew = resolve;
+          }),
       }),
     });
     await store.getState().restore();
@@ -168,7 +169,11 @@ describe("auth store", () => {
     finishRenew?.(issuedSession("stale-renew"));
     await staleRenew;
     expect(storage.load()?.sessionToken).toBe("new-login");
-    expect(store.getState()).toMatchObject({ status: "authenticated", notice: null, pending: null });
+    expect(store.getState()).toMatchObject({
+      status: "authenticated",
+      notice: null,
+      pending: null,
+    });
   });
 
   it("clears the local session and announces forced re-login after a password change", async () => {
@@ -188,10 +193,9 @@ describe("auth store", () => {
     });
     await store.getState().restore();
 
-    await store.getState().changePassword(
-      "correct horse battery staple",
-      "another strong replacement passphrase",
-    );
+    await store
+      .getState()
+      .changePassword("correct horse battery staple", "another strong replacement passphrase");
 
     expect(calls).toEqual([
       {
@@ -209,9 +213,7 @@ describe("auth store", () => {
       pending: null,
     });
     expect(storage.load()).toBeNull();
-    expect(JSON.stringify(store.getState())).not.toContain(
-      "correct horse battery staple",
-    );
+    expect(JSON.stringify(store.getState())).not.toContain("correct horse battery staple");
   });
 
   it("keeps the session usable when the current password is incorrect", async () => {
@@ -260,10 +262,7 @@ describe("auth store", () => {
     });
     await store.getState().restore();
 
-    await store.getState().changePassword(
-      "correct horse battery staple",
-      "too short",
-    );
+    await store.getState().changePassword("correct horse battery staple", "too short");
 
     expect(store.getState()).toMatchObject({
       status: "authenticated",
@@ -285,10 +284,9 @@ describe("auth store", () => {
     });
     await store.getState().restore();
 
-    await store.getState().changePassword(
-      "correct horse battery staple",
-      "another strong replacement passphrase",
-    );
+    await store
+      .getState()
+      .changePassword("correct horse battery staple", "another strong replacement passphrase");
 
     expect(store.getState()).toMatchObject({
       status: "unauthenticated",
@@ -311,10 +309,9 @@ describe("auth store", () => {
     });
     await store.getState().restore();
 
-    await store.getState().changePassword(
-      "correct horse battery staple",
-      "another strong replacement passphrase",
-    );
+    await store
+      .getState()
+      .changePassword("correct horse battery staple", "another strong replacement passphrase");
 
     expect(store.getState()).toMatchObject({
       status: "authenticated",
@@ -336,10 +333,9 @@ describe("auth store", () => {
       storage,
     });
 
-    await store.getState().changePassword(
-      "correct horse battery staple",
-      "another strong replacement passphrase",
-    );
+    await store
+      .getState()
+      .changePassword("correct horse battery staple", "another strong replacement passphrase");
 
     expect(called).toBe(false);
     expect(store.getState()).toMatchObject({
@@ -387,11 +383,9 @@ describe("auth store", () => {
     "preserves the stored session and surfaces a retryable failure when logout fails with %s",
     async (kind) => {
       const failure = createAuthFailure(kind);
-      const { store, storage, stored } = await createAuthenticatedLogoutStore(
-        async () => {
-          throw new CloudAuthError(failure);
-        },
-      );
+      const { store, storage, stored } = await createAuthenticatedLogoutStore(async () => {
+        throw new CloudAuthError(failure);
+      });
 
       await store.getState().logout();
 
@@ -422,9 +416,7 @@ describe("auth store", () => {
     const rateLimitedStore = createAuthStore({
       client: createClient({
         login: async () => {
-          throw new CloudAuthError(
-            createAuthFailure("rate_limited", { retryAfterSeconds: 15 }),
-          );
+          throw new CloudAuthError(createAuthFailure("rate_limited", { retryAfterSeconds: 15 }));
         },
       }),
       storage: createMemoryStorage(),

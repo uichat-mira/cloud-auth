@@ -1,17 +1,9 @@
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
 import { HostGrantCard } from "@/components/host-grant-card";
 import { useAuthSession } from "@/lib/auth/context";
 import { useHostGrantsClient } from "@/lib/grants/context";
-import {
-  useDeviceGrants,
-  type HostGrantsNotice,
-} from "@/lib/grants/use-device-grants";
+import { useDeviceGrants, type HostGrantsNotice } from "@/lib/grants/use-device-grants";
 import { cn } from "@/lib/utils";
 
 const noticeToneClass: Record<HostGrantsNotice["tone"], string> = {
@@ -44,8 +36,7 @@ export function DeviceGrantsCard() {
     !grants.loadFailure &&
     grants.hosts.length === 0;
   const activeGrantCount = grants.hosts.reduce(
-    (total, view) =>
-      total + view.grants.filter((grant) => grant.status === "active").length,
+    (total, view) => total + view.grants.filter((grant) => grant.status === "active").length,
     0,
   );
 
@@ -65,11 +56,7 @@ export function DeviceGrantsCard() {
             title={grants.refreshing ? "读取中…" : "刷新列表"}
             aria-busy={grants.refreshing}
             onClick={() => void grants.refresh({ announce: true })}
-            disabled={
-              grants.status === "loading" ||
-              grants.refreshing ||
-              grants.pending !== null
-            }
+            disabled={grants.status === "loading" || grants.refreshing || grants.pending !== null}
           >
             <svg
               aria-hidden="true"
@@ -96,8 +83,8 @@ export function DeviceGrantsCard() {
             </p>
           ) : (
             <p className="cloud-grants-summary">
-              Desktop Host {grants.hosts.length} · 手机设备{" "}
-              {grants.mobiles.length} · 有效授权 {activeGrantCount}
+              Desktop Host {grants.hosts.length} · 手机设备 {grants.mobiles.length} · 有效授权{" "}
+              {activeGrantCount}
             </p>
           )}
         </div>
@@ -144,8 +131,7 @@ export function DeviceGrantsCard() {
 
       {grants.revokedMobiles.length > 0 ? (
         <p className="cloud-grants-footnote">
-          账户中有 {grants.revokedMobiles.length}{" "}
-          台已撤销的手机设备，不会出现在授权列表中。
+          账户中有 {grants.revokedMobiles.length} 台已撤销的手机设备，不会出现在授权列表中。
         </p>
       ) : null}
     </div>
@@ -228,16 +214,13 @@ function GrantsEmpty() {
           <path d="M9.5 20h5M12 16.5V20" />
         </svg>
       </span>
-      <CardTitle className="cloud-grants-empty-title">
-        没有可管理的 Desktop Host
-      </CardTitle>
+      <CardTitle className="cloud-grants-empty-title">没有可管理的 Desktop Host</CardTitle>
       <CardDescription className="cloud-grants-empty-copy">
-        此账户当前没有在云端注册的 Desktop Host。请先在 Mira Desktop
-        登录并允许云端授权。
+        此账户当前没有在云端注册的 Desktop Host。请先在 Mira Desktop 登录并允许云端授权。
       </CardDescription>
       <p className="cloud-grants-empty-note">
-        此处会保留仍属于本账号、设备尚未撤销的历史 Host 授权。设备退出云账号或
-        Session 过期时也可管理已保存的权限。
+        此处会保留仍属于本账号、设备尚未撤销的历史 Host 授权。设备退出云账号或 Session
+        过期时也可管理已保存的权限。
       </p>
     </Card>
   );

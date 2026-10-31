@@ -22,11 +22,10 @@ export function PortalShell({ children }: { children: ReactNode }) {
             className="cloud-brand focus-visible:outline-2 focus-visible:outline-offset-4"
           >
             <span aria-hidden="true" className="cloud-brand-mark">
-              M.
+              <img src="/brand/mira-logo-mark.png" alt="" width={96} height={96} />
             </span>
             <span className="cloud-brand-copy">
               <strong>Mira Cloud</strong>
-              <small>Your account</small>
             </span>
           </Link>
           <nav aria-label="主导航" className="cloud-navigation">
@@ -37,9 +36,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
             ) : (
               <NavLink
                 to={destination}
-                className={({ isActive }) =>
-                  cn("cloud-nav-link", isActive && "cloud-nav-active")
-                }
+                className={({ isActive }) => cn("cloud-nav-link", isActive && "cloud-nav-active")}
               >
                 {label}
               </NavLink>

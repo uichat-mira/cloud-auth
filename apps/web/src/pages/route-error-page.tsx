@@ -29,9 +29,7 @@ export function RouteErrorPage() {
         <p className="cloud-state-body">{describeError(error)}</p>
         <div className="cloud-state-actions">
           <Button asChild size="lg">
-            <Link to={destination}>
-              {destination === "/account" ? "返回账户中心" : "返回登录"}
-            </Link>
+            <Link to={destination}>{destination === "/account" ? "返回账户中心" : "返回登录"}</Link>
           </Button>
         </div>
       </section>

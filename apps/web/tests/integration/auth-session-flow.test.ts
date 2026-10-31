@@ -42,13 +42,9 @@ async function startAuthServer() {
 
     if (request.method === "POST" && request.url === "/v1/auth/login") {
       if (loginRateLimited) {
-        sendAuthError(
-          response,
-          429,
-          "AUTH_RATE_LIMITED",
-          "Too many login attempts",
-          { "retry-after": "30" },
-        );
+        sendAuthError(response, 429, "AUTH_RATE_LIMITED", "Too many login attempts", {
+          "retry-after": "30",
+        });
         return;
       }
 
@@ -58,7 +54,7 @@ async function startAuthServer() {
         return;
       }
 
-      activeToken = issueSession(response, tokenSequence += 1);
+      activeToken = issueSession(response, (tokenSequence += 1));
       return;
     }
 
@@ -74,7 +70,7 @@ async function startAuthServer() {
     }
 
     if (request.method === "POST" && request.url === "/v1/auth/session/renew") {
-      activeToken = issueSession(response, tokenSequence += 1);
+      activeToken = issueSession(response, (tokenSequence += 1));
       return;
     }
 
@@ -88,7 +84,12 @@ async function startAuthServer() {
         return;
       }
       if (passwordChangeFailure === "policy") {
-        sendAuthError(response, 400, "AUTH_INVALID_PASSWORD", "Password must contain at least 15 characters");
+        sendAuthError(
+          response,
+          400,
+          "AUTH_INVALID_PASSWORD",
+          "Password must contain at least 15 characters",
+        );
         return;
       }
 
@@ -98,7 +99,12 @@ async function startAuthServer() {
         return;
       }
       if (typeof body.newPassword !== "string" || body.newPassword.length < 15) {
-        sendAuthError(response, 400, "AUTH_INVALID_PASSWORD", "Password must contain at least 15 characters");
+        sendAuthError(
+          response,
+          400,
+          "AUTH_INVALID_PASSWORD",
+          "Password must contain at least 15 characters",
+        );
         return;
       }
 
@@ -192,10 +198,7 @@ async function createAuthenticatedHarness(): Promise<AuthHarness> {
   return { server, storage, store, issued };
 }
 
-function expectAuthenticated(
-  store: AuthStore,
-  failureKind: string | null = null,
-): void {
+function expectAuthenticated(store: AuthStore, failureKind: string | null = null): void {
   expect(store.getState()).toMatchObject({
     status: "authenticated",
     account,
