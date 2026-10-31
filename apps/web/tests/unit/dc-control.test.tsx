@@ -161,7 +161,6 @@ describe("DC inside Mira account", () => {
     expect(screen.getByRole("button", { name: "保存策略" })).toBeDisabled();
   });
 
-
   it("distinguishes a saved policy from a rejected start after session renewal", async () => {
     const startGate: { release?: () => void } = {};
     const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
