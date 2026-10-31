@@ -73,6 +73,13 @@ describe("Device and Host grants card", () => {
     const { storage } = await renderLoadedGrants();
 
     expect(screen.getByText("Pixel 手机")).toBeInTheDocument();
+    const row = screen.getByText("Pixel 手机").closest(".cloud-grant-row");
+    expect(row).not.toBeNull();
+    const identity = row?.querySelector(".cloud-grant-identity");
+    const header = row?.querySelector(".cloud-grant-header");
+    expect(identity).toContainElement(screen.getByText("授权中"));
+    expect(header).toContainElement(screen.getByRole("button", { name: "调整范围" }));
+    expect(header).toContainElement(screen.getByRole("button", { name: "撤销授权" }));
     expect(screen.getByText("工作 Desktop")).toBeInTheDocument();
     expect(screen.getByText("最近在线")).toBeInTheDocument();
     expect(screen.getByText("读取会话")).toBeInTheDocument();
@@ -107,8 +114,11 @@ describe("Device and Host grants card", () => {
     await renderLoadedGrants(client);
 
     fireEvent.click(screen.getByRole("button", { name: "调整范围" }));
-    fireEvent.click(screen.getByLabelText("查看工具"));
-    fireEvent.click(screen.getByRole("button", { name: "保存收窄" }));
+    const dialog = screen.getByRole("dialog", { name: "调整授权" });
+    expect(within(dialog).getByText(/只能取消已有权限/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByLabelText("查看工具"));
+    expect(calls).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认保存" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("云端已保存");
     expect(screen.getByRole("status")).toHaveTextContent("Portal 无法确认 Desktop 已立即生效");
@@ -121,11 +131,67 @@ describe("Device and Host grants card", () => {
       },
     ]);
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "保存收窄" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "调整授权" })).not.toBeInTheDocument();
     });
     expect(screen.queryByText("查看工具")).not.toBeInTheDocument();
     expect(screen.queryByText(/已在 Desktop 生效/)).not.toBeInTheDocument();
     expect(screen.getByText("云端版本 5")).toBeInTheDocument();
+  });
+
+  it("discards draft changes on cancel and Escape without sending a mutation", async () => {
+    const calls: unknown[] = [];
+    await renderLoadedGrants(
+      createFakeHostGrantsClient({
+        narrowGrant: async (...args) => {
+          calls.push(args);
+          throw new Error("Must not be called when canceling");
+        },
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "调整范围" }));
+    let dialog = screen.getByRole("dialog", { name: "调整授权" });
+    fireEvent.click(within(dialog).getByLabelText("查看工具"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog", { name: "调整授权" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "调整范围" }));
+    dialog = screen.getByRole("dialog", { name: "调整授权" });
+    expect(within(dialog).getByLabelText("查看工具")).toBeChecked();
+    fireEvent.click(within(dialog).getByLabelText("查看工具"));
+    fireEvent.click(within(dialog).getByLabelText("读取会话"));
+    expect(within(dialog).getByRole("button", { name: "确认保存" })).toBeDisabled();
+    expect(within(dialog).getByText(/请使用“撤销授权”/)).toBeInTheDocument();
+    fireEvent(dialog, new Event("cancel", { bubbles: false, cancelable: true }));
+    expect(screen.queryByRole("dialog", { name: "调整授权" })).not.toBeInTheDocument();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("keeps the scope dialog open and draft intact when a write is rejected", async () => {
+    const calls: unknown[] = [];
+    await renderLoadedGrants(
+      createFakeHostGrantsClient({
+        narrowGrant: async (...args) => {
+          calls.push(args);
+          throw new HostGrantsError(
+            createHostGrantsFailure("forbidden", {
+              status: 403,
+              code: "HOST_GRANT_NOT_ALLOWED",
+            }),
+          );
+        },
+      }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "调整范围" }));
+    const dialog = screen.getByRole("dialog", { name: "调整授权" });
+    fireEvent.click(within(dialog).getByLabelText("查看工具"));
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认保存" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("保存未成功");
+    expect(within(dialog).getByLabelText("查看工具")).not.toBeChecked();
+    expect(calls).toHaveLength(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog", { name: "调整授权" })).not.toBeInTheDocument();
   });
 
   it("requires an explicit confirmation before revoking a grant", async () => {
@@ -203,7 +269,7 @@ describe("Device and Host grants card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "调整范围" }));
     fireEvent.click(screen.getByLabelText("查看工具"));
-    fireEvent.click(screen.getByRole("button", { name: "保存收窄" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("云端授权已被其他操作更新");
     await waitFor(() => {
@@ -211,7 +277,7 @@ describe("Device and Host grants card", () => {
     });
     expect(narrowCalls).toHaveLength(1);
     expect(screen.getByText("云端版本 6")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "保存收窄" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "确认保存" })).not.toBeInTheDocument();
   });
 
   it("keeps grant revocation available when optional device labels fail", async () => {
@@ -265,9 +331,9 @@ describe("Device and Host grants card", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "调整范围" }));
     fireEvent.click(screen.getByLabelText("查看工具"));
-    fireEvent.click(screen.getByRole("button", { name: "保存收窄" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("云端拒绝此操作");
+    expect(await screen.findByText("云端拒绝此操作。")).toBeInTheDocument();
     expect(store.getState().status).toBe("authenticated");
   });
 
