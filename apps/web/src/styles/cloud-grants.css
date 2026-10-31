@@ -484,11 +484,9 @@
 
 .cloud-grant-row {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 12px;
-  row-gap: 8px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin-inline: -8px;
   padding: 12px 8px;
   border-radius: var(--mc-r-sm);
@@ -508,6 +506,22 @@
   background: var(--mc-border-muted);
   content: "";
   pointer-events: none;
+}
+
+.cloud-grant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.cloud-grant-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .cloud-grant-main {
@@ -576,13 +590,6 @@
   line-height: 20px;
 }
 
-.cloud-grant-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
 .cloud-grant-pill {
   display: inline-flex;
   height: 18px;
@@ -615,28 +622,23 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  margin-inline-start: auto;
 }
 
 /* ------------------------------------------------------------------ */
-/* Row edit mode + revocation confirmation                             */
+/* Scope dialog + revocation confirmation                             */
 /* ------------------------------------------------------------------ */
 
-.cloud-grant-editor,
+.cloud-grant-dialog {
+  width: min(440px, calc(100vw - 32px));
+}
+
 .cloud-grant-confirm {
   display: flex;
-  grid-column: 1 / -1;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
   border-radius: var(--mc-r-sm);
-}
-
-.cloud-grant-editor {
-  background: var(--mc-surface-0);
-  box-shadow: var(--mc-hairline-muted);
-}
-
-.cloud-grant-confirm {
   background: var(--mc-danger-bg);
   color: var(--mc-danger-fg);
   box-shadow: 0 0 0 0.5px var(--mc-danger-border);
@@ -739,13 +741,6 @@
   opacity: 0.45;
 }
 
-.cloud-grant-editor-hint {
-  margin: 0;
-  color: var(--mc-text-secondary);
-  font-size: 13px;
-  line-height: 20px;
-}
-
 .cloud-grant-editor-warning {
   margin: 0;
   color: var(--mc-danger-fg);
@@ -753,7 +748,6 @@
   line-height: 20px;
 }
 
-.cloud-grant-editor-actions,
 .cloud-grant-confirm-actions {
   display: flex;
   flex-wrap: wrap;
@@ -830,26 +824,12 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Responsive: actions wrap under row content, tap targets grow        */
+/* Responsive: row actions wrap right when space is limited        */
 /* ------------------------------------------------------------------ */
 
 @media (max-width: 640px) {
-  .cloud-grant-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .cloud-grant-side {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-  }
-
-  .cloud-grant-actions,
-  .cloud-grant-editor-actions,
-  .cloud-grant-confirm-actions {
-    justify-content: flex-start;
+  .cloud-grant-actions {
+    justify-content: flex-end;
   }
 
   .cloud-grant-scope-option {
