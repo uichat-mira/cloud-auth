@@ -109,15 +109,46 @@ describe("DC inside Mira account", () => {
     expect(calls).toHaveBeenCalledWith("/dc/api/status", expect.any(Object));
   });
 
-  it("saves a changed policy before start and keeps actions bound to the DC API", async () => {
+  it("keeps runtime policy inside a dialog and discards canceled edits", async () => {
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
-    fireEvent.change(screen.getByLabelText("内存上限"), { target: { value: "512" } });
-    fireEvent.click(screen.getByRole("button", { name: "启动 DC" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "运行策略" })).toBeEnabled());
+
+    expect(screen.queryByLabelText("内存上限")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
+    const dialog = screen.getByRole("dialog", { name: "运行策略" });
+    fireEvent.change(within(dialog).getByLabelText("内存上限"), {
+      target: { value: "512" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    expect(screen.queryByRole("dialog", { name: "运行策略" })).not.toBeInTheDocument();
+
+    expect(calls.mock.calls.filter((row) => row[0] === "/dc/api/policy")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
+    const reopened = screen.getByRole("dialog", { name: "运行策略" });
+    expect(within(reopened).getByLabelText("内存上限")).toHaveValue("384");
+    expect(within(reopened).getByRole("button", { name: "确认保存" })).toBeDisabled();
+  });
+
+  it("commits runtime policy only on confirmation and keeps start bound to the DC API", async () => {
+    let current = status;
+    const calls = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input) === "/dc/api/policy") {
+        current = { ...current, policy: JSON.parse(String(init?.body)) };
+      }
+      return reply(current);
+    });
+    vi.stubGlobal("fetch", calls);
+    mountPortal({ path: "/account/services/dc", session: storedSession });
+    await waitFor(() => expect(screen.getByRole("button", { name: "运行策略" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
+    const dialog = screen.getByRole("dialog", { name: "运行策略" });
+    fireEvent.change(within(dialog).getByLabelText("内存上限"), { target: { value: "512" } });
+    expect(calls.mock.calls.filter((row) => row[0] === "/dc/api/policy")).toHaveLength(0);
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认保存" }));
     await waitFor(() =>
-      expect(calls.mock.calls.some((row) => row[0] === "/dc/api/start")).toBe(true),
+      expect(screen.queryByRole("dialog", { name: "运行策略" })).not.toBeInTheDocument(),
     );
 
     const policies = calls.mock.calls.filter((row) => row[0] === "/dc/api/policy");
@@ -127,10 +158,35 @@ describe("DC inside Mira account", () => {
       body: JSON.stringify({ ...status.policy, memoryMiB: 512 }),
       headers: expect.objectContaining({ Authorization: "Bearer " + storedSession.sessionToken }),
     });
-    const start = calls.mock.calls.find((row) => row[0] === "/dc/api/start");
-    expect(start?.[1]).toMatchObject({ method: "POST", body: "{}", credentials: "same-origin" });
+
+    fireEvent.click(screen.getByRole("button", { name: "启动 DC" }));
+    await waitFor(() =>
+      expect(calls.mock.calls.some((row) => row[0] === "/dc/api/start")).toBe(true),
+    );
+    expect(calls.mock.calls.filter((row) => row[0] === "/dc/api/policy")).toHaveLength(1);
+    const started = calls.mock.calls.find((row) => row[0] === "/dc/api/start");
+    expect(started?.[1]).toMatchObject({ method: "POST", body: "{}", credentials: "same-origin" });
     const paths = calls.mock.calls.map((row) => row[0]);
     expect(paths.indexOf("/dc/api/policy")).toBeLessThan(paths.indexOf("/dc/api/start"));
+  });
+
+  it("keeps the policy dialog open after a failed save with the draft intact", async () => {
+    const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) =>
+      String(input) === "/dc/api/policy" ? reply({ error: "资源不足" }, 503) : reply(status),
+    );
+    vi.stubGlobal("fetch", calls);
+    mountPortal({ path: "/account/services/dc", session: storedSession });
+    await waitFor(() => expect(screen.getByRole("button", { name: "运行策略" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
+    const dialog = screen.getByRole("dialog", { name: "运行策略" });
+    fireEvent.change(within(dialog).getByLabelText("内存上限"), { target: { value: "512" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认保存" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("资源不足");
+    expect(within(dialog).getByLabelText("内存上限")).toHaveValue("512");
+    expect(calls.mock.calls.filter((row) => row[0] === "/dc/api/policy")).toHaveLength(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
+    fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
+    expect(within(screen.getByRole("dialog", { name: "运行策略" })).getByLabelText("内存上限")).toHaveValue("384");
   });
 
   it("confirms stop and preserves a host-side failure instead of dismissing it", async () => {
@@ -158,12 +214,13 @@ describe("DC inside Mira account", () => {
     mountPortal({ path: "/account/services/dc", session: storedSession });
     expect(await screen.findByRole("alert")).toHaveTextContent("没有这台服务器的管理权限");
     expect(screen.getByRole("button", { name: "启动 DC" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "保存策略" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "运行策略" })).toBeDisabled();
   });
 
-  it("distinguishes a saved policy from a rejected start after session renewal", async () => {
+  it("does not replay start after a confirmed policy save and session renewal", async () => {
     const startGate: { release?: () => void } = {};
-    const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+    let current = status;
+    const calls = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === "/dc/api/start") {
         await new Promise<void>((resolve) => {
           startGate.release = resolve;
@@ -171,22 +228,29 @@ describe("DC inside Mira account", () => {
         return reply({ error: "expired" }, 401);
       }
       if (String(input) === "/dc/api/policy") {
-        return reply({ ...status, policy: { ...status.policy, memoryMiB: 512 } });
+        current = { ...status, policy: JSON.parse(String(init?.body)) };
       }
-      return reply(status);
+      return reply(current);
     });
     vi.stubGlobal("fetch", calls);
     const { store } = mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
-    fireEvent.change(screen.getByLabelText("内存上限"), { target: { value: "512" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "运行策略" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "运行策略" }));
+    const dialog = screen.getByRole("dialog", { name: "运行策略" });
+    fireEvent.change(within(dialog).getByLabelText("内存上限"), { target: { value: "512" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "确认保存" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "运行策略" })).not.toBeInTheDocument(),
+    );
     fireEvent.click(screen.getByRole("button", { name: "启动 DC" }));
     await waitFor(() => expect(startGate.release).toBeDefined());
     expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/policy")).toHaveLength(1);
     await store.getState().renew();
     startGate.release?.();
-    expect(await screen.findByRole("alert")).toHaveTextContent("运行策略已保存，但 DC 启动未执行");
+    expect(await screen.findByRole("alert")).toHaveTextContent("此操作未执行");
     expect(store.getState().getSessionToken()).toBe("token-2");
     expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/start")).toHaveLength(1);
+    expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/policy")).toHaveLength(1);
   });
 
   it("tells the user a rotated-token 401 did not execute the write", async () => {
