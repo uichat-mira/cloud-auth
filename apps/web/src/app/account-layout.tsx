@@ -27,7 +27,7 @@ export function AccountLayout() {
 }
 
 function AccountConsole() {
-  const { status, account, failure, notice } = useAuthSession();
+  const { status, failure, notice } = useAuthSession();
   const authenticated = status === "authenticated";
   const checking = status === "idle" || status === "restoring";
   const modalOpen = useModalOpen();
@@ -50,14 +50,7 @@ function AccountConsole() {
           </Link>
 
           {authenticated ? (
-            <div className="console-identity">
-              <span aria-hidden="true" className="console-avatar">
-                {initialOf(account?.username)}
-              </span>
-              <span className="console-identity-copy">
-                <strong>{account?.username ?? "Mira Cloud"}</strong>
-              </span>
-            </div>
+            <SessionBlock />
           ) : (
             <Link to={loginHref} className="console-header-action">
               登录
@@ -69,7 +62,6 @@ function AccountConsole() {
       <div className="console-container console-body">
         <aside className="console-rail">
           <ConsoleNav />
-          {authenticated ? <SessionBlock /> : null}
         </aside>
 
         <main className="console-main">
@@ -143,6 +135,3 @@ function useRouteEntryFocus(pathname: string) {
   }, [pathname]);
 }
 
-function initialOf(username: string | undefined): string {
-  return username?.trim().slice(0, 1).toUpperCase() || "M";
-}
