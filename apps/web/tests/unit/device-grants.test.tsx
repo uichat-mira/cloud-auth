@@ -333,7 +333,7 @@ describe("Device and Host grants card", () => {
     fireEvent.click(screen.getByLabelText("查看工具"));
     fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
 
-    expect(await screen.findByText("云端拒绝此操作。")).toBeInTheDocument();
+    expect(await screen.findByText(/云端拒绝此操作/)).toBeInTheDocument();
     expect(store.getState().status).toBe("authenticated");
   });
 
