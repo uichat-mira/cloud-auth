@@ -97,6 +97,9 @@ for (const viewport of viewports) {
         await page.getByRole("heading", { name: "我的账户" }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-in", viewport.name);
+        if (viewport.name === "mobile") {
+          await expectStickyMobileNavigation(page);
+        }
 
         await page.goto(`${baseUrl}/`, { waitUntil: "load" });
         await page.getByRole("main").getByRole("link", { name: "进入账户中心" }).waitFor();
@@ -169,7 +172,11 @@ for (const viewport of viewports) {
         await page.getByRole("heading", { name: "账户安全" }).waitFor();
         await page.getByText("pilot").first().waitFor();
 
-        await page.getByRole("button", { name: "退出登录" }).click();
+        expect(await page.getByRole("button", { name: "退出登录" }).count()).toBe(0);
+        await page.getByRole("button", { name: "账户菜单" }).click();
+        await page.getByRole("group", { name: "账户操作" })
+          .getByRole("button", { name: "退出登录" })
+          .click();
         await page.waitForURL("**/login");
         await page.getByLabel("账号").waitFor();
         await expectNoHorizontalOverflow(page);
@@ -207,6 +214,26 @@ for (const viewport of viewports) {
       }
     }, 60_000);
   });
+}
+
+async function expectStickyMobileNavigation(page: Page): Promise<void> {
+  const result = await page.evaluate(async () => {
+    const main = document.querySelector<HTMLElement>(".console-main");
+    const rail = document.querySelector<HTMLElement>(".console-rail");
+    if (!main || !rail) throw new Error("Account console is not mounted");
+    const oldHeight = main.style.minHeight;
+    const height = Math.round(rail.getBoundingClientRect().height);
+    main.style.minHeight = "1800px";
+    window.scrollTo(0, 400);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const top = Math.round(rail.getBoundingClientRect().top);
+    const position = getComputedStyle(rail).position;
+    main.style.minHeight = oldHeight;
+    window.scrollTo(0, 0);
+    return { top, height, position };
+  });
+
+  expect(result).toEqual({ top: 52, height: 44, position: "sticky" });
 }
 
 async function screenshot(page: Page, state: string, viewport: string): Promise<void> {
