@@ -84,8 +84,11 @@ export function MobileGrantRow({
       expectedRevision: revision,
       scopes: selectedScopes,
     });
-    if (succeeded) setEditing(false);
-    else setEditorError("保存未成功，请查看页面提示，确认最新授权状态后重试。");
+    if (succeeded) {
+      setEditing(false);
+    } else {
+      setEditorError("保存未成功，请查看页面提示，确认最新授权状态后重试。");
+    }
   }
 
   async function revokeGrant() {
@@ -109,7 +112,13 @@ export function MobileGrantRow({
         {!isRevoked && !confirmingRevoke ? (
           <div className="cloud-grant-actions">
             {canNarrow ? (
-              <Button type="button" size="sm" variant="outline" onClick={openEditor} disabled={busy}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={openEditor}
+                disabled={busy}
+              >
                 调整范围
               </Button>
             ) : null}
@@ -204,12 +213,26 @@ export function MobileGrantRow({
                 如需完全收回权限，请使用“撤销授权”。
               </p>
             ) : null}
-            {editorError ? <p className="cloud-grant-editor-warning" role="alert">{editorError}</p> : null}
+            {editorError ? (
+              <p className="cloud-grant-editor-warning" role="alert">
+                {editorError}
+              </p>
+            ) : null}
             <div className="cloud-dialog-footer">
-              <Button type="button" size="sm" variant="outline" onClick={closeEditor} disabled={saving}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={closeEditor}
+                disabled={saving}
+              >
                 取消
               </Button>
-              <Button type="submit" size="sm" disabled={busy || selectedScopes.length === 0 || unchanged}>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={busy || selectedScopes.length === 0 || unchanged}
+              >
                 {saving ? "保存中…" : "确认保存"}
               </Button>
             </div>
