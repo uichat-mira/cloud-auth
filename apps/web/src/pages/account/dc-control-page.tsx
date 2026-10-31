@@ -444,7 +444,12 @@ export function DcControlPage() {
               </p>
             ) : null}
             <div className="cloud-dialog-footer">
-              <Button type="button" variant="outline" disabled={busy !== null} onClick={closePolicy}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy !== null}
+                onClick={closePolicy}
+              >
                 取消
               </Button>
               <Button type="submit" disabled={inactive || !dirty}>
