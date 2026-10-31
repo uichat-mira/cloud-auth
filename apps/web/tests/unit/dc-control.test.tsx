@@ -184,9 +184,7 @@ describe("DC inside Mira account", () => {
     expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/policy")).toHaveLength(1);
     await store.getState().renew();
     startGate.release?.();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "运行策略已保存，但 DC 启动未执行",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("运行策略已保存，但 DC 启动未执行");
     expect(store.getState().getSessionToken()).toBe("token-2");
     expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/start")).toHaveLength(1);
   });
