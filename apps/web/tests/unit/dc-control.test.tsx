@@ -105,7 +105,8 @@ describe("DC inside Mira account", () => {
         .getAllByRole("link", { name: "关联服务" })
         .some((link) => link.getAttribute("href") === "/account/services"),
     ).toBe(true);
-    expect(screen.getAllByRole("button", { name: "退出登录" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "账户菜单" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "退出登录" })).not.toBeInTheDocument();
     expect(calls).toHaveBeenCalledWith("/dc/api/status", expect.any(Object));
   });
 

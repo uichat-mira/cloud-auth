@@ -109,6 +109,7 @@ describe("auth-backed route components", () => {
     expect(loginCalls).toEqual([{ username: "pilot", password: "correct horse battery staple" }]);
     expect(storage.load()?.sessionToken).toBe("token-1");
 
+    fireEvent.click(screen.getByRole("button", { name: "账户菜单" }));
     fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
 
     await waitFor(() => {

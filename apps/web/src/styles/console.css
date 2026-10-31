@@ -108,6 +108,77 @@
   gap: 10px;
 }
 
+.console-account {
+  position: relative;
+  min-width: 0;
+}
+
+.console-identity-trigger {
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--mc-r-sm);
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--mc-text);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.console-identity-trigger:hover,
+.console-identity-trigger[aria-expanded="true"] {
+  background: var(--mc-overlay-hover);
+}
+
+.console-account-chevron {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  margin: -3px 2px 0 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--mc-text-faint);
+  transform: rotate(45deg);
+}
+
+.console-account-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  width: 164px;
+  border-radius: var(--mc-r-md);
+  padding: 5px;
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-el-floating);
+}
+
+.console-account-logout {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  border: 0;
+  border-radius: var(--mc-r-sm);
+  padding-inline: 12px;
+  background: transparent;
+  color: var(--mc-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+
+.console-account-logout:hover {
+  background: var(--mc-overlay-hover);
+  color: var(--mc-text);
+}
+
+.console-account-logout:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .console-avatar {
   display: grid;
   width: 28px;
@@ -220,20 +291,6 @@
   font-size: 12px;
   font-weight: 450;
   line-height: 18px;
-}
-
-/* The one and only session control (also the mobile session line). */
-.console-session {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 16px;
-  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
-}
-
-.console-session-logout {
-  align-self: stretch;
-  color: var(--mc-text-secondary);
 }
 
 /* ----------------------------------------------------------------- main --- */
@@ -574,19 +631,24 @@
 @media (max-width: 1023px) {
   .console-body {
     display: block;
-    padding-block: 24px 48px;
+    padding-block: 0 48px;
   }
 
+  /* Keep the tab row beneath the sticky brand header while content scrolls. */
   .console-rail {
-    position: static;
-    margin-bottom: 20px;
-    gap: 12px;
+    position: sticky;
+    top: 56px;
+    z-index: 30;
+    gap: 0;
+    margin-inline: -24px;
+    padding: 2px 24px;
+    background: var(--mc-surface-0);
+    box-shadow: inset 0 -0.5px 0 var(--mc-border-muted);
   }
 
-  /* Rail becomes a horizontally scrollable tab strip. */
   .console-nav {
     flex-direction: row;
-    gap: 4px;
+    gap: 2px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
@@ -612,20 +674,13 @@
     padding-inline: 2px;
   }
 
-  .console-session {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-top: 12px;
-  }
-
-  .console-session-logout {
-    flex: none;
-  }
-
   .console-main {
     max-width: none;
+    padding-top: 20px;
+  }
+
+  .console-page-head h1 {
+    scroll-margin-top: 116px;
   }
 }
 
@@ -636,6 +691,20 @@
 
   .console-header-inner {
     height: 52px;
+  }
+
+  .console-rail {
+    top: 52px;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .console-main {
+    padding-top: 12px;
+  }
+
+  .console-page-head h1 {
+    scroll-margin-top: 112px;
   }
 
   .console-header-action {
@@ -654,10 +723,6 @@
 
   /* Mobile hit areas: never smaller than the 40px comfortable minimum. */
   .console-shell [data-slot="button"] {
-    min-height: 40px;
-  }
-
-  .console-session-logout {
     min-height: 40px;
   }
 
