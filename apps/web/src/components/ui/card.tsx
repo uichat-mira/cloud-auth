@@ -55,23 +55,14 @@ function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn(
-        "text-[13px] leading-5 text-[var(--mc-text-secondary)]",
-        className,
-      )}
+      className={cn("text-[13px] leading-5 text-[var(--mc-text-secondary)]", className)}
       {...props}
     />
   );
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn("px-4 py-4", className)}
-      {...props}
-    />
-  );
+  return <div data-slot="card-content" className={cn("px-4 py-4", className)} {...props} />;
 }
 
 export { Card, CardHeader, CardTitle, CardDescription, CardContent };

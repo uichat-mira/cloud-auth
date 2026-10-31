@@ -1,5 +1,9 @@
 # Mira Cloud Auth
 
+<p align="center">
+  <img src="docs/assets/mira-logo.png" alt="Mira Cloud" width="200" />
+</p>
+
 Mira Cloud Auth is the shared identity service for Mira-operated cloud services.
 
 Work item: [OPS-001](https://github.com/uichat-mira/cloud-auth/issues/1)
@@ -47,13 +51,20 @@ OPS-001 intentionally provides only the service boundary, persistence/migration 
 ## Development
 
 1. `pnpm install --frozen-lockfile`
-2. `pnpm run check`
-3. `pnpm run dev`
+2. `cp .env.example .env` and set `MIRA_AUTH_SEED_USERNAME` / `MIRA_AUTH_SEED_PASSWORD`
+3. `pnpm run seed:dev`
+4. `pnpm run check`
+5. `pnpm run dev`
 
-`pnpm run dev` builds `packages/contracts`, then starts the Fastify API (`http://localhost:8788`) and the Vite Account Portal (`http://localhost:5173`) together. The Vite dev server proxies `/v1`, `/health`, `/ready`, and `/.well-known` to the API, so the Portal talks to a same-origin API exactly as it does in production behind Caddy. If `5173` is already taken, Vite picks the next free port; set `MIRA_AUTH_DEV_API_ORIGIN` (for example `http://127.0.0.1:9000`) when the API listens elsewhere.
+`.env` is gitignored. `pnpm run dev`, `pnpm run dev:web` and `pnpm run seed:dev` load the repository-root `.env` when it exists; production ignores it and receives configuration from the process environment. Environment variables already exported in your shell still win over `.env`. `pnpm run seed:dev` provisions the seed account, or resets its password when it already exists, and always leaves it allowed and enabled — it reads the password from `.env` and never prints it or accepts one on the command line.
+
+`pnpm run dev` builds `packages/contracts`, then starts the Fastify API (`http://localhost:8788`) and the Vite Account Portal (`http://localhost:5173`) together. The Vite dev server proxies `/v1`, `/health`, `/ready`, and `/.well-known` to the API, so the Portal talks to a same-origin API exactly as it does in production behind Caddy. If `5173` is already taken, Vite picks the next free port; set `MIRA_AUTH_DEV_API_ORIGIN` in the root `.env` (for example `http://127.0.0.1:9000`) when the API listens elsewhere — the Vite config reads that file, so exporting the variable in your shell also works.
 
 - `pnpm run dev:api`: API only.
 - `pnpm run dev:web`: Portal only, expects an API at the proxy target above.
+- `pnpm run seed:dev`: create or reset the local seed account from `.env`.
+
+Node.js 24 or newer is required: the API relies on `node:sqlite` and `crypto.argon2`. Verify with `node -v` before starting the stack, since a Node 22 default shell silently lacks `crypto.argon2`.
 
 DC control development: the Portal routes `/account/services/dc` inside the same React account shell. Both Vite dev and preview proxy `/dc/api/*` to the **local** `127.0.0.1:8792` host controller, when explicitly installed. If no local controller exists, it remains unavailable; do not silently tunnel to the production host or bypass its owner/session/Origin checks. The production Caddy `/dc/*` proxy remains the independent host-service integration boundary.
 

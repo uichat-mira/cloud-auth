@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { loginUrlForAccount } from "@/lib/auth/return-location";
 import { Button } from "@/components/ui/button";
 import { useAuthSession } from "@/lib/auth/context";
 import { sessionLabels } from "@/lib/auth/session-labels";
@@ -12,7 +13,9 @@ import { sessionLabels } from "@/lib/auth/session-labels";
  * 暂时无法确认此浏览器的登录状态，请重新检查。
  */
 export function SessionRecovery() {
-  const { status, pending, restore } = useAuthSession();
+  const { status, pending, restore, failure } = useAuthSession();
+  const { pathname, search, hash } = useLocation();
+  const loginHref = loginUrlForAccount(pathname + search + hash);
 
   if (status === "idle" || status === "restoring") {
     return (
@@ -40,9 +43,7 @@ export function SessionRecovery() {
 
         {status === "unavailable" ? (
           <>
-            <p className="console-recovery-copy">
-              暂时无法确认此浏览器的登录状态，请重新检查。
-            </p>
+            <p className="console-recovery-copy">暂时无法确认此浏览器的登录状态，请重新检查。</p>
             <div className="console-recovery-actions">
               <Button type="button" onClick={() => void restore()} disabled={pending !== null}>
                 {pending === "restore" ? "正在检查…" : "重新检查登录状态"}
@@ -54,11 +55,13 @@ export function SessionRecovery() {
         {status === "unauthenticated" ? (
           <>
             <p className="console-recovery-copy">
-              登录 Mira Cloud 账户后，即可在此管理已授权设备与访问权限。
+              {failure?.kind === "reauth_required"
+                ? "登录已过期。重新登录后将返回刚才的页面，不会自动重试任何控制操作。"
+                : "登录 Mira Cloud 账户后，即可在此管理已授权设备与访问权限。"}
             </p>
             <div className="console-recovery-actions">
               <Button asChild>
-                <Link to="/login">前往登录</Link>
+                <Link to={loginHref}>前往登录</Link>
               </Button>
             </div>
           </>

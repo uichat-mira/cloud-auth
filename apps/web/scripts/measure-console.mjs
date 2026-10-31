@@ -126,10 +126,14 @@ const measure = () => {
   for (const el of interactive) {
     if (!visible(el)) continue;
     const r = el.getBoundingClientRect();
-    const label =
-      (el.getAttribute("aria-label") || el.textContent || el.getAttribute("placeholder") || el.tagName)
-        .trim()
-        .slice(0, 30);
+    const label = (
+      el.getAttribute("aria-label") ||
+      el.textContent ||
+      el.getAttribute("placeholder") ||
+      el.tagName
+    )
+      .trim()
+      .slice(0, 30);
     tapTargets.push({ label, w: Math.round(r.width), h: Math.round(r.height) });
   }
 
@@ -151,7 +155,9 @@ const measure = () => {
   const nav = document.querySelector(".console-nav");
   const navLinks = nav ? [...nav.querySelectorAll("a")] : [];
   const h2s = [...document.querySelectorAll("h2")].map((h) => h.textContent.trim());
-  const fonts = Object.keys(histogram).map(Number).sort((a, b) => a - b);
+  const fonts = Object.keys(histogram)
+    .map(Number)
+    .sort((a, b) => a - b);
 
   return {
     h1: h1 ? h1.textContent.trim() : null,
@@ -159,15 +165,23 @@ const measure = () => {
     caption: document.querySelector(".console-page-caption")?.textContent.trim() ?? null,
     captionMetrics: metricsOf(".console-page-caption"),
     h2s,
-    navLinks: navLinks.map((a) => ({ label: a.textContent.trim(), href: a.getAttribute("href"), current: a.getAttribute("aria-current") })),
-    publicNavLinks: [...document.querySelectorAll(".cloud-navigation a")].map((a) => a.textContent.trim()),
+    navLinks: navLinks.map((a) => ({
+      label: a.textContent.trim(),
+      href: a.getAttribute("href"),
+      current: a.getAttribute("aria-current"),
+    })),
+    publicNavLinks: [...document.querySelectorAll(".cloud-navigation a")].map((a) =>
+      a.textContent.trim(),
+    ),
     roles: {
       status: document.querySelectorAll('[role="status"]').length,
       alert: document.querySelectorAll('[role="alert"]').length,
       dialog: document.querySelectorAll("dialog").length,
     },
     counts: {
-      logoutButtons: [...document.querySelectorAll("button")].filter((b) => b.textContent.trim() === "退出登录").length,
+      logoutButtons: [...document.querySelectorAll("button")].filter(
+        (b) => b.textContent.trim() === "退出登录",
+      ).length,
       details: document.querySelectorAll("details").length,
       cards: document.querySelectorAll('[data-slot="card"]').length,
       totalNodes: document.querySelectorAll("*").length,
@@ -206,12 +220,16 @@ const report = { base: BASE, generatedAt: new Date().toISOString(), routes: {} }
 const consoleErrors = [];
 
 for (const viewport of viewports) {
-  const context = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+  });
   const page = await context.newPage();
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(`${viewport.name}: ${message.text()}`);
   });
-  page.on("pageerror", (error) => consoleErrors.push(`${viewport.name}: pageerror ${error.message}`));
+  page.on("pageerror", (error) =>
+    consoleErrors.push(`${viewport.name}: pageerror ${error.message}`),
+  );
 
   // Log in once per viewport (the session is persisted in localStorage).
   await page.goto(`${BASE}/login`, { waitUntil: "networkidle" });
@@ -223,14 +241,19 @@ for (const viewport of viewports) {
   for (const route of routes) {
     if (route.anon) {
       // Fresh context: no persisted session, so the recovery / public states are real.
-      const anon = await browser.newContext({ viewport: { width: viewport.width, height: viewport.height } });
+      const anon = await browser.newContext({
+        viewport: { width: viewport.width, height: viewport.height },
+      });
       const anonPage = await anon.newPage();
       anonPage.on("console", (message) => {
-        if (message.type() === "error") consoleErrors.push(`${viewport.name} anon: ${message.text()}`);
+        if (message.type() === "error")
+          consoleErrors.push(`${viewport.name} anon: ${message.text()}`);
       });
       await anonPage.goto(`${BASE}${route.path}`, { waitUntil: "networkidle" });
       if (route.h1) {
-        await anonPage.getByRole("heading", { level: 1, name: route.h1 }).waitFor({ timeout: 15000 });
+        await anonPage
+          .getByRole("heading", { level: 1, name: route.h1 })
+          .waitFor({ timeout: 15000 });
       } else {
         await anonPage.waitForSelector("h1");
       }

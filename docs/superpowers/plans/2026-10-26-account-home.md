@@ -46,3 +46,10 @@ Execution is inline as authorized by the user's instruction to implement. Preser
 - `pnpm --filter @uichat-mira/cloud-auth-web run build`: passed; Vite reports a bundle size advisory above 500 kB.
 - `pnpm --filter @uichat-mira/cloud-auth-web run test:integration`: passed, 32 tests.
 - Inspected `portal-home-desktop.png` and `portal-home-mobile.png`: no clipped text, overlapping elements, or horizontal overflow; entry actions and capability content are visible.
+
+## 2026-10-31 superseding change
+
+The hero + three-capability-card layout above was replaced by a console-style entry page
+(page head, single entry action, three destination rows). See the update note in
+`docs/superpowers/specs/2026-10-26-account-home-design.md` and the Home blueprint in
+`docs/ui/mira-redesign-spec.md` §7. Routes, session behavior and tests' intent are unchanged.

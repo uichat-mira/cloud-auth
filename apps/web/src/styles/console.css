@@ -54,19 +54,20 @@
 }
 
 .console-brand-mark {
-  display: grid;
+  display: inline-flex;
   width: 28px;
   height: 28px;
   flex: none;
-  place-items: center;
+  overflow: hidden;
   border-radius: 7px;
-  background: var(--mc-text);
-  color: var(--mc-text-inverse);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: var(--mc-brand-canvas);
+  box-shadow: var(--mc-hairline-muted);
+}
+
+.console-brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .console-brand-copy strong {
@@ -75,16 +76,6 @@
   font-weight: 600;
   line-height: 18px;
   letter-spacing: 0;
-}
-
-.console-brand-copy small {
-  display: block;
-  color: var(--mc-text-secondary);
-  font-size: 11px;
-  font-weight: 450;
-  line-height: 16px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .console-header-action {
@@ -260,6 +251,21 @@
 
 .console-notices:empty {
   display: none;
+}
+
+.console-expiry-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-1);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 /* ------------------------------------------------------------ page head --- */
@@ -630,10 +636,6 @@
 
   .console-header-inner {
     height: 52px;
-  }
-
-  .console-brand-copy small {
-    display: none;
   }
 
   .console-header-action {

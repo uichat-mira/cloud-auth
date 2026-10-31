@@ -6,10 +6,7 @@ import { createAuthStore } from "@/lib/auth/store";
 import { HostGrantsError, createHostGrantsFailure } from "@/lib/grants/client";
 import { HostGrantsProvider } from "@/lib/grants/context";
 import { expiresAt } from "../helpers/auth-fixtures";
-import {
-  createFakeAuthClient,
-  createFakeHostGrantsClient,
-} from "../helpers/host-grants-fixtures";
+import { createFakeAuthClient, createFakeHostGrantsClient } from "../helpers/host-grants-fixtures";
 import { createMemoryStorage } from "../helpers/session-storage";
 
 function mount(client: ReturnType<typeof createFakeHostGrantsClient>) {
@@ -38,7 +35,9 @@ describe("grant refresh and mutation interleavings", () => {
         if (calls === 1) {
           throw new HostGrantsError(createHostGrantsFailure("network_unavailable"));
         }
-        await new Promise<void>((resolve) => { release = resolve; });
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
         return original.listManagement(token);
       },
     });
@@ -51,7 +50,9 @@ describe("grant refresh and mutation interleavings", () => {
     expect(screen.getByRole("button", { name: "读取中…" })).toBeDisabled();
     expect(screen.queryByText("没有可管理的 Desktop Host")).not.toBeInTheDocument();
 
-    await act(async () => { release?.(); });
+    await act(async () => {
+      release?.();
+    });
     expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
     expect(screen.queryByText("没有可管理的 Desktop Host")).not.toBeInTheDocument();
   });
@@ -65,7 +66,9 @@ describe("grant refresh and mutation interleavings", () => {
       listManagement: async (token) => {
         reads += 1;
         if (reads === 2) {
-          await new Promise<void>((resolve) => { release = resolve; });
+          await new Promise<void>((resolve) => {
+            release = resolve;
+          });
         }
         return original.listManagement(token);
       },
@@ -86,10 +89,10 @@ describe("grant refresh and mutation interleavings", () => {
     expect(revocations).toBe(0);
     expect(screen.queryByRole("button", { name: "确认撤销" })).not.toBeInTheDocument();
 
-    await act(async () => { release?.(); });
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "刷新列表" })).toBeEnabled(),
-    );
+    await act(async () => {
+      release?.();
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "刷新列表" })).toBeEnabled());
     expect(screen.getByRole("button", { name: "撤销授权" })).toBeEnabled();
     expect(revocations).toBe(0);
   });

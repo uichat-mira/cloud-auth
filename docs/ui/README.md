@@ -38,10 +38,12 @@ apps/web/src/styles/globals.css      --mc-* raw tokens, shadcn bridge, base laye
 apps/web/src/styles/cloud-shell.css  public header / container / footer / brand / nav
 apps/web/src/styles/console.css      console shell + info primitives (rail, page head, facts, summary)
 apps/web/src/styles/cloud-pages.css  login canvas+card, account sections, rows, dialog, states
-apps/web/src/styles/cloud-home.css   public home hero, capabilities and responsive layout
+apps/web/src/styles/cloud-home.css   public account entry: page head, entry action, destination rows
 apps/web/src/styles/cloud-grants.css device/host grants, scope pills, editor, confirm block
 apps/web/src/components/ui/          button, input, card recipes (CVA)
 apps/web/public/fonts/               Inter variable (latin subset, OFL) + licence
+apps/web/public/brand/               deployed brand assets: header mark 96×96, favicon 64×64
+docs/assets/mira-logo.png            brand master derivative for README/docs (302×240, not deployed)
 ```
 
 Load order matters: `globals → cloud-shell → console → cloud-pages → cloud-home → cloud-grants`. Plain CSS
@@ -49,11 +51,21 @@ Load order matters: `globals → cloud-shell → console → cloud-pages → clo
 token layer wins over stray component utilities, and it is also why the focus ring lives
 outside `@layer base` (a ring declared in `base` is erased by `outline-none`).
 
+**Brand assets.** Everything is generated from the project logo
+(`https://assets.tomz.io/images/mira-logo.png`, 940×760 PNG, sha256 `bce330d7b0003beb2e372bb2881943e311d6b1629bba2d903d24e03e52c1ff46`):
+`apps/web/public/brand/mira-logo-mark.png` (96×96) is the 28px square chip in both shells,
+`apps/web/public/brand/favicon.png` (64×64) is the favicon, and `docs/assets/mira-logo.png`
+(302×240) is the README/docs image. The artwork carries its own cream canvas, exposed as
+`--mc-brand-canvas` (`#fcecd7`) — it is part of the mark: never key it out, recolor it, or
+hotlink the CDN. Only the two `public/brand/` files ship to the browser. Regenerate by cropping
+the master to x 40–892 / y 35–713, then fitting that artwork by width onto a 96×96 canvas of
+`--mc-brand-canvas` (the artwork is never cropped to square: the cream bars are part of the tile).
+
 ## Routes
 
 | Route | Page | h1 |
 | --- | --- | --- |
-| `/` | `HomePage` | 你的 Mira 云端账户 |
+| `/` | `HomePage` | Mira Cloud 账户 |
 | `/login` | `LoginPage` | 登录 Mira Cloud |
 | `/account` | `OverviewPage` | 我的账户 |
 | `/account/devices` | `DevicesPage` | 设备与授权 |
@@ -64,8 +76,7 @@ outside `@layer base` (a ring declared in `base` is erased by `outline-none`).
 
 ## Rules that are easy to break
 
-- Colours and elevation come from `--mc-*` only. A raw hex belongs in `globals.css`, nowhere else
-  (`#ffffff` on the near-black brand mark is the one documented exception).
+- Colours and elevation come from `--mc-*` only. A raw hex belongs in `globals.css`, nowhere else.
 - Depth is a `0 0 0 .5px` hairline or a multi-layer elevation token — never `1px solid`.
 - No `!important` (the single `prefers-reduced-motion` guard is the exception).
 - Body copy is 13px minimum (14px default); 11–12px is reserved for metadata captions.

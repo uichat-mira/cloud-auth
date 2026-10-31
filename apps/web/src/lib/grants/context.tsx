@@ -1,8 +1,5 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import {
-  createHostGrantsClient,
-  type HostGrantsClient,
-} from "./client";
+import { createHostGrantsClient, type HostGrantsClient } from "./client";
 
 const HostGrantsClientContext = createContext<HostGrantsClient | null>(null);
 
@@ -13,15 +10,10 @@ export function HostGrantsProvider({
   children: ReactNode;
   client?: HostGrantsClient;
 }) {
-  const value = useMemo(
-    () => client ?? createHostGrantsClient(),
-    [client],
-  );
+  const value = useMemo(() => client ?? createHostGrantsClient(), [client]);
 
   return (
-    <HostGrantsClientContext.Provider value={value}>
-      {children}
-    </HostGrantsClientContext.Provider>
+    <HostGrantsClientContext.Provider value={value}>{children}</HostGrantsClientContext.Provider>
   );
 }
 

@@ -1,4 +1,8 @@
-import { canonicalRemoteDeviceScopes, type MiraDevice, type RemoteDeviceScope } from "@uichat-mira/cloud-auth-contracts";
+import {
+  canonicalRemoteDeviceScopes,
+  type MiraDevice,
+  type RemoteDeviceScope,
+} from "@uichat-mira/cloud-auth-contracts";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { remoteScopeLabels } from "@/lib/grants/scope-labels";
@@ -24,9 +28,7 @@ export function MobileGrantRow({
   // Prevent stale GET results from racing with a new grant mutation.
   const busy = grants.pending !== null || grants.refreshing;
   const pending = grants.pending;
-  const isPending =
-    pending?.hostId === hostId &&
-    pending.mobileDeviceId === grant.mobileDeviceId;
+  const isPending = pending?.hostId === hostId && pending.mobileDeviceId === grant.mobileDeviceId;
   const isRevoked = grant.status === "revoked";
   const canNarrow = !isRevoked && grant.scopes.length > 0;
   const selectedScopes = canonicalRemoteDeviceScopes(selected);
@@ -39,9 +41,7 @@ export function MobileGrantRow({
 
   function toggleScope(scope: RemoteDeviceScope) {
     setSelected((current) =>
-      current.includes(scope)
-        ? current.filter((item) => item !== scope)
-        : [...current, scope],
+      current.includes(scope) ? current.filter((item) => item !== scope) : [...current, scope],
     );
   }
 
@@ -70,9 +70,7 @@ export function MobileGrantRow({
       <div className="cloud-grant-main">
         <p className="cloud-grant-name">{mobileLabel(device)}</p>
         <p className="cloud-grant-meta">
-          {device?.clientVersion
-            ? `客户端版本 ${device.clientVersion}`
-            : "手机设备"}
+          {device?.clientVersion ? `客户端版本 ${device.clientVersion}` : "手机设备"}
         </p>
 
         {hasScopes ? (
@@ -178,8 +176,7 @@ export function MobileGrantRow({
       {confirmingRevoke ? (
         <div className="cloud-grant-confirm">
           <p className="cloud-grant-confirm-text">
-            撤销后，此手机设备将不再获得此 Desktop
-            的权限。Desktop 会在下次同步后生效。确定撤销？
+            撤销后，此手机设备将不再获得此 Desktop 的权限。Desktop 会在下次同步后生效。确定撤销？
           </p>
           <div className="cloud-grant-confirm-actions">
             <Button
