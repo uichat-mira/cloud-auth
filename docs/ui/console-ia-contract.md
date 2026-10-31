@@ -248,3 +248,11 @@ Recorded after implementation so the next reader does not treat them as drift.
    with `clientName: "Mira Desktop"` (see `docs/auth-v0.md`), so records would otherwise read as
    N identical rows: the vendor line now carries `Mira Desktop · Host {first 8 of host id}` and
    the heading's accessible name repeats it, while the visible title stays the display name.
+
+10. **2026-10-31 mobile console navigation.** The four-section nav remains the only rail content.
+    At widths below 1024px it becomes a compact sticky tab row immediately below the sticky
+    account header; normal page content scrolls underneath it. The sole logout action now
+    lives in a dropdown opened from the upper-right account identity on all screen sizes.
+    The `SessionBlock` export remains for compatibility, but it renders the header account
+    menu rather than a second rail row. The prior rail logout markup in §3 is superseded
+    by this intentional mobile usability change.
