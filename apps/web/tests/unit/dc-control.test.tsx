@@ -163,11 +163,11 @@ describe("DC inside Mira account", () => {
 
 
   it("distinguishes a saved policy from a rejected start after session renewal", async () => {
-    let releaseStart: (() => void) | undefined;
+    const startGate: { release?: () => void } = {};
     const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       if (String(input) === "/dc/api/start") {
         await new Promise<void>((resolve) => {
-          releaseStart = resolve;
+          startGate.release = resolve;
         });
         return reply({ error: "expired" }, 401);
       }
@@ -181,10 +181,10 @@ describe("DC inside Mira account", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
     fireEvent.change(screen.getByLabelText("内存上限"), { target: { value: "512" } });
     fireEvent.click(screen.getByRole("button", { name: "启动 DC" }));
-    await waitFor(() => expect(releaseStart).toBeDefined());
+    await waitFor(() => expect(startGate.release).toBeDefined());
     expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/policy")).toHaveLength(1);
     await store.getState().renew();
-    releaseStart?.();
+    startGate.release?.();
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "运行策略已保存，但 DC 启动未执行",
     );
