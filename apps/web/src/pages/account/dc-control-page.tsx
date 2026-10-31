@@ -325,7 +325,6 @@ export function DcControlPage() {
               : "仅管理当前 DC 实例"}
           </p>
         </section>
-
       </div>
 
       {policyOpen ? (
