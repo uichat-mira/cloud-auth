@@ -123,9 +123,7 @@ beforeAll(async () => {
   baseUrl = localUrl.replace(/\/$/, "");
 
   browser = await chromium.launch(
-    process.env.CHROME_PATH
-      ? { executablePath: process.env.CHROME_PATH }
-      : { channel: "chrome" },
+    process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: "chrome" },
   );
 }, 60_000);
 
@@ -162,9 +160,7 @@ for (const viewport of viewports) {
             const rail = page.getByRole("navigation", { name: consoleNavName });
             await rail.waitFor();
             expect(await rail.getByRole("link").count()).toBe(4);
-            expect(
-              await page.getByRole("navigation", { name: "主导航" }).count(),
-            ).toBe(0);
+            expect(await page.getByRole("navigation", { name: "主导航" }).count()).toBe(0);
           }
 
           const hasHorizontalOverflow = await page.evaluate(
@@ -173,10 +169,7 @@ for (const viewport of viewports) {
 
           expect(hasHorizontalOverflow).toBe(false);
           await page.screenshot({
-            path: join(
-              screenshotDir,
-              `${routeCase.screenshot}-${viewport.name}.png`,
-            ),
+            path: join(screenshotDir, `${routeCase.screenshot}-${viewport.name}.png`),
             fullPage: true,
           });
         } finally {
@@ -193,9 +186,7 @@ describe("browser navigation", () => {
 
     try {
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-      await page
-        .getByRole("heading", { level: 1, name: "你的 Mira 云端账户" })
-        .waitFor();
+      await page.getByRole("heading", { level: 1, name: "Mira Cloud 账户" }).waitFor();
       expect(new URL(page.url()).pathname).toBe("/");
       await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
       await page.waitForURL("**/login");

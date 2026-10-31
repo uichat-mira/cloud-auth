@@ -5,20 +5,11 @@ import {
   type CloudSession,
   type IssuedCloudSession,
 } from "@uichat-mira/cloud-auth-contracts";
-import {
-  createCloudAuthClient,
-  type CreateCloudAuthClientOptions,
-} from "@/lib/auth/client";
+import { createCloudAuthClient, type CreateCloudAuthClientOptions } from "@/lib/auth/client";
 import { CloudAuthError, type AuthFailure } from "@/lib/auth/errors";
-import {
-  account,
-  expiresAt,
-  issuedSession,
-} from "../helpers/auth-fixtures";
+import { account, expiresAt, issuedSession } from "../helpers/auth-fixtures";
 
-const issued = issuedCloudSessionSchema.parse(
-  issuedSession("mcs_v1.session.secret"),
-);
+const issued = issuedCloudSessionSchema.parse(issuedSession("mcs_v1.session.secret"));
 const restored = cloudSessionSchema.parse({ account, expiresAt });
 
 interface RecordedRequest {
@@ -195,8 +186,7 @@ describe("Cloud Auth client contract", () => {
       [],
     );
     expect(
-      (await captureFailure(invalidSuccess.login({ username: "pilot", password: "x" })))
-        .kind,
+      (await captureFailure(invalidSuccess.login({ username: "pilot", password: "x" }))).kind,
     ).toBe("malformed_response");
 
     const invalidError = clientReturning(
@@ -211,8 +201,6 @@ describe("Cloud Auth client contract", () => {
   it("classifies transport failures as network unavailable", async () => {
     const client = clientReturning(() => Promise.reject(new TypeError("offline")), []);
 
-    expect((await captureFailure(client.getSession("token-1"))).kind).toBe(
-      "network_unavailable",
-    );
+    expect((await captureFailure(client.getSession("token-1"))).kind).toBe("network_unavailable");
   });
 });

@@ -1,4 +1,8 @@
-import { createServer as createHttpServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,9 +55,7 @@ beforeAll(async () => {
   baseUrl = localUrl.replace(/\/$/, "");
 
   browser = await chromium.launch(
-    process.env.CHROME_PATH
-      ? { executablePath: process.env.CHROME_PATH }
-      : { channel: "chrome" },
+    process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: "chrome" },
   );
 }, 60_000);
 
@@ -73,7 +75,7 @@ for (const viewport of viewports) {
       try {
         authServer.reset();
         await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-        await page.getByRole("heading", { level: 1, name: "你的 Mira 云端账户" }).waitFor();
+        await page.getByRole("heading", { level: 1, name: "Mira Cloud 账户" }).waitFor();
         await expectNoHorizontalOverflow(page);
         expect(new URL(page.url()).pathname).toBe("/");
         expect(await page.getByLabel("密码").count()).toBe(0);
@@ -83,9 +85,7 @@ for (const viewport of viewports) {
         await page.locator(".cloud-brand").click();
         await page.waitForURL(`${baseUrl}/`);
         await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
-        await page
-          .getByRole("heading", { level: 1, name: "登录 Mira Cloud" })
-          .waitFor();
+        await page.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-out", viewport.name);
 
@@ -105,9 +105,7 @@ for (const viewport of viewports) {
         await page.waitForURL("**/account");
 
         await page.reload({ waitUntil: "load" });
-        await page
-          .getByRole("heading", { level: 1, name: "我的账户" })
-          .waitFor();
+        await page.getByRole("heading", { level: 1, name: "我的账户" }).waitFor();
         await page.getByText("pilot").first().waitFor();
 
         // The console shell keeps one rail for all four sections.
@@ -116,21 +114,15 @@ for (const viewport of viewports) {
         expect(await rail.getByRole("link").count()).toBe(4);
 
         await rail.getByRole("link", { name: "设备与授权" }).click();
-        await page
-          .getByRole("heading", { level: 1, name: "设备与授权" })
-          .waitFor();
+        await page.getByRole("heading", { level: 1, name: "设备与授权" }).waitFor();
         await page.getByText("没有可管理的 Desktop Host").waitFor();
         // The execution caveat is stated once, by the page footer.
-        await page
-          .getByText(/云端保存成功不等于 Desktop 已立即执行/)
-          .waitFor();
+        await page.getByText(/云端保存成功不等于 Desktop 已立即执行/).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "devices", viewport.name);
 
         await rail.getByRole("link", { name: "账户安全" }).click();
-        await page
-          .getByRole("heading", { level: 1, name: "账户安全" })
-          .waitFor();
+        await page.getByRole("heading", { level: 1, name: "账户安全" }).waitFor();
         // Renewal is visible without expanding a disclosure.
         await page.getByRole("button", { name: "续期 Session" }).waitFor();
         await expectNoHorizontalOverflow(page);
@@ -138,9 +130,7 @@ for (const viewport of viewports) {
 
         await page.getByRole("button", { name: "续期 Session" }).click();
         await page.getByRole("status").waitFor();
-        expect(await page.getByRole("status").textContent()).toContain(
-          "Cloud Session 已续期",
-        );
+        expect(await page.getByRole("status").textContent()).toContain("Cloud Session 已续期");
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "renewed", viewport.name);
 
@@ -193,9 +183,7 @@ for (const viewport of viewports) {
 
         const servicesRail = page.getByRole("navigation", { name: "账户分区" });
         await servicesRail.getByRole("link", { name: "关联服务" }).click();
-        await page
-          .getByRole("heading", { level: 1, name: "关联服务" })
-          .waitFor();
+        await page.getByRole("heading", { level: 1, name: "关联服务" }).waitFor();
         await page.getByText("Cloud Shiyan").waitFor();
         await page.getByText("Hosted Relay").waitFor();
         expect(await page.getByText("尚未接入", { exact: true }).count()).toBe(2);
@@ -204,9 +192,7 @@ for (const viewport of viewports) {
 
         // Back to the overview so the expired-session screenshot keeps a stable URL.
         await servicesRail.getByRole("link", { name: "概览" }).click();
-        await page
-          .getByRole("heading", { level: 1, name: "我的账户" })
-          .waitFor();
+        await page.getByRole("heading", { level: 1, name: "我的账户" }).waitFor();
 
         authServer.expireSessions();
         await page.reload({ waitUntil: "load" });
@@ -223,20 +209,14 @@ for (const viewport of viewports) {
   });
 }
 
-async function screenshot(
-  page: Page,
-  state: string,
-  viewport: string,
-): Promise<void> {
+async function screenshot(page: Page, state: string, viewport: string): Promise<void> {
   await page.screenshot({
     path: join(screenshotDir, `portal-${state}-${viewport}.png`),
     fullPage: true,
   });
 }
 
-async function expectNoHorizontalOverflow(
-  page: Page,
-): Promise<void> {
+async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   const hasOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
@@ -372,21 +352,13 @@ function issueSession(response: ServerResponse, sequence: number): string {
   return sessionToken;
 }
 
-function sendAuthError(
-  response: ServerResponse,
-  status: number,
-  code: string,
-): void {
+function sendAuthError(response: ServerResponse, status: number, code: string): void {
   sendJson(response, status, {
     error: { code, message: "Portal test auth error" },
   });
 }
 
-function sendJson(
-  response: ServerResponse,
-  status: number,
-  body: unknown,
-): void {
+function sendJson(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
 }

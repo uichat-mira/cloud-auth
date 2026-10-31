@@ -17,8 +17,8 @@ import {
   createFakeHostGrantsClient,
   effectiveScopes,
   grantHostId,
-  hostAvailable,
   hostOffline,
+  managementEntry,
   mobileActive,
   mobileRevoked,
   snapshotGranted,
@@ -26,9 +26,10 @@ import {
   snapshotRevoked,
 } from "../helpers/host-grants-fixtures";
 
-function renderGrants(
-  client: HostGrantsClient = createFakeHostGrantsClient(),
-): { store: AuthStore; storage: ReturnType<typeof createMemoryStorage> } {
+function renderGrants(client: HostGrantsClient = createFakeHostGrantsClient()): {
+  store: AuthStore;
+  storage: ReturnType<typeof createMemoryStorage>;
+} {
   const storage = createMemoryStorage({
     sessionToken: "mcs_v1.session.secret",
     expiresAt,
@@ -49,9 +50,7 @@ function renderGrants(
   return { store, storage };
 }
 
-async function renderLoadedGrants(
-  client: HostGrantsClient = createFakeHostGrantsClient(),
-) {
+async function renderLoadedGrants(client: HostGrantsClient = createFakeHostGrantsClient()) {
   const harness = renderGrants(client);
   // The card no longer owns the page heading (the devices route does), so wait
   // on the records the card itself renders.
@@ -112,9 +111,7 @@ describe("Device and Host grants card", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存收窄" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("云端已保存");
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Portal 无法确认 Desktop 已立即生效",
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("Portal 无法确认 Desktop 已立即生效");
     expect(calls).toEqual([
       {
         hostId: grantHostId,
@@ -160,9 +157,7 @@ describe("Device and Host grants card", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认撤销" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent("云端已撤销");
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Portal 无法确认 Desktop 已立即断开",
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("Portal 无法确认 Desktop 已立即断开");
     expect(calls).toEqual([
       {
         hostId: grantHostId,
@@ -171,30 +166,32 @@ describe("Device and Host grants card", () => {
       },
     ]);
     expect(screen.getByText("已撤销")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "撤销授权" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "撤销授权" })).not.toBeInTheDocument();
   });
 
   it("reloads authoritative state on a stale revision without blindly retrying", async () => {
     let snapshotCalls = 0;
     const narrowCalls: unknown[] = [];
     const client = createFakeHostGrantsClient({
-      getSnapshot: async () => {
+      listManagement: async () => {
         snapshotCalls += 1;
-        return snapshotCalls === 1
-          ? snapshotGranted
-          : {
-              ...snapshotGranted,
-              revision: 6,
-              grants: [
-                {
-                  mobileDeviceId: activeMobileId,
-                  scopes: ["threads:read"],
-                  status: "active",
+        return [
+          managementEntry(
+            snapshotCalls === 1
+              ? snapshotGranted
+              : {
+                  ...snapshotGranted,
+                  revision: 6,
+                  grants: [
+                    {
+                      mobileDeviceId: activeMobileId,
+                      scopes: ["threads:read"],
+                      status: "active",
+                    },
+                  ],
                 },
-              ],
-            };
+          ),
+        ];
       },
       narrowGrant: async (...args) => {
         narrowCalls.push(args);
@@ -208,17 +205,13 @@ describe("Device and Host grants card", () => {
     fireEvent.click(screen.getByLabelText("查看工具"));
     fireEvent.click(screen.getByRole("button", { name: "保存收窄" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "云端授权已被其他操作更新",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("云端授权已被其他操作更新");
     await waitFor(() => {
       expect(snapshotCalls).toBeGreaterThanOrEqual(2);
     });
     expect(narrowCalls).toHaveLength(1);
     expect(screen.getByText("云端版本 6")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "保存收窄" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存收窄" })).not.toBeInTheDocument();
   });
 
   it("keeps grant revocation available when optional device labels fail", async () => {
@@ -240,7 +233,7 @@ describe("Device and Host grants card", () => {
   it("invalidates the Cloud Session after a grants 401 so the protected controls disappear", async () => {
     const { store, storage } = renderGrants(
       createFakeHostGrantsClient({
-        listHosts: async () => {
+        listManagement: async () => {
           throw new HostGrantsError(
             createHostGrantsFailure("reauth_required", {
               status: 401,
@@ -274,16 +267,14 @@ describe("Device and Host grants card", () => {
     fireEvent.click(screen.getByLabelText("查看工具"));
     fireEvent.click(screen.getByRole("button", { name: "保存收窄" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "云端拒绝此操作",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("云端拒绝此操作");
     expect(store.getState().status).toBe("authenticated");
   });
 
   it("distinguishes a failed management ledger read from a network outage", async () => {
     renderGrants(
       createFakeHostGrantsClient({
-        getSnapshot: async () => {
+        listManagement: async () => {
           throw new HostGrantsError(
             createHostGrantsFailure("not_found", {
               status: 404,
@@ -303,24 +294,20 @@ describe("Device and Host grants card", () => {
   it("shows network and service failures distinctly without ending the session", async () => {
     const { store } = renderGrants(
       createFakeHostGrantsClient({
-        listHosts: async () => {
-          throw new HostGrantsError(
-            createHostGrantsFailure("network_unavailable"),
-          );
+        listManagement: async () => {
+          throw new HostGrantsError(createHostGrantsFailure("network_unavailable"));
         },
       }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "无法连接云端授权服务",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法连接云端授权服务");
     expect(store.getState().status).toBe("authenticated");
   });
 
   it("shows service unavailable and retries through the explicit refresh control", async () => {
     let calls = 0;
     const client = createFakeHostGrantsClient({
-      listHosts: async () => {
+      listManagement: async () => {
         calls += 1;
         if (calls === 1) {
           throw new HostGrantsError(
@@ -329,15 +316,13 @@ describe("Device and Host grants card", () => {
             }),
           );
         }
-        return [hostAvailable];
+        return [managementEntry(snapshotGranted)];
       },
     });
 
     await renderGrants(client);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "云端授权服务暂时不可用",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("云端授权服务暂时不可用");
     fireEvent.click(screen.getByRole("button", { name: "重新读取" }));
 
     expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
@@ -346,14 +331,12 @@ describe("Device and Host grants card", () => {
   it("explains an empty management ledger without hiding historical eligible Hosts", async () => {
     renderGrants(
       createFakeHostGrantsClient({
-        listHosts: async () => [],
+        listManagement: async () => [],
         listDevices: async () => [],
       }),
     );
 
-    expect(
-      await screen.findByText("没有可管理的 Desktop Host"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("没有可管理的 Desktop Host")).toBeInTheDocument();
     expect(
       screen.getByText(/设备退出云账号或 Session 过期时也可管理已保存的权限/),
     ).toBeInTheDocument();
@@ -362,50 +345,29 @@ describe("Device and Host grants card", () => {
   it("explains an unconfigured Host policy without offering widening controls", async () => {
     renderGrants(
       createFakeHostGrantsClient({
-        getSnapshot: async () => snapshotNoPolicy,
+        listManagement: async () => [managementEntry(snapshotNoPolicy)],
         listDevices: async () => [mobileActive],
       }),
     );
 
-    expect(
-      await screen.findByText("Desktop 尚未为此 Host 设置授权范围。"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "调整范围" }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByText("Desktop 尚未为此 Host 设置授权范围。")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "调整范围" })).not.toBeInTheDocument();
   });
 
   it("distinguishes a configured Host with no mobile devices", async () => {
     renderGrants(
       createFakeHostGrantsClient({
-        getSnapshot: async () => ({ ...snapshotGranted, grants: [] }),
+        listManagement: async () => [managementEntry({ ...snapshotGranted, grants: [] })],
         listDevices: async () => [],
       }),
     );
 
-    expect(
-      await screen.findByText("此账户还没有手机设备。"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("此账户还没有手机设备。")).toBeInTheDocument();
   });
 
-  it("allows managing durable revoked-by-logout Host without any runtime snapshot", async () => {
+  it("allows managing a durable revoked-by-logout Host from the ledger alone", async () => {
     const client = createFakeHostGrantsClient({
-      listManagement: async () => [{
-        host: {
-          id: hostOffline.id,
-          displayName: hostOffline.displayName,
-          clientVersion: hostOffline.clientVersion,
-          availability: "offline",
-        },
-        accountId: snapshotGranted.accountId,
-        policyConfigured: true,
-        policyScopes: snapshotGranted.policyScopes,
-        revision: 4,
-        grants: snapshotGranted.grants,
-      }],
-      getSnapshot: async () => {
-        throw new Error("runtime snapshot must not be read by Portal management");
-      },
+      listManagement: async () => [managementEntry(snapshotGranted, hostOffline)],
     });
     renderGrants(client);
     expect(await screen.findByText("客厅 Desktop")).toBeInTheDocument();
@@ -416,43 +378,35 @@ describe("Device and Host grants card", () => {
   it("marks an offline Host without claiming immediate enforcement", async () => {
     renderGrants(
       createFakeHostGrantsClient({
-        listHosts: async () => [hostOffline],
-        getSnapshot: async () => ({
-          ...snapshotGranted,
-          hostId: hostOffline.id,
-        }),
+        listManagement: async () => [managementEntry(snapshotGranted, hostOffline)],
       }),
     );
 
-    const card = (await screen.findByText("客厅 Desktop")).closest(
-      "[data-slot='card']",
-    );
+    const card = (await screen.findByText("客厅 Desktop")).closest("[data-slot='card']");
     if (!card) throw new Error("Expected the offline Host card");
     expect(within(card as HTMLElement).getByText("离线")).toBeInTheDocument();
-    expect(
-      within(card as HTMLElement).getByText(/未观察到在线/),
-    ).toBeInTheDocument();
+    expect(within(card as HTMLElement).getByText(/未观察到在线/)).toBeInTheDocument();
     expect(screen.queryByText(/已立即生效/)).not.toBeInTheDocument();
     // The execution caveat moved to the devices page footer; the record card
     // must not repeat it (see auth-pages.test.tsx, devices route).
-    expect(
-      screen.queryByText(/云端保存成功不等于 Desktop 已立即执行/),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/云端保存成功不等于 Desktop 已立即执行/)).not.toBeInTheDocument();
   });
 
   it("reflects the current effective scopes after a loaded snapshot", async () => {
     await renderLoadedGrants(
       createFakeHostGrantsClient({
-        getSnapshot: async () => ({
-          ...snapshotGranted,
-          grants: [
-            {
-              mobileDeviceId: activeMobileId,
-              scopes: effectiveScopes,
-              status: "active",
-            },
-          ],
-        }),
+        listManagement: async () => [
+          managementEntry({
+            ...snapshotGranted,
+            grants: [
+              {
+                mobileDeviceId: activeMobileId,
+                scopes: effectiveScopes,
+                status: "active",
+              },
+            ],
+          }),
+        ],
       }),
     );
 
@@ -463,16 +417,13 @@ describe("Device and Host grants card", () => {
   it("does not render management data that belongs to another account", async () => {
     renderGrants(
       createFakeHostGrantsClient({
-        getSnapshot: async () => ({
-          ...snapshotGranted,
-          accountId: "another-account",
-        }),
+        listManagement: async () => [
+          { ...managementEntry(snapshotGranted), accountId: "another-account" },
+        ],
       }),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "云端授权服务出现异常",
-    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("云端授权服务出现异常");
     expect(screen.queryByText("读取会话")).not.toBeInTheDocument();
     expect(screen.queryByText("Pixel 手机")).not.toBeInTheDocument();
   });
@@ -480,20 +431,14 @@ describe("Device and Host grants card", () => {
   it("shows a revoked grant as terminal without offering reactivation controls", async () => {
     await renderLoadedGrants(
       createFakeHostGrantsClient({
-        getSnapshot: async () => snapshotRevoked,
+        listManagement: async () => [managementEntry(snapshotRevoked)],
       }),
     );
 
     expect(screen.getByText("已撤销")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "调整范围" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "撤销授权" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(/此授权已在云端撤销，不能在此恢复/),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "调整范围" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "撤销授权" })).not.toBeInTheDocument();
+    expect(screen.getByText(/此授权已在云端撤销，不能在此恢复/)).toBeInTheDocument();
   });
 
   it("notes revoked mobile devices without rendering them as grants", async () => {
@@ -504,9 +449,7 @@ describe("Device and Host grants card", () => {
     );
 
     expect(await screen.findByText("工作 Desktop")).toBeInTheDocument();
-    expect(
-      screen.getByText(/台已撤销的手机设备/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/台已撤销的手机设备/)).toBeInTheDocument();
     expect(screen.queryByText("旧手机")).not.toBeInTheDocument();
   });
 });

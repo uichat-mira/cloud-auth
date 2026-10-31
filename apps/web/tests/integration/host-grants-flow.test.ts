@@ -9,10 +9,7 @@ import {
   type HostGrantsFailure,
 } from "@/lib/grants/client";
 import { createMemoryStorage } from "../helpers/session-storage";
-import {
-  account,
-  expiresAt,
-} from "../helpers/auth-fixtures";
+import { account, expiresAt } from "../helpers/auth-fixtures";
 import {
   activeMobileId,
   effectiveScopes,
@@ -73,29 +70,28 @@ async function startGrantsBackend() {
 
     if (request.method === "GET" && request.url === "/v1/hosts/grant-management") {
       sendJson(response, 200, {
-        hosts: [{
-          host: {
-            id: grantHostId,
-            displayName: hostAvailable.displayName,
-            clientVersion: hostAvailable.clientVersion,
-            availability: "offline",
+        hosts: [
+          {
+            host: {
+              id: grantHostId,
+              displayName: hostAvailable.displayName,
+              clientVersion: hostAvailable.clientVersion,
+              availability: "offline",
+            },
+            accountId: account.id,
+            policyConfigured: true,
+            policyScopes,
+            revision: state.revision,
+            grants: [
+              {
+                mobileDeviceId: activeMobileId,
+                scopes: state.scopes,
+                status: state.status,
+              },
+            ],
           },
-          accountId: account.id,
-          policyConfigured: true,
-          policyScopes,
-          revision: state.revision,
-          grants: [{
-            mobileDeviceId: activeMobileId,
-            scopes: state.scopes,
-            status: state.status,
-          }],
-        }],
+        ],
       });
-      return;
-    }
-
-    if (request.method === "GET" && request.url === "/v1/hosts") {
-      sendJson(response, 200, { hosts: [hostAvailable] });
       return;
     }
 
@@ -118,11 +114,6 @@ async function startGrantsBackend() {
       return;
     }
 
-    if (request.method === "GET" && mobileDeviceId === undefined) {
-      sendJson(response, 200, snapshot(state));
-      return;
-    }
-
     if (mobileDeviceId !== activeMobileId) {
       sendGrantError(response, 404, "HOST_GRANT_NOT_FOUND");
       return;
@@ -134,15 +125,10 @@ async function startGrantsBackend() {
         sendGrantError(response, 409, "HOST_GRANT_STALE_REVISION");
         return;
       }
-      const requested = Array.isArray(body.scopes)
-        ? (body.scopes as RemoteDeviceScope[])
-        : [];
+      const requested = Array.isArray(body.scopes) ? (body.scopes as RemoteDeviceScope[]) : [];
       if (
         state.status === "revoked" ||
-        !requested.every(
-          (scope) =>
-            policyScopes.includes(scope) && state.scopes.includes(scope),
-        )
+        !requested.every((scope) => policyScopes.includes(scope) && state.scopes.includes(scope))
       ) {
         sendGrantError(response, 403, "HOST_GRANT_NOT_ALLOWED");
         return;
@@ -154,9 +140,7 @@ async function startGrantsBackend() {
     }
 
     if (request.method === "DELETE") {
-      const expectedRevision = Number(
-        new URLSearchParams(query ?? "").get("expectedRevision"),
-      );
+      const expectedRevision = Number(new URLSearchParams(query ?? "").get("expectedRevision"));
       if (expectedRevision !== state.revision) {
         sendGrantError(response, 409, "HOST_GRANT_STALE_REVISION");
         return;
@@ -198,26 +182,6 @@ async function startGrantsBackend() {
   return handle;
 }
 
-function snapshot(state: GrantFixtureState) {
-  return {
-    hostId: grantHostId,
-    accountId: account.id,
-    policyConfigured: true,
-    policyScopes,
-    revision: state.revision,
-    issuedAt: "2026-10-25T12:00:00.000Z",
-    validUntil: "2026-10-25T12:05:00.000Z",
-    maxStalenessSeconds: 300,
-    grants: [
-      {
-        mobileDeviceId: activeMobileId,
-        scopes: state.scopes,
-        status: state.status,
-      },
-    ],
-  };
-}
-
 function mutation(state: GrantFixtureState) {
   return {
     hostId: grantHostId,
@@ -254,18 +218,19 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
 
     const grants = createHostGrantsClient({ baseUrl: backend.url });
 
-    await expect(grants.listHosts(token)).resolves.toEqual([hostAvailable]);
     // A logged-out Host is still manageable through the durable Portal route;
     // no runtime /grants snapshot is needed to render or edit stored state.
-    await expect(grants.listManagement(token)).resolves.toMatchObject([{
-      host: { id: grantHostId, availability: "offline" },
-      revision: 4,
-      grants: [{ mobileDeviceId: activeMobileId, scopes: effectiveScopes }],
-    }]);
+    await expect(grants.listManagement(token)).resolves.toMatchObject([
+      {
+        host: { id: grantHostId, availability: "offline" },
+        revision: 4,
+        grants: [{ mobileDeviceId: activeMobileId, scopes: effectiveScopes }],
+      },
+    ]);
 
     await expect(grants.listDevices(token)).resolves.toEqual([mobileActive]);
 
-    const initial = await grants.getSnapshot(token, grantHostId);
+    const initial = (await grants.listManagement(token))[0];
     expect(initial).toMatchObject({
       revision: 4,
       policyConfigured: true,
@@ -287,24 +252,18 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
       scopes: ["threads:read"],
       status: "active",
     });
-    await expect(grants.listManagement(token)).resolves.toMatchObject([{
-      revision: 5,
-      grants: [{ scopes: ["threads:read"], status: "active" }],
-    }]);
-
-
-    await expect(
-      grants.getSnapshot(token, grantHostId),
-    ).resolves.toMatchObject({
-      revision: 5,
-      grants: [
-        {
-          mobileDeviceId: activeMobileId,
-          scopes: ["threads:read"],
-          status: "active",
-        },
-      ],
-    });
+    await expect(grants.listManagement(token)).resolves.toMatchObject([
+      {
+        revision: 5,
+        grants: [
+          {
+            mobileDeviceId: activeMobileId,
+            scopes: ["threads:read"],
+            status: "active",
+          },
+        ],
+      },
+    ]);
 
     const widening = await captureFailure(
       grants.narrowGrant(token, grantHostId, activeMobileId, {
@@ -324,38 +283,25 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
     expect(stale.kind).toBe("stale_revision");
     expect(stale.status).toBe(409);
 
-    const revoked = await grants.revokeGrant(
-      token,
-      grantHostId,
-      activeMobileId,
-      5,
-    );
+    const revoked = await grants.revokeGrant(token, grantHostId, activeMobileId, 5);
     expect(revoked).toMatchObject({
       revision: 6,
       scopes: [],
       status: "revoked",
     });
-    await expect(grants.listManagement(token)).resolves.toMatchObject([{
-      revision: 6,
-      grants: [{ scopes: [], status: "revoked" }],
-    }]);
+    await expect(grants.listManagement(token)).resolves.toMatchObject([
+      {
+        revision: 6,
+        grants: [{ scopes: [], status: "revoked" }],
+      },
+    ]);
 
-
-    await expect(
-      grants.getSnapshot(token, grantHostId),
-    ).resolves.toMatchObject({
-      revision: 6,
-      grants: [
-        {
-          mobileDeviceId: activeMobileId,
-          scopes: [],
-          status: "revoked",
-        },
-      ],
-    });
-
-    expect(backend.requests).toContain("PATCH /v1/hosts/11111111-1111-4111-8111-111111111111/grants/22222222-2222-4222-8222-222222222222");
-    expect(backend.requests).toContain("DELETE /v1/hosts/11111111-1111-4111-8111-111111111111/grants/22222222-2222-4222-8222-222222222222?expectedRevision=5");
+    expect(backend.requests).toContain(
+      "PATCH /v1/hosts/11111111-1111-4111-8111-111111111111/grants/22222222-2222-4222-8222-222222222222",
+    );
+    expect(backend.requests).toContain(
+      "DELETE /v1/hosts/11111111-1111-4111-8111-111111111111/grants/22222222-2222-4222-8222-222222222222?expectedRevision=5",
+    );
   });
 
   it("keeps cross-account Hosts hidden and does not log the user out on grants 401", async () => {
@@ -373,13 +319,16 @@ describe("Portal Host grants flow against a real mocked HTTP contract", () => {
     const grants = createHostGrantsClient({ baseUrl: backend.url });
 
     const foreignHost = await captureFailure(
-      grants.getSnapshot(token, "99999999-9999-4999-8999-999999999999"),
+      grants.narrowGrant(token, "99999999-9999-4999-8999-999999999999", activeMobileId, {
+        expectedRevision: 4,
+        scopes: ["threads:read"],
+      }),
     );
     expect(foreignHost.kind).toBe("not_found");
     expect(foreignHost.status).toBe(404);
 
     backend.expireSessions();
-    const expired = await captureFailure(grants.listHosts(token));
+    const expired = await captureFailure(grants.listManagement(token));
     expect(expired.kind).toBe("reauth_required");
     expect(expired.status).toBe(401);
 
@@ -402,31 +351,19 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
 }
 
-function sendAuthError(
-  response: ServerResponse,
-  status: number,
-  code: string,
-): void {
+function sendAuthError(response: ServerResponse, status: number, code: string): void {
   sendJson(response, status, {
     error: { code, message: "Portal integration auth error" },
   });
 }
 
-function sendGrantError(
-  response: ServerResponse,
-  status: number,
-  code: string,
-): void {
+function sendGrantError(response: ServerResponse, status: number, code: string): void {
   sendJson(response, status, {
     error: { code, message: "Portal integration grant error" },
   });
 }
 
-function sendJson(
-  response: ServerResponse,
-  status: number,
-  body: unknown,
-): void {
+function sendJson(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
 }

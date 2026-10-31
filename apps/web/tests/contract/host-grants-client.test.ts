@@ -51,32 +51,21 @@ async function captureFailure(action: Promise<unknown>): Promise<HostGrantsFailu
 }
 
 describe("Host grants client contract", () => {
-  it("lists owned Hosts and devices through authenticated canonical schemas", async () => {
+  it("reads devices through an authenticated canonical schema", async () => {
     const requests: RecordedRequest[] = [];
-    const client = clientReturning(
-      jsonResponse({ hosts: [hostAvailable] }),
-      requests,
-      { baseUrl: "https://auth.example/" },
-    );
+    const client = clientReturning(jsonResponse({ devices: [mobileActive] }), requests, {
+      baseUrl: "https://auth.example/",
+    });
 
-    await expect(client.listHosts("token-1")).resolves.toEqual([hostAvailable]);
+    await expect(client.listDevices("token-1")).resolves.toEqual([mobileActive]);
 
-    const deviceClient = clientReturning(
-      jsonResponse({ devices: [mobileActive] }),
-      requests,
-    );
-    await expect(deviceClient.listDevices("token-1")).resolves.toEqual([
-      mobileActive,
-    ]);
-
-    expect(requests).toHaveLength(2);
-    expect(requests[0]?.url).toBe("https://auth.example/v1/hosts");
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe("https://auth.example/v1/devices");
     expect(requests[0]?.init?.method).toBe("GET");
     expect(requests[0]?.init?.headers).toMatchObject({
       accept: "application/json",
       authorization: "Bearer token-1",
     });
-    expect(requests[1]?.url).toBe("/v1/devices");
   });
 
   it("reads a durable owner-only management ledger without runtime grant proof fields", async () => {
@@ -108,20 +97,6 @@ describe("Host grants client contract", () => {
     expect(invalid.kind).toBe("malformed_response");
   });
 
-  it("reads the authoritative Host grant snapshot", async () => {
-    const requests: RecordedRequest[] = [];
-    const client = clientReturning(jsonResponse(snapshotGranted), requests);
-
-    await expect(client.getSnapshot("token-1", grantHostId)).resolves.toEqual(
-      snapshotGranted,
-    );
-
-    expect(requests[0]?.url).toBe(`/v1/hosts/${grantHostId}/grants`);
-    expect(requests[0]?.init?.headers).toMatchObject({
-      authorization: "Bearer token-1",
-    });
-  });
-
   it("narrows through the canonical PATCH body", async () => {
     const requests: RecordedRequest[] = [];
     const response = mutationResponse({
@@ -138,9 +113,7 @@ describe("Host grants client contract", () => {
       }),
     ).resolves.toEqual(response);
 
-    expect(requests[0]?.url).toBe(
-      `/v1/hosts/${grantHostId}/grants/${activeMobileId}`,
-    );
+    expect(requests[0]?.url).toBe(`/v1/hosts/${grantHostId}/grants/${activeMobileId}`);
     expect(requests[0]?.init?.method).toBe("PATCH");
     expect(requests[0]?.init?.headers).toMatchObject({
       accept: "application/json",
@@ -162,9 +135,9 @@ describe("Host grants client contract", () => {
     });
     const client = clientReturning(jsonResponse(response), requests);
 
-    await expect(
-      client.revokeGrant("token-1", grantHostId, activeMobileId, 4),
-    ).resolves.toEqual(response);
+    await expect(client.revokeGrant("token-1", grantHostId, activeMobileId, 4)).resolves.toEqual(
+      response,
+    );
 
     expect(requests[0]?.url).toBe(
       `/v1/hosts/${grantHostId}/grants/${activeMobileId}?expectedRevision=4`,
@@ -192,9 +165,7 @@ describe("Host grants client contract", () => {
         [],
       );
 
-      const failure = await captureFailure(
-        client.getSnapshot("token-1", grantHostId),
-      );
+      const failure = await captureFailure(client.listManagement("token-1"));
       expect(failure.status).toBe(status);
       expect(failure.code).toBe(code);
       expect(failure.kind).toBe(kind);
@@ -206,14 +177,14 @@ describe("Host grants client contract", () => {
       new Response("<html>bad gateway</html>", { status: 503 }),
       [],
     );
-    expect(
-      (await captureFailure(unavailable.listHosts("token-1"))).kind,
-    ).toBe("service_unavailable");
+    expect((await captureFailure(unavailable.listManagement("token-1"))).kind).toBe(
+      "service_unavailable",
+    );
 
     const malformed = clientReturning(jsonResponse({ hosts: "nope" }), []);
-    expect(
-      (await captureFailure(malformed.listHosts("token-1"))).kind,
-    ).toBe("malformed_response");
+    expect((await captureFailure(malformed.listManagement("token-1"))).kind).toBe(
+      "malformed_response",
+    );
   });
 
   it("validates narrow and revoke requests before issuing a network call", async () => {
@@ -231,24 +202,12 @@ describe("Host grants client contract", () => {
       ).kind,
     ).toBe("invalid_request");
     expect(
-      (
-        await captureFailure(
-          client.revokeGrant("token-1", grantHostId, activeMobileId, 1.5),
-        )
-      ).kind,
+      (await captureFailure(client.revokeGrant("token-1", grantHostId, activeMobileId, 1.5))).kind,
     ).toBe("invalid_request");
     expect(requests).toHaveLength(0);
   });
 
-  it("rejects a snapshot or mutation that names a different Host or Mobile", async () => {
-    const wrongHost = clientReturning(
-      jsonResponse({ ...snapshotGranted, hostId: "99999999-9999-4999-8999-999999999999" }),
-      [],
-    );
-    expect(
-      (await captureFailure(wrongHost.getSnapshot("token-1", grantHostId))).kind,
-    ).toBe("unexpected_response");
-
+  it("rejects a mutation that names a different Host or Mobile", async () => {
     const wrongMobile = clientReturning(
       jsonResponse(
         mutationResponse({
@@ -273,13 +232,10 @@ describe("Host grants client contract", () => {
   });
 
   it("classifies transport failures as network unavailable", async () => {
-    const client = clientReturning(
-      () => Promise.reject(new TypeError("offline")),
-      [],
-    );
+    const client = clientReturning(() => Promise.reject(new TypeError("offline")), []);
 
-    expect(
-      (await captureFailure(client.listHosts("token-1"))).kind,
-    ).toBe("network_unavailable");
+    expect((await captureFailure(client.listManagement("token-1"))).kind).toBe(
+      "network_unavailable",
+    );
   });
 });

@@ -24,9 +24,7 @@ describe("web route shell", () => {
   it("renders the login form ready for auth operations", () => {
     renderAt("/login");
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" })).toBeInTheDocument();
     expect(screen.getByLabelText("账号")).toBeEnabled();
     expect(screen.getByLabelText("密码")).toBeEnabled();
     expect(screen.getByRole("button", { name: "登录" })).toBeEnabled();
@@ -41,7 +39,7 @@ describe("web route shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "你的 Mira 云端账户",
+        name: "Mira Cloud 账户",
       }),
     ).toBeInTheDocument();
   });
@@ -49,56 +47,33 @@ describe("web route shell", () => {
   it("renders the account shell without a stored session", async () => {
     renderAt("/account");
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "我的账户" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
     expect((await screen.findAllByText("未登录")).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login");
   });
 
   it("shows only the login entry while signed out, even on the account URL", async () => {
     const router = renderAt("/login");
 
-    expect(await screen.findByRole("link", { name: "登录" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
-    expect(
-      screen.queryByRole("link", { name: "账户中心" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: /OAuth|授权/ }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "登录" })).toHaveAttribute("href", "/login");
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /OAuth|授权/ })).not.toBeInTheDocument();
 
     await router.navigate("/account");
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "我的账户" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "登录" })).toBeInTheDocument();
-    expect(
-      screen.queryByRole("link", { name: "账户中心" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
   });
 
   it("renders the not-found surface for unknown routes", () => {
     renderAt("/missing");
 
-    expect(
-      screen.getByRole("heading", { level: 1, name: "页面不存在" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(screen.getByRole("heading", { level: 1, name: "页面不存在" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "前往登录" })).toHaveAttribute("href", "/login");
   });
 
   it("renders route errors inside the shared portal shell", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
     function BrokenPage(): never {
       throw new Error("boom");
@@ -128,13 +103,8 @@ describe("web route shell", () => {
         name: "页面暂时无法显示",
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("navigation", { name: "主导航" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "登录" })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(screen.getByRole("navigation", { name: "主导航" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "登录" })).toHaveAttribute("href", "/login");
 
     consoleError.mockRestore();
   });
