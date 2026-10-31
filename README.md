@@ -56,9 +56,9 @@ OPS-001 intentionally provides only the service boundary, persistence/migration 
 4. `pnpm run check`
 5. `pnpm run dev`
 
-`.env` is gitignored. `pnpm run dev` and `pnpm run seed:dev` load the repository-root `.env` when it exists; production ignores it and receives configuration from the process environment. Environment variables already exported in your shell still win over `.env`. `pnpm run seed:dev` provisions the seed account, or resets its password when it already exists, and always leaves it allowed and enabled — it reads the password from `.env` and never prints it or accepts one on the command line.
+`.env` is gitignored. `pnpm run dev`, `pnpm run dev:web` and `pnpm run seed:dev` load the repository-root `.env` when it exists; production ignores it and receives configuration from the process environment. Environment variables already exported in your shell still win over `.env`. `pnpm run seed:dev` provisions the seed account, or resets its password when it already exists, and always leaves it allowed and enabled — it reads the password from `.env` and never prints it or accepts one on the command line.
 
-`pnpm run dev` builds `packages/contracts`, then starts the Fastify API (`http://localhost:8788`) and the Vite Account Portal (`http://localhost:5173`) together. The Vite dev server proxies `/v1`, `/health`, `/ready`, and `/.well-known` to the API, so the Portal talks to a same-origin API exactly as it does in production behind Caddy. If `5173` is already taken, Vite picks the next free port; set `MIRA_AUTH_DEV_API_ORIGIN` (for example `http://127.0.0.1:9000`) when the API listens elsewhere.
+`pnpm run dev` builds `packages/contracts`, then starts the Fastify API (`http://localhost:8788`) and the Vite Account Portal (`http://localhost:5173`) together. The Vite dev server proxies `/v1`, `/health`, `/ready`, and `/.well-known` to the API, so the Portal talks to a same-origin API exactly as it does in production behind Caddy. If `5173` is already taken, Vite picks the next free port; set `MIRA_AUTH_DEV_API_ORIGIN` in the root `.env` (for example `http://127.0.0.1:9000`) when the API listens elsewhere — the Vite config reads that file, so exporting the variable in your shell also works.
 
 - `pnpm run dev:api`: API only.
 - `pnpm run dev:web`: Portal only, expects an API at the proxy target above.

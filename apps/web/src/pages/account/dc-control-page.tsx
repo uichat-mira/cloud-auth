@@ -156,7 +156,15 @@ export function DcControlPage() {
       completed = true;
     } catch (cause) {
       if (cause instanceof DcControlError && cause.httpStatus === 401) {
-        revokeFailedSession(token, getSessionToken, invalidateSession);
+        const { rotated } = revokeFailedSession(token, getSessionToken, invalidateSession);
+        // A privileged write is never replayed. If the token had already been
+        // renewed the session survives, so staying silent would leave the user
+        // believing `start`/`stop`/`save` ran. Say so explicitly; the periodic
+        // poller re-reads the authoritative status on its next tick.
+        if (rotated) {
+          setNotice("");
+          setError("Cloud Session 已更新，此操作未执行，请重新提交。");
+        }
       } else {
         setError(errorMessage(cause));
       }

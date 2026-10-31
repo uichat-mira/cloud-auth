@@ -160,4 +160,34 @@ describe("DC inside Mira account", () => {
     expect(screen.getByRole("button", { name: "启动 DC" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "保存策略" })).toBeDisabled();
   });
+
+  it("tells the user a rotated-token 401 did not execute the write", async () => {
+    // The write is rejected only after the Cloud Session has been renewed, so
+    // the store keeps the newer session. The operation must not be replayed,
+    // but silence would imply `start` ran -- assert the explicit notice.
+    const gate: { release?: () => void } = {};
+    const calls = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      if (String(input) !== "/dc/api/start") return reply(status);
+      await new Promise<void>((resolve) => {
+        gate.release = resolve;
+      });
+      return reply({ error: "expired" }, 401);
+    });
+    vi.stubGlobal("fetch", calls);
+    const { store } = mountPortal({ path: "/account/services/dc", session: storedSession });
+    await waitFor(() => expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "启动 DC" }));
+    await waitFor(() => expect(gate.release).toBeDefined());
+    await store.getState().renew();
+    expect(store.getState().getSessionToken()).toBe("token-2");
+
+    gate.release?.();
+    expect(await screen.findByRole("alert")).toHaveTextContent("此操作未执行");
+    // The renewed session survives and the control is usable again.
+    expect(store.getState().getSessionToken()).toBe("token-2");
+    expect(screen.getByRole("button", { name: "启动 DC" })).toBeEnabled();
+    // A privileged write is never replayed.
+    expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/start")).toHaveLength(1);
+  });
 });
