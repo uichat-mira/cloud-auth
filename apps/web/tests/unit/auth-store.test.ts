@@ -131,15 +131,23 @@ describe("auth store", () => {
     expect(storage.load()).toEqual(stored);
   });
 
-  it("treats a locally expired session as signed out instead of handing out its token", () => {
+  it("treats a locally expired session as signed out instead of handing out its token", async () => {
     // The store enforces the deadline itself, so an already-expired credential
     // must never reach a privileged request. This is the behaviour that a
     // literal fixture timestamp silently violated once real time passed it.
-    const storage = createMemoryStorage({
+    //
+    // Start from a genuinely signed-in store, then let the deadline lapse: when
+    // `account`/`expiresAt` are already `null` at creation, asserting them
+    // afterwards would only restate the initial state and prove nothing.
+    const storage = createMemoryStorage();
+    const store = createAuthStore({ client: createClient(), storage });
+    await store.getState().login("pilot", "correct horse battery staple");
+    expect(store.getState()).toMatchObject({ status: "authenticated", account, expiresAt });
+
+    storage.save({
       sessionToken: "expired-token",
       expiresAt: new Date(Date.now() - 60_000).toISOString(),
     });
-    const store = createAuthStore({ client: createClient(), storage });
 
     expect(store.getState().getSessionToken()).toBeNull();
     expect(storage.load()).toBeNull();
@@ -166,6 +174,10 @@ describe("auth store", () => {
       vi.useRealTimers();
     }
     expect(storage.load()).toBeNull();
+    expect(store.getState()).toMatchObject({
+      status: "unauthenticated",
+      failure: { kind: "reauth_required" },
+    });
   });
 
   it("keeps returning the token while the session is still live", () => {
