@@ -54,5 +54,9 @@ describe("readBearerToken", () => {
   it("rejects tokens containing a line terminator", () => {
     expect(parse("Bearer token\nmore")).toBeNull();
     expect(parse("Bearer token\rmore")).toBeNull();
+    // A trailing newline is rejected too: `.` never matched line terminators,
+    // so `/^Bearer\s+(.+)$/` could not span one even at the end.
+    expect(parse("Bearer token\n")).toBeNull();
+    expect(parse("Bearer token\r\n")).toBeNull();
   });
 });

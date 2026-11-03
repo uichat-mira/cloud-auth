@@ -25,8 +25,13 @@ export function SessionBlock() {
     // Escape and focus leaving the block are handled at the document level for
     // the same reason as the outside click: the container stays a plain layout
     // element instead of carrying interactive handlers on a `div`.
+    //
+    // Escape only belongs to this menu when it owns focus, so a dialog or menu
+    // opened elsewhere on the page keeps its own handling instead of being
+    // swallowed here.
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
+      if (!(event.target instanceof Node) || !rootRef.current?.contains(event.target)) return;
       event.preventDefault();
       setOpen(false);
       triggerRef.current?.focus();
