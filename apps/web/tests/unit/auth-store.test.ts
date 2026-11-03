@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CloudSession } from "@uichat-mira/cloud-auth-contracts";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { CloudAuthError, createAuthFailure } from "@/lib/auth/errors";
@@ -145,8 +145,27 @@ describe("auth store", () => {
     expect(storage.load()).toBeNull();
     expect(store.getState()).toMatchObject({
       status: "unauthenticated",
+      account: null,
+      expiresAt: null,
       failure: { kind: "reauth_required" },
     });
+  });
+
+  it("rejects a credential the moment its deadline is reached", () => {
+    // The guard is `<=`, so the deadline itself is already too late. Pin that
+    // edge so a later `<` refactor cannot quietly hand out the last token.
+    const deadline = new Date(Date.now() - 30 * 60_000).toISOString();
+    const storage = createMemoryStorage({ sessionToken: "boundary-token", expiresAt: deadline });
+    const store = createAuthStore({ client: createClient(), storage });
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(deadline));
+      expect(store.getState().getSessionToken()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(storage.load()).toBeNull();
   });
 
   it("keeps returning the token while the session is still live", () => {
