@@ -1,78 +1,49 @@
-name: Deploy Cloud Auth Test
+# Test is intentionally runner-only: no host, SSH, Caddy, production secrets or shared ports.
+name: Verify Cloud Auth Test (Isolated)
 
 on:
+  push:
+    branches: [test]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: cloud-auth-test
-  cancel-in-progress: false
+  group: cloud-auth-test-isolated-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
-    name: Deploy test and smoke
+  smoke:
+    name: Isolated Docker smoke
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    environment: test
     steps:
+      - name: Require test branch
+        run: test "${GITHUB_REF}" = "refs/heads/test"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-
-      - name: Build test image
+      - name: Build and start disposable runtime on GitHub runner
+        run: docker compose -p cloud-auth-test-ci up -d --build
+      - name: Verify real API and packaged Portal
+        shell: bash
         run: |
           set -euo pipefail
-          docker build -t mira-cloud-auth:test .
-          docker save mira-cloud-auth:test | gzip -1 > mira-cloud-auth-test-image.tar.gz
-          gzip -t mira-cloud-auth-test-image.tar.gz
-
-      - name: Prepare isolated test directory
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          port: ${{ secrets.DEPLOY_PORT || '22' }}
-          command_timeout: 2m
-          script: |
-            set -eu
-            mkdir -p /opt/cloud-auth-test/data /opt/cloud-auth-test/backups /opt/cloud-auth-test/scripts /opt/cloud-auth-test/deploy
-            chmod 700 /opt/cloud-auth-test/data /opt/cloud-auth-test/backups
-
-      - name: Upload test bundle
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          port: ${{ secrets.DEPLOY_PORT || '22' }}
-          source: "docker-compose.test.yml,scripts/deploy-test.sh,scripts/install-caddy-test-route.sh,scripts/publish-web-artifact.sh,deploy/mira-cloud-auth-test.caddy,mira-cloud-auth-test-image.tar.gz"
-          target: "/opt/cloud-auth-test"
-          overwrite: true
-
-      - name: Deploy, benchmark and local smoke
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
-        env:
-          DEPLOY_SHA: ${{ github.sha }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          port: ${{ secrets.DEPLOY_PORT || '22' }}
-          command_timeout: 10m
-          envs: DEPLOY_SHA
-          script: |
-            set -eu
-            chmod +x /opt/cloud-auth-test/scripts/deploy-test.sh /opt/cloud-auth-test/scripts/install-caddy-test-route.sh /opt/cloud-auth-test/scripts/publish-web-artifact.sh
-            /opt/cloud-auth-test/scripts/deploy-test.sh
-
-      - name: Public test smoke
-        run: |
-          set -euo pipefail
-          if ! getent ahostsv4 test.cloud-auth.tomzlab.cn >/dev/null 2>&1; then
-            echo "::warning::test.cloud-auth.tomzlab.cn does not resolve; skipping public test smoke."
-            exit 0
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8788/ready >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker compose -p cloud-auth-test-ci logs --tail=100
+            exit 1
           fi
-          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/health
-          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/ | grep -F "Mira Cloud Account"
-          curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location https://test.cloud-auth.tomzlab.cn/account | grep -F "Mira Cloud Account"
+          curl --fail --silent --show-error http://127.0.0.1:8788/health |
+            python3 -c 'import json,sys; body=json.load(sys.stdin); assert body.get("status")=="ok" and body.get("service")=="mira-cloud-auth", body'
+          docker compose -p cloud-auth-test-ci exec -T cloud-auth test -s /app/apps/web/dist/index.html
+          docker compose -p cloud-auth-test-ci exec -T cloud-auth grep -Fq "Mira Cloud Account" /app/apps/web/dist/index.html
+      - name: Remove disposable runtime and data
+        if: ${{ always() }}
+        run: docker compose -p cloud-auth-test-ci down -v --remove-orphans
