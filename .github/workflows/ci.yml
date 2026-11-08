@@ -29,6 +29,14 @@ jobs:
       - run: pnpm audit --audit-level=moderate
       - name: Validate deployment scripts
         run: sh -n scripts/*.sh
+      - name: Enforce runner-only test and prod-only deployment
+        run: |
+          set -eu
+          if grep -Eiq 'appleboy/|ssh-action|scp-action|secrets[.]|/opt/cloud-auth|test[.]cloud-auth[.]tomzlab[.]cn|curl.*https://' .github/workflows/deploy-test.yml; then
+            echo "::error::test workflow must not contact a remote server or use deployment secrets"
+            exit 1
+          fi
+          grep -Fq 'run: test "${GITHUB_REF}" = "refs/heads/prod"' .github/workflows/deploy-prod.yml
 
   t1:
     name: T1 Unit
