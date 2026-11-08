@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
+      - name: Require production ref before any server access
+        run: test "${GITHUB_REF}" = "refs/heads/prod"
       - uses: actions/checkout@v4
 
       - name: Build exact production image
