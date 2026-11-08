@@ -57,7 +57,7 @@ feat/* → dev → test → prod
 ```
 
 - 功能/脚本变更：先 PR 到 `dev`，通过相关检查；按已审候选进入 `test`，最后才进入 `prod`。不要因为分支发生分叉就整分支强合并并夹带无关代码；必要时仅提升已审的变更。
-- `test`：手动触发 [Deploy Cloud Auth Test](../.github/workflows/deploy-test.yml)；不是一个常驻独立实例。测试与生产部署使用同一宿主机回环端口 **8788**，安排明确的测试窗口，不要在生产正在提供服务时随意启动测试部署。测试域名直接访问 `/login`、`/account`，不再配置 `/_acceptance/` 代理。
+- `test`：由 [Verify Cloud Auth Test (Isolated)](../.github/workflows/deploy-test.yml) 在 `test` push 时自动验证，也可手动触发（仅允许 `test` ref）。工作流在 **GitHub-hosted runner** 上启动一次性 Docker Compose、校验 `/ready`、`/health` 正文及内置 Portal 产物，完成后删除容器和测试数据；**不连接真实服务器、不读取部署 Secrets、不访问公网测试域名、不安装 Caddy**。这是隔离运行时 smoke，不代表公开部署后的 T4 或生产 T5。仓库保留的旧 `scripts/deploy-test.sh` / `docker-compose.test.yml` 仅供历史参考，禁止以其连接或覆盖生产宿主机。
 - `prod`：**push 到 `prod` 自动触发** [Deploy Cloud Auth Production](../.github/workflows/deploy-prod.yml)，也支持手动 `workflow_dispatch`。重跑生产工作流会再次构建、上传并重建容器；它不是无副作用的“状态检查”。
 - `main` 不是生产环境分支。部署前记录待发布 commit SHA、回滚锚点与数据库备份位置。
 
