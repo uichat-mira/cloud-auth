@@ -32,7 +32,7 @@ jobs:
       - name: Enforce runner-only test and prod-only deployment
         run: |
           set -eu
-          if grep -Eiq 'appleboy/|ssh-action|scp-action|secrets\\.|/opt/cloud-auth|test\\.cloud-auth\\.tomzlab\\.cn|curl.*https://' .github/workflows/deploy-test.yml; then
+          if grep -Eiq 'appleboy/|ssh-action|scp-action|secrets[.]|/opt/cloud-auth|test[.]cloud-auth[.]tomzlab[.]cn|curl.*https://' .github/workflows/deploy-test.yml; then
             echo "::error::test workflow must not contact a remote server or use deployment secrets"
             exit 1
           fi
