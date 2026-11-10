@@ -13,6 +13,7 @@ import {
   sameDcPolicy,
   type DcPolicy,
   type DcStatus,
+  type DcNode,
 } from "@/lib/dc-control";
 
 type Action = "start" | "stop" | "save";
@@ -40,6 +41,8 @@ function errorMessage(error: unknown): string {
 export function DcControlPage() {
   const { getSessionToken, invalidateSession } = useAuthSession();
   const client = useMemo(() => createDcControlClient(), []);
+  const [selectedNode, setSelectedNode] = useState<DcNode>("aliyun");
+  const activeNodeRef = useRef<DcNode>("aliyun");
   const [snapshot, setSnapshot] = useState<DcStatus | null>(null);
   const [draft, setDraft] = useState<DcPolicy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,12 +80,12 @@ export function DcControlPage() {
         const token = getSessionToken();
         requestToken = token;
         if (!token) throw new Error("请先登录 Mira Cloud Account。");
-        const result = await client.status(token, signal);
-        if (signal?.aborted) return;
+        const result = await client.status(token, signal, selectedNode);
+        if (signal?.aborted || activeNodeRef.current !== selectedNode) return;
         applySnapshot(result);
         setError("");
       } catch (cause) {
-        if (signal?.aborted) return;
+        if (signal?.aborted || activeNodeRef.current !== selectedNode) return;
         if (cause instanceof DcControlError && cause.httpStatus === 401 && requestToken) {
           // The poller retries on its next tick with whatever token is current
           // then, so invalidation only needs to drop the failed bearer.
@@ -95,7 +98,7 @@ export function DcControlPage() {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [applySnapshot, client, getSessionToken, invalidateSession],
+    [applySnapshot, client, getSessionToken, invalidateSession, selectedNode],
   );
 
   useEffect(() => {
@@ -154,17 +157,17 @@ export function DcControlPage() {
     try {
       let result: DcStatus;
       if (action === "save") {
-        result = await client.savePolicy(token, draft);
+        result = await client.savePolicy(token, draft, selectedNode);
         setNotice("运行策略已保存，下次启动生效。");
       } else if (action === "start") {
         if (!sameDcPolicy(draft, snapshot.policy)) {
-          await client.savePolicy(token, draft);
+          await client.savePolicy(token, draft, selectedNode);
           policySavedBeforeStart = true;
         }
-        result = await client.start(token);
+        result = await client.start(token, selectedNode);
         setNotice("启动命令已执行，远程连接状态请以设备端为准。");
       } else {
-        result = await client.stop(token);
+        result = await client.stop(token, selectedNode);
         setNotice("DC 服务已停止。");
       }
       lastPolicy.current = result.policy;
@@ -239,6 +242,28 @@ export function DcControlPage() {
               DC 控制台
             </h1>
             <p className="console-page-caption">广州服务器 · Desktop Commander</p>
+            <label className="dc-field" htmlFor="dc-node-select">
+              受管理节点
+              <select
+                id="dc-node-select"
+                value={selectedNode}
+                disabled={busy !== null}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  if (next !== "aliyun" && next !== "tencent") return;
+                  activeNodeRef.current = next;
+                  setSnapshot(null);
+                  setDraft(null);
+                  setLoading(true);
+                  setError("");
+                  setNotice("");
+                  setSelectedNode(next);
+                }}
+              >
+                <option value="aliyun">阿里云 · 原节点</option>
+                <option value="tencent">腾讯云 · 新节点</option>
+              </select>
+            </label>
           </div>
           <span className="dc-state-pill" role="status">
             <span className={running ? "dc-dot dc-dot-on" : "dc-dot"} aria-hidden="true" />
@@ -303,7 +328,7 @@ export function DcControlPage() {
             </div>
             <div>
               <dt>主机</dt>
-              <dd>广州 · Ubuntu</dd>
+              <dd>{selectedNode === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu</dd>
             </div>
           </dl>
           <div className="dc-actions">

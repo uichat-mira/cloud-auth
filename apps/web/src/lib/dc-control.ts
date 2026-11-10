@@ -35,6 +35,7 @@ const statusSchema = z.object({
 });
 
 export type DcPolicy = z.infer<typeof policySchema>;
+export type DcNode = "aliyun" | "tencent";
 export type DcStatus = z.infer<typeof statusSchema>;
 
 export class DcControlError extends Error {
@@ -48,10 +49,10 @@ export class DcControlError extends Error {
 }
 
 export interface DcControlClient {
-  status(sessionToken: string, signal?: AbortSignal): Promise<DcStatus>;
-  savePolicy(sessionToken: string, policy: DcPolicy): Promise<DcStatus>;
-  start(sessionToken: string): Promise<DcStatus>;
-  stop(sessionToken: string): Promise<DcStatus>;
+  status(sessionToken: string, signal?: AbortSignal, node?: DcNode): Promise<DcStatus>;
+  savePolicy(sessionToken: string, policy: DcPolicy, node?: DcNode): Promise<DcStatus>;
+  start(sessionToken: string, node?: DcNode): Promise<DcStatus>;
+  stop(sessionToken: string, node?: DcNode): Promise<DcStatus>;
 }
 
 export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch): DcControlClient {
@@ -61,12 +62,14 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
     method: "GET" | "PUT" | "POST" = "GET",
     payload?: DcPolicy | Record<string, never>,
     signal?: AbortSignal,
+    node: DcNode = "aliyun",
   ): Promise<DcStatus> {
     if (!sessionToken) throw new DcControlError("请先登录 Mira Cloud Account", 401);
 
     let response: Response;
     try {
-      response = await fetchImpl("/dc/api" + path, {
+      const endpoint = node === "aliyun" ? "/dc/api" : "/dc/api/nodes/tencent";
+      response = await fetchImpl(endpoint + path, {
         method,
         credentials: "same-origin",
         cache: "no-store",
@@ -115,14 +118,14 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
   }
 
   return {
-    status: (token, signal) => request(token, "/status", "GET", undefined, signal),
-    savePolicy: (token, value) => {
+    status: (token, signal, node) => request(token, "/status", "GET", undefined, signal, node),
+    savePolicy: (token, value, node) => {
       const parsed = policySchema.safeParse(value);
       if (!parsed.success) throw new DcControlError("请选择允许的运行策略。", 400);
-      return request(token, "/policy", "PUT", parsed.data);
+      return request(token, "/policy", "PUT", parsed.data, undefined, node);
     },
-    start: (token) => request(token, "/start", "POST", {}),
-    stop: (token) => request(token, "/stop", "POST", {}),
+    start: (token, node) => request(token, "/start", "POST", {}, undefined, node),
+    stop: (token, node) => request(token, "/stop", "POST", {}, undefined, node),
   };
 }
 
