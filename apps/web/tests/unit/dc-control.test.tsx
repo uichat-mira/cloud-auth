@@ -122,7 +122,9 @@ describe("DC inside Mira account", () => {
     mountPortal({ path: "/account/services/dc", session: storedSession });
 
     expect(await screen.findByRole("heading", { level: 1, name: "DC 控制台" })).toBeInTheDocument();
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled(),
+    );
     const nav = screen.getByRole("navigation", { name: "账户分区" });
     expect(within(nav).getByRole("link", { name: "关联服务" })).toHaveAttribute(
       "aria-current",
@@ -142,14 +144,23 @@ describe("DC inside Mira account", () => {
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
+    await screen.findByRole("heading", { name: "DC 控制台" });
     expect(card("aliyun")).toBeInTheDocument();
     expect(card("tencent")).toBeInTheDocument();
     expect(screen.queryByLabelText("受管理节点")).not.toBeInTheDocument();
-    await waitFor(() => expect(calls.mock.calls.some(([url]) => url === "/dc/api/status")).toBe(true));
-    await waitFor(() => expect(calls.mock.calls.some(([url]) => url === "/dc/api/nodes/tencent/status")).toBe(true));
-    await waitFor(() => expect(within(card("tencent")).getByRole("button", { name: "启动 DC" })).toBeEnabled());
+    await waitFor(() =>
+      expect(calls.mock.calls.some(([url]) => url === "/dc/api/status")).toBe(true),
+    );
+    await waitFor(() =>
+      expect(calls.mock.calls.some(([url]) => url === "/dc/api/nodes/tencent/status")).toBe(true),
+    );
+    await waitFor(() =>
+      expect(within(card("tencent")).getByRole("button", { name: "启动 DC" })).toBeEnabled(),
+    );
     fireEvent.click(within(card("tencent")).getByRole("button", { name: "启动 DC" }));
-    await waitFor(() => expect(calls.mock.calls.some(([url]) => url === "/dc/api/nodes/tencent/start")).toBe(true));
+    await waitFor(() =>
+      expect(calls.mock.calls.some(([url]) => url === "/dc/api/nodes/tencent/start")).toBe(true),
+    );
     expect(calls.mock.calls.some(([url]) => url === "/dc/api/start")).toBe(false);
     expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled();
   });
@@ -162,16 +173,21 @@ describe("DC inside Mira account", () => {
     );
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
+    await screen.findByRole("heading", { name: "DC 控制台" });
     expect(await within(card("tencent")).findByRole("alert")).toHaveTextContent("腾讯云节点不可用");
     expect(within(card("tencent")).getByRole("button", { name: "启动 DC" })).toBeDisabled();
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled(),
+    );
   });
 
   it("keeps runtime policy inside a dialog and discards canceled edits", async () => {
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled(),
+    );
 
     expect(screen.queryByLabelText("内存上限")).not.toBeInTheDocument();
     fireEvent.click(within(card("aliyun")).getByRole("button", { name: "运行策略" }));
@@ -199,7 +215,9 @@ describe("DC inside Mira account", () => {
     });
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled(),
+    );
     fireEvent.click(within(card("aliyun")).getByRole("button", { name: "运行策略" }));
     const dialog = screen.getByRole("dialog", { name: "运行策略" });
     fireEvent.change(within(dialog).getByLabelText("内存上限"), { target: { value: "512" } });
@@ -234,7 +252,9 @@ describe("DC inside Mira account", () => {
     );
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled(),
+    );
     fireEvent.click(within(card("aliyun")).getByRole("button", { name: "运行策略" }));
     const dialog = screen.getByRole("dialog", { name: "运行策略" });
     fireEvent.change(within(dialog).getByLabelText("内存上限"), { target: { value: "512" } });
@@ -258,11 +278,17 @@ describe("DC inside Mira account", () => {
     );
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "停止服务" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "停止服务" })).toBeEnabled(),
+    );
     fireEvent.click(within(card("aliyun")).getByRole("button", { name: "停止服务" }));
-    expect(screen.getByRole("dialog", { name: "停止 阿里云 · 原节点 DC 服务？" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "停止 阿里云 · 原节点 DC 服务？" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "确认停止" }));
-    expect(await within(card("aliyun")).findByRole("alert")).toHaveTextContent("本机控制服务暂不可用");
+    expect(await within(card("aliyun")).findByRole("alert")).toHaveTextContent(
+      "本机控制服务暂不可用",
+    );
     expect(calls.mock.calls.filter((row) => String(row[0]) === "/dc/api/stop")).toHaveLength(1);
   });
 
@@ -272,7 +298,10 @@ describe("DC inside Mira account", () => {
     );
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    expect(await within(card("aliyun")).findByRole("alert")).toHaveTextContent("没有这台服务器的管理权限");
+    await screen.findByRole("heading", { name: "DC 控制台" });
+    expect(await within(card("aliyun")).findByRole("alert")).toHaveTextContent(
+      "没有这台服务器的管理权限",
+    );
     expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeDisabled();
     expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeDisabled();
   });
@@ -294,7 +323,9 @@ describe("DC inside Mira account", () => {
     });
     vi.stubGlobal("fetch", calls);
     const { store } = mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "运行策略" })).toBeEnabled(),
+    );
     fireEvent.click(within(card("aliyun")).getByRole("button", { name: "运行策略" }));
     const dialog = screen.getByRole("dialog", { name: "运行策略" });
     fireEvent.change(within(dialog).getByLabelText("内存上限"), { target: { value: "512" } });
@@ -327,7 +358,9 @@ describe("DC inside Mira account", () => {
     });
     vi.stubGlobal("fetch", calls);
     const { store } = mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled());
+    await waitFor(() =>
+      expect(within(card("aliyun")).getByRole("button", { name: "启动 DC" })).toBeEnabled(),
+    );
 
     fireEvent.click(within(card("aliyun")).getByRole("button", { name: "启动 DC" }));
     await waitFor(() => expect(gate.release).toBeDefined());

@@ -45,7 +45,9 @@ export function DcControlPage() {
         <Link className="console-section-link dc-back" to="/account/services">
           关联服务
         </Link>
-        <h1 id="dc-heading" tabIndex={-1}>DC 控制台</h1>
+        <h1 id="dc-heading" tabIndex={-1}>
+          DC 控制台
+        </h1>
         <p className="console-page-caption">广州服务器 · Desktop Commander · 按需启动</p>
       </header>
       <div className="dc-layout">
@@ -261,76 +263,75 @@ function DcNodeCard({ node }: { node: DcNode }) {
       </header>
 
       {error ? (
-        <p role="alert" className="cloud-notice cloud-notice-danger dc-feedback">{error}</p>
+        <p role="alert" className="cloud-notice cloud-notice-danger dc-feedback">
+          {error}
+        </p>
       ) : null}
       {notice ? (
-        <p role="status" className="cloud-notice cloud-notice-success dc-feedback">{notice}</p>
+        <p role="status" className="cloud-notice cloud-notice-success dc-feedback">
+          {notice}
+        </p>
       ) : null}
 
       <div className="dc-panel-head">
         <h3>服务状态</h3>
-            <div className="dc-panel-tools">
-              <Button variant="ghost" size="sm" disabled={inactive} onClick={openPolicy}>
-                运行策略
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy !== null}
-                onClick={() => void refresh()}
-              >
-                刷新
-              </Button>
-            </div>
-          </div>
-          <div className="dc-primary-state">
-            <strong>
-              {loading ? "正在读取…" : !snapshot ? "状态不可用" : running ? "运行中" : "已停止"}
-            </strong>
-            <span>
-              {legacy
-                ? "此前的临时试运行服务"
-                : running
-                  ? "DC 进程已启动"
-                  : "按需启动，减少服务器资源占用"}
-            </span>
-          </div>
-          <dl className="console-facts dc-facts">
-            <div>
-              <dt>本次剩余时间</dt>
-              <dd>{legacy ? "临时服务" : remainingLabel(remaining)}</dd>
-            </div>
-            <div>
-              <dt>进程内存</dt>
-              <dd>
-                {snapshot?.memoryBytes == null
-                  ? "—"
-                  : Math.round(snapshot.memoryBytes / 1048576) + " MiB"}
-              </dd>
-            </div>
-            <div>
-              <dt>主机</dt>
-              <dd>{node === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu</dd>
-            </div>
-          </dl>
-          <div className="dc-actions">
-            <Button size="xl" disabled={inactive || running} onClick={() => void perform("start")}>
-              {busy === "start" ? "正在启动…" : "启动 DC"}
-            </Button>
-            <Button
-              variant="outline"
-              size="xl"
-              disabled={inactive || !running}
-              onClick={() => setStopOpen(true)}
-            >
-              停止服务
-            </Button>
-          </div>
-          <p className="dc-muted">
-            {snapshot?.at
-              ? "状态更新于 " + new Date(snapshot.at).toLocaleTimeString("zh-CN")
-              : "仅管理当前 DC 实例"}
-          </p>
+        <div className="dc-panel-tools">
+          <Button variant="ghost" size="sm" disabled={inactive} onClick={openPolicy}>
+            运行策略
+          </Button>
+          <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void refresh()}>
+            刷新
+          </Button>
+        </div>
+      </div>
+      <div className="dc-primary-state">
+        <strong>
+          {loading ? "正在读取…" : !snapshot ? "状态不可用" : running ? "运行中" : "已停止"}
+        </strong>
+        <span>
+          {legacy
+            ? "此前的临时试运行服务"
+            : running
+              ? "DC 进程已启动"
+              : "按需启动，减少服务器资源占用"}
+        </span>
+      </div>
+      <dl className="console-facts dc-facts">
+        <div>
+          <dt>本次剩余时间</dt>
+          <dd>{legacy ? "临时服务" : remainingLabel(remaining)}</dd>
+        </div>
+        <div>
+          <dt>进程内存</dt>
+          <dd>
+            {snapshot?.memoryBytes == null
+              ? "—"
+              : Math.round(snapshot.memoryBytes / 1048576) + " MiB"}
+          </dd>
+        </div>
+        <div>
+          <dt>主机</dt>
+          <dd>{node === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu</dd>
+        </div>
+      </dl>
+      <div className="dc-actions">
+        <Button size="xl" disabled={inactive || running} onClick={() => void perform("start")}>
+          {busy === "start" ? "正在启动…" : "启动 DC"}
+        </Button>
+        <Button
+          variant="outline"
+          size="xl"
+          disabled={inactive || !running}
+          onClick={() => setStopOpen(true)}
+        >
+          停止服务
+        </Button>
+      </div>
+      <p className="dc-muted">
+        {snapshot?.at
+          ? "状态更新于 " + new Date(snapshot.at).toLocaleTimeString("zh-CN")
+          : "仅管理当前 DC 实例"}
+      </p>
 
       {policyOpen ? (
         <dialog
