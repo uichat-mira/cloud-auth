@@ -42,6 +42,7 @@ export function DcControlPage() {
   const { getSessionToken, invalidateSession } = useAuthSession();
   const client = useMemo(() => createDcControlClient(), []);
   const [selectedNode, setSelectedNode] = useState<DcNode>("aliyun");
+  const activeNodeRef = useRef<DcNode>("aliyun");
   const [snapshot, setSnapshot] = useState<DcStatus | null>(null);
   const [draft, setDraft] = useState<DcPolicy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,11 +81,11 @@ export function DcControlPage() {
         requestToken = token;
         if (!token) throw new Error("请先登录 Mira Cloud Account。");
         const result = await client.status(token, signal, selectedNode);
-        if (signal?.aborted) return;
+        if (signal?.aborted || activeNodeRef.current !== selectedNode) return;
         applySnapshot(result);
         setError("");
       } catch (cause) {
-        if (signal?.aborted) return;
+        if (signal?.aborted || activeNodeRef.current !== selectedNode) return;
         if (cause instanceof DcControlError && cause.httpStatus === 401 && requestToken) {
           // The poller retries on its next tick with whatever token is current
           // then, so invalidation only needs to drop the failed bearer.
@@ -250,6 +251,7 @@ export function DcControlPage() {
                 onChange={(event) => {
                   const next = event.target.value;
                   if (next !== "aliyun" && next !== "tencent") return;
+                  activeNodeRef.current = next;
                   setSnapshot(null);
                   setDraft(null);
                   setLoading(true);
