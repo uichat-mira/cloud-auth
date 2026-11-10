@@ -150,7 +150,10 @@ describe("shared Cloud Session recovery", () => {
       "/login?returnTo=%2Faccount%2Fservices%2Fdc",
     );
     expect(storage.load()).toBeNull();
-    expect(calls.mock.calls.map(([url]) => String(url))).toEqual(["/dc/api/status"]);
+    expect(calls.mock.calls.map(([url]) => String(url)).sort()).toEqual([
+      "/dc/api/nodes/tencent/status",
+      "/dc/api/status",
+    ]);
   });
 
   it("device grants 401 shares the same recovery instead of continuing on an expired session", async () => {
@@ -271,7 +274,7 @@ describe("shared Cloud Session recovery", () => {
       client: authClient(),
       session: session(),
     });
-    expect(await screen.findByText(/没有这台服务器的管理权限/)).toBeInTheDocument();
+    expect(await screen.findAllByText(/没有这台服务器的管理权限/)).toHaveLength(2);
     expect(store.getState().status).toBe("authenticated");
   });
 });

@@ -39,10 +39,29 @@ function errorMessage(error: unknown): string {
 
 /** An account-owned view; the privileged HTTP service remains on the host. */
 export function DcControlPage() {
+  return (
+    <section className="console-page dc-page">
+      <header className="console-page-head">
+        <Link className="console-section-link dc-back" to="/account/services">
+          关联服务
+        </Link>
+        <h1 id="dc-heading" tabIndex={-1}>
+          DC 控制台
+        </h1>
+        <p className="console-page-caption">广州服务器 · Desktop Commander · 按需启动</p>
+      </header>
+      <div className="dc-layout">
+        <DcNodeCard node="aliyun" />
+        <DcNodeCard node="tencent" />
+      </div>
+    </section>
+  );
+}
+
+function DcNodeCard({ node }: { node: DcNode }) {
   const { getSessionToken, invalidateSession } = useAuthSession();
   const client = useMemo(() => createDcControlClient(), []);
-  const [selectedNode, setSelectedNode] = useState<DcNode>("aliyun");
-  const activeNodeRef = useRef<DcNode>("aliyun");
+  const nodeName = node === "aliyun" ? "阿里云 · 原节点" : "腾讯云 · 新节点";
   const [snapshot, setSnapshot] = useState<DcStatus | null>(null);
   const [draft, setDraft] = useState<DcPolicy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,12 +99,12 @@ export function DcControlPage() {
         const token = getSessionToken();
         requestToken = token;
         if (!token) throw new Error("请先登录 Mira Cloud Account。");
-        const result = await client.status(token, signal, selectedNode);
-        if (signal?.aborted || activeNodeRef.current !== selectedNode) return;
+        const result = await client.status(token, signal, node);
+        if (signal?.aborted) return;
         applySnapshot(result);
         setError("");
       } catch (cause) {
-        if (signal?.aborted || activeNodeRef.current !== selectedNode) return;
+        if (signal?.aborted) return;
         if (cause instanceof DcControlError && cause.httpStatus === 401 && requestToken) {
           // The poller retries on its next tick with whatever token is current
           // then, so invalidation only needs to drop the failed bearer.
@@ -98,7 +117,7 @@ export function DcControlPage() {
         if (!signal?.aborted) setLoading(false);
       }
     },
-    [applySnapshot, client, getSessionToken, invalidateSession, selectedNode],
+    [applySnapshot, client, getSessionToken, invalidateSession, node],
   );
 
   useEffect(() => {
@@ -157,17 +176,17 @@ export function DcControlPage() {
     try {
       let result: DcStatus;
       if (action === "save") {
-        result = await client.savePolicy(token, draft, selectedNode);
+        result = await client.savePolicy(token, draft, node);
         setNotice("运行策略已保存，下次启动生效。");
       } else if (action === "start") {
         if (!sameDcPolicy(draft, snapshot.policy)) {
-          await client.savePolicy(token, draft, selectedNode);
+          await client.savePolicy(token, draft, node);
           policySavedBeforeStart = true;
         }
-        result = await client.start(token, selectedNode);
+        result = await client.start(token, node);
         setNotice("启动命令已执行，远程连接状态请以设备端为准。");
       } else {
-        result = await client.stop(token, selectedNode);
+        result = await client.stop(token, node);
         setNotice("DC 服务已停止。");
       }
       lastPolicy.current = result.policy;
@@ -231,45 +250,16 @@ export function DcControlPage() {
   }
 
   return (
-    <section className="console-page dc-page">
-      <header className="console-page-head">
-        <Link className="console-section-link dc-back" to="/account/services">
-          关联服务
-        </Link>
-        <div className="dc-page-heading">
-          <div>
-            <h1 id="dc-heading" tabIndex={-1}>
-              DC 控制台
-            </h1>
-            <p className="console-page-caption">广州服务器 · Desktop Commander</p>
-            <label className="dc-field" htmlFor="dc-node-select">
-              受管理节点
-              <select
-                id="dc-node-select"
-                value={selectedNode}
-                disabled={busy !== null}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  if (next !== "aliyun" && next !== "tencent") return;
-                  activeNodeRef.current = next;
-                  setSnapshot(null);
-                  setDraft(null);
-                  setLoading(true);
-                  setError("");
-                  setNotice("");
-                  setSelectedNode(next);
-                }}
-              >
-                <option value="aliyun">阿里云 · 原节点</option>
-                <option value="tencent">腾讯云 · 新节点</option>
-              </select>
-            </label>
-          </div>
-          <span className="dc-state-pill" role="status">
-            <span className={running ? "dc-dot dc-dot-on" : "dc-dot"} aria-hidden="true" />
-            {loading ? "读取中" : !snapshot ? "无法连接" : running ? "运行中" : "已停止"}
-          </span>
+    <section className="dc-panel" aria-labelledby={`dc-node-title-${node}`}>
+      <header className="dc-node-head">
+        <div className="dc-node-identity">
+          <h2 id={`dc-node-title-${node}`}>{nodeName}</h2>
+          <p>广州 · Ubuntu · Desktop Commander</p>
         </div>
+        <span className="dc-state-pill" role="status">
+          <span className={running ? "dc-dot dc-dot-on" : "dc-dot"} aria-hidden="true" />
+          {loading ? "读取中" : !snapshot ? "无法连接" : running ? "运行中" : "已停止"}
+        </span>
       </header>
 
       {error ? (
@@ -283,81 +273,72 @@ export function DcControlPage() {
         </p>
       ) : null}
 
-      <div className="dc-layout">
-        <section className="dc-panel" aria-labelledby="dc-service-status">
-          <div className="dc-panel-head">
-            <h2 id="dc-service-status">服务状态</h2>
-            <div className="dc-panel-tools">
-              <Button variant="ghost" size="sm" disabled={inactive} onClick={openPolicy}>
-                运行策略
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy !== null}
-                onClick={() => void refresh()}
-              >
-                刷新
-              </Button>
-            </div>
-          </div>
-          <div className="dc-primary-state">
-            <strong>
-              {loading ? "正在读取…" : !snapshot ? "状态不可用" : running ? "运行中" : "已停止"}
-            </strong>
-            <span>
-              {legacy
-                ? "此前的临时试运行服务"
-                : running
-                  ? "DC 进程已启动"
-                  : "按需启动，减少服务器资源占用"}
-            </span>
-          </div>
-          <dl className="console-facts dc-facts">
-            <div>
-              <dt>本次剩余时间</dt>
-              <dd>{legacy ? "临时服务" : remainingLabel(remaining)}</dd>
-            </div>
-            <div>
-              <dt>进程内存</dt>
-              <dd>
-                {snapshot?.memoryBytes == null
-                  ? "—"
-                  : Math.round(snapshot.memoryBytes / 1048576) + " MiB"}
-              </dd>
-            </div>
-            <div>
-              <dt>主机</dt>
-              <dd>{selectedNode === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu</dd>
-            </div>
-          </dl>
-          <div className="dc-actions">
-            <Button size="xl" disabled={inactive || running} onClick={() => void perform("start")}>
-              {busy === "start" ? "正在启动…" : "启动 DC"}
-            </Button>
-            <Button
-              variant="outline"
-              size="xl"
-              disabled={inactive || !running}
-              onClick={() => setStopOpen(true)}
-            >
-              停止服务
-            </Button>
-          </div>
-          <p className="dc-muted">
-            {snapshot?.at
-              ? "状态更新于 " + new Date(snapshot.at).toLocaleTimeString("zh-CN")
-              : "仅管理当前 DC 实例"}
-          </p>
-        </section>
+      <div className="dc-panel-head">
+        <h3>服务状态</h3>
+        <div className="dc-panel-tools">
+          <Button variant="ghost" size="sm" disabled={inactive} onClick={openPolicy}>
+            运行策略
+          </Button>
+          <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => void refresh()}>
+            刷新
+          </Button>
+        </div>
       </div>
+      <div className="dc-primary-state">
+        <strong>
+          {loading ? "正在读取…" : !snapshot ? "状态不可用" : running ? "运行中" : "已停止"}
+        </strong>
+        <span>
+          {legacy
+            ? "此前的临时试运行服务"
+            : running
+              ? "DC 进程已启动"
+              : "按需启动，减少服务器资源占用"}
+        </span>
+      </div>
+      <dl className="console-facts dc-facts">
+        <div>
+          <dt>本次剩余时间</dt>
+          <dd>{legacy ? "临时服务" : remainingLabel(remaining)}</dd>
+        </div>
+        <div>
+          <dt>进程内存</dt>
+          <dd>
+            {snapshot?.memoryBytes == null
+              ? "—"
+              : Math.round(snapshot.memoryBytes / 1048576) + " MiB"}
+          </dd>
+        </div>
+        <div>
+          <dt>主机</dt>
+          <dd>{node === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu</dd>
+        </div>
+      </dl>
+      <div className="dc-actions">
+        <Button size="xl" disabled={inactive || running} onClick={() => void perform("start")}>
+          {busy === "start" ? "正在启动…" : "启动 DC"}
+        </Button>
+        <Button
+          variant="outline"
+          size="xl"
+          disabled={inactive || !running}
+          onClick={() => setStopOpen(true)}
+        >
+          停止服务
+        </Button>
+      </div>
+      <p className="dc-muted">
+        {snapshot?.at
+          ? "状态更新于 " + new Date(snapshot.at).toLocaleTimeString("zh-CN")
+          : "仅管理当前 DC 实例"}
+      </p>
 
       {policyOpen ? (
         <dialog
           ref={policyDialog}
           className="cloud-dialog dc-policy-dialog"
-          aria-labelledby="dc-run-policy"
-          aria-describedby="dc-policy-caption"
+          aria-labelledby={`dc-run-policy-${node}`}
+          aria-describedby={`dc-policy-caption-${node}`}
           onCancel={(event) => {
             if (busy !== null) event.preventDefault();
             else closePolicy();
@@ -365,8 +346,8 @@ export function DcControlPage() {
         >
           <div className="cloud-dialog-head">
             <div>
-              <h2 id="dc-run-policy">运行策略</h2>
-              <p id="dc-policy-caption" className="cloud-dialog-caption">
+              <h2 id={`dc-run-policy-${node}`}>运行策略</h2>
+              <p id={`dc-policy-caption-${node}`} className="cloud-dialog-caption">
                 配置将在下次启动 DC 时生效。
               </p>
             </div>
@@ -488,7 +469,7 @@ export function DcControlPage() {
         <dialog
           ref={stopDialog}
           className="cloud-dialog"
-          aria-labelledby="dc-stop-title"
+          aria-labelledby={`dc-stop-title-${node}`}
           onCancel={(event) => {
             if (busy !== null) event.preventDefault();
             else setStopOpen(false);
@@ -496,7 +477,7 @@ export function DcControlPage() {
         >
           <div className="cloud-dialog-head">
             <div>
-              <h2 id="dc-stop-title">停止 DC 服务？</h2>
+              <h2 id={`dc-stop-title-${node}`}>停止 {nodeName} DC 服务？</h2>
               <p className="cloud-dialog-caption">正在执行的远程操作将中断。其他服务不受影响。</p>
             </div>
           </div>
