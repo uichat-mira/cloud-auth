@@ -73,8 +73,6 @@ describe("host DC client boundary", () => {
     });
     expect(calls).not.toHaveBeenCalled();
   });
-});
-
 
   it("routes Tencent requests only through the fixed endpoint, never a caller URL", async () => {
     const fetcher = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
@@ -91,11 +89,13 @@ describe("host DC client boundary", () => {
     ]);
     for (const call of fetcher.mock.calls) {
       expect(call[1]).toMatchObject({
-        credentials: "same-origin", mode: "same-origin",
+        credentials: "same-origin",
+        mode: "same-origin",
         headers: expect.objectContaining({ Authorization: "Bearer account-token" }),
       });
     }
   });
+});
 
 describe("DC inside Mira account", () => {
   it("does not mount the control page or call its API when signed out", async () => {
@@ -132,12 +132,13 @@ describe("DC inside Mira account", () => {
     expect(calls).toHaveBeenCalledWith("/dc/api/status", expect.any(Object));
   });
 
-
   it("switches nodes without ever invoking the original node's start action", async () => {
     const calls = vi.fn(async (..._args: Parameters<typeof fetch>) => reply(status));
     vi.stubGlobal("fetch", calls);
     mountPortal({ path: "/account/services/dc", session: storedSession });
-    await waitFor(() => expect(calls.mock.calls.some((row) => row[0] === "/dc/api/status")).toBe(true));
+    await waitFor(() =>
+      expect(calls.mock.calls.some((row) => row[0] === "/dc/api/status")).toBe(true),
+    );
     fireEvent.change(screen.getByLabelText("受管理节点"), { target: { value: "tencent" } });
     await waitFor(() =>
       expect(calls.mock.calls.some((row) => row[0] === "/dc/api/nodes/tencent/status")).toBe(true),
