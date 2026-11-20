@@ -5,6 +5,8 @@ import {
   MIRA_DESKTOP_OAUTH_REDIRECT_URI,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_REDIRECT_URI,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
+  WHO_YOU_WEB_OAUTH_REDIRECT_URI,
   findFirstPartyOAuthClient,
   isRegisteredOAuthRedirectUri,
   oauthAuthorizationCodeSchema,
@@ -30,8 +32,8 @@ function request(overrides: Record<string, unknown> = {}) {
 }
 
 describe("first-party OAuth client registry", () => {
-  it("pins one reviewed desktop and mobile client with exact callbacks", () => {
-    expect(FIRST_PARTY_OAUTH_CLIENTS).toHaveLength(2);
+  it("pins Desktop, Mobile and Who You Web to exact reviewed callbacks", () => {
+    expect(FIRST_PARTY_OAUTH_CLIENTS).toHaveLength(3);
     expect(
       FIRST_PARTY_OAUTH_CLIENTS.map((client) => ({
         clientId: client.clientId,
@@ -49,12 +51,18 @@ describe("first-party OAuth client registry", () => {
         platform: "mobile",
         redirectUris: [MIRA_MOBILE_OAUTH_REDIRECT_URI],
       },
+      {
+        clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
+        platform: "web",
+        redirectUris: [WHO_YOU_WEB_OAUTH_REDIRECT_URI],
+      },
     ]);
 
     for (const client of FIRST_PARTY_OAUTH_CLIENTS) {
       for (const redirectUri of client.redirectUris) {
         const parsed = new URL(redirectUri);
-        expect(parsed.protocol).toBe(`${client.platform === "desktop" ? "mira-desktop" : "mira-mobile"}:`);
+        expect(parsed.protocol).toBe(client.platform === "web" ? "https:" :
+          `${client.platform === "desktop" ? "mira-desktop" : "mira-mobile"}:`);
         expect(parsed.username).toBe("");
         expect(parsed.password).toBe("");
         expect(parsed.search).toBe("");
@@ -65,6 +73,8 @@ describe("first-party OAuth client registry", () => {
     }
 
     expect(findFirstPartyOAuthClient("third-party")).toBeUndefined();
+    expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
+      MIRA_DESKTOP_OAUTH_REDIRECT_URI)).toBe(false);
     expect(isRegisteredOAuthRedirectUri(MIRA_DESKTOP_OAUTH_CLIENT_ID, "https://evil.example/cb")).toBe(
       false,
     );
@@ -77,6 +87,10 @@ describe("first-party OAuth client registry", () => {
 describe("OAuth authorization request parameters", () => {
   it("accepts exact S256 authorization code requests for both clients", () => {
     expect(oauthAuthorizationRequestSchema.parse(request())).toEqual(request());
+    expect(oauthAuthorizationRequestSchema.parse(request({
+      client_id: WHO_YOU_WEB_OAUTH_CLIENT_ID,
+      redirect_uri: WHO_YOU_WEB_OAUTH_REDIRECT_URI,
+    })).client_id).toBe(WHO_YOU_WEB_OAUTH_CLIENT_ID);
     expect(
       oauthAuthorizationRequestSchema.parse(
         request({

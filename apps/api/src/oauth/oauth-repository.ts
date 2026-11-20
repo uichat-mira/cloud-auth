@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   findFirstPartyOAuthClient,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
   type DevicePlatform,
 } from "@uichat-mira/cloud-auth-contracts";
 import { verifyAuthorizationCodeSecret } from "./authorization-code.js";
@@ -247,13 +248,14 @@ export class OAuthRepository {
             `INSERT INTO devices (
                id, account_id, installation_id, platform, client_name, client_version,
                public_key, created_at, last_seen_at, revoked_at, revoke_reason
-             ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?, NULL, NULL)`,
+             ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, NULL, NULL)`,
           )
           .run(
             deviceId,
             record.accountId,
             input.installationId,
             input.platform,
+            input.clientId === WHO_YOU_WEB_OAUTH_CLIENT_ID ? "Who You Web" : null,
             input.now,
             input.now,
           );

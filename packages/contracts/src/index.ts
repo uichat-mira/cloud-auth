@@ -13,6 +13,8 @@ export {
   MIRA_DESKTOP_OAUTH_REDIRECT_URI,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_REDIRECT_URI,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
+  WHO_YOU_WEB_OAUTH_REDIRECT_URI,
   OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS,
   OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
   OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS,
@@ -169,7 +171,7 @@ export const accountIdentitySchema = z
   })
   .strict();
 
-export const devicePlatformSchema = z.enum(["desktop", "mobile"]);
+export const devicePlatformSchema = z.enum(["desktop", "mobile", "web"]);
 
 const installationIdPattern =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
