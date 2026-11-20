@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const MIRA_DESKTOP_OAUTH_CLIENT_ID = "mira-desktop";
 export const MIRA_MOBILE_OAUTH_CLIENT_ID = "mira-mobile";
+export const WHO_YOU_WEB_OAUTH_CLIENT_ID = "who-you-web";
 
 /**
  * First-party callbacks are exact, reviewed registrations. Native clients must
@@ -10,6 +11,7 @@ export const MIRA_MOBILE_OAUTH_CLIENT_ID = "mira-mobile";
  */
 export const MIRA_DESKTOP_OAUTH_REDIRECT_URI = "mira-desktop://oauth/callback";
 export const MIRA_MOBILE_OAUTH_REDIRECT_URI = "mira-mobile://oauth/callback";
+export const WHO_YOU_WEB_OAUTH_REDIRECT_URI = "https://who-you-tomz-preview.dangjingtao.workers.dev/auth/callback";
 
 export const OAUTH_AUTHORIZATION_CODE_RESPONSE_TYPE = "code";
 export const OAUTH_AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
@@ -20,6 +22,7 @@ export const OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS = 600;
 export const oauthClientIdSchema = z.enum([
   MIRA_DESKTOP_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
 ]);
 
 export const oauthRedirectUriSchema = z.string().min(1).max(2048);
@@ -73,7 +76,7 @@ export const oauthAuthorizationCallbackErrorSchema = z.enum([
 
 export interface FirstPartyOAuthClient {
   readonly clientId: z.infer<typeof oauthClientIdSchema>;
-  readonly platform: "desktop" | "mobile";
+  readonly platform: "desktop" | "mobile" | "web";
   readonly redirectUris: readonly string[];
 }
 
@@ -94,6 +97,11 @@ export const FIRST_PARTY_OAUTH_CLIENTS: readonly FirstPartyOAuthClient[] = Objec
     clientId: MIRA_MOBILE_OAUTH_CLIENT_ID,
     platform: "mobile",
     redirectUris: [MIRA_MOBILE_OAUTH_REDIRECT_URI],
+  }),
+  firstPartyClient({
+    clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
+    platform: "web",
+    redirectUris: [WHO_YOU_WEB_OAUTH_REDIRECT_URI],
   }),
 ]);
 
