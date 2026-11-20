@@ -120,10 +120,11 @@ jobs:
   worker:
     needs: enrollment
     permissions:
+      actions: read
       contents: write
-      issues: read
+      issues: write
       pull-requests: write
-    uses: uichat-mira/.github/.github/workflows/mira-external-worker.yml@1380017dbedd147fdfec4c5b2404443e12967182
+    uses: uichat-mira/.github/.github/workflows/mira-external-worker.yml@980fd8179bcaf8823189a0ff4c6622027c5883b4
     with:
       issue_number: ${{ fromJSON(needs.enrollment.outputs.issue_number) }}
       base_branch: dev
@@ -138,3 +139,4 @@ jobs:
         pnpm check
     secrets:
       opencode_go_api_key: ${{ secrets.AI_PROVIDER_OPENCODE_GO_KEY }}
+      haomai_reporter_hmac_secret: ${{ secrets.HAOMAI_REPORTER_HMAC_SECRET }}
