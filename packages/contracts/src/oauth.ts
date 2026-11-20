@@ -11,7 +11,7 @@ export const WHO_YOU_WEB_OAUTH_CLIENT_ID = "who-you-web";
  */
 export const MIRA_DESKTOP_OAUTH_REDIRECT_URI = "mira-desktop://oauth/callback";
 export const MIRA_MOBILE_OAUTH_REDIRECT_URI = "mira-mobile://oauth/callback";
-export const WHO_YOU_WEB_OAUTH_REDIRECT_URI = "https://who-you-tomz-preview.dangjingtao.workers.dev/auth/callback";
+export const WHO_YOU_WEB_OAUTH_REDIRECT_URI = "https://who-you.tomz.io/auth/callback";
 
 export const OAUTH_AUTHORIZATION_CODE_RESPONSE_TYPE = "code";
 export const OAUTH_AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
