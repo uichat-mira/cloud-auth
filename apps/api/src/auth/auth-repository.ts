@@ -69,7 +69,7 @@ type SessionAccountRow = AccountRow & {
 
 export interface SessionDeviceBinding {
   installationId: string;
-  platform: "desktop" | "mobile";
+  platform: "desktop" | "mobile" | "web";
 }
 
 export interface ServiceCredentialAuthority {
