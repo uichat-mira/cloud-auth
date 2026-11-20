@@ -75,6 +75,8 @@ describe("first-party OAuth client registry", () => {
     expect(findFirstPartyOAuthClient("third-party")).toBeUndefined();
     expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
       MIRA_DESKTOP_OAUTH_REDIRECT_URI)).toBe(false);
+    expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
+      "https://who-you-tomz-preview.dangjingtao.workers.dev/auth/callback")).toBe(false);
     expect(isRegisteredOAuthRedirectUri(MIRA_DESKTOP_OAUTH_CLIENT_ID, "https://evil.example/cb")).toBe(
       false,
     );
