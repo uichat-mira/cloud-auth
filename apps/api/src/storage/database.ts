@@ -51,14 +51,29 @@ function applyMigrations(db: DatabaseSync, migrationsPath: string): void {
     if (applied.has(migration)) continue;
 
     const sql = readFileSync(join(migrationsPath, migration), "utf8");
-    db.exec("BEGIN IMMEDIATE;");
+    // SQLite cannot widen a CHECK constraint in place. Rebuild the existing
+    // devices table only in this migration, retaining all IDs and dependent
+    // Host/grant rows. Foreign keys must be disabled BEFORE the transaction.
+    const rebuildDevices = migration === "009_web_devices.sql";
+    if (rebuildDevices) db.exec("PRAGMA foreign_keys = OFF;");
     try {
-      db.exec(sql);
-      db.prepare("INSERT INTO schema_migrations(version) VALUES (?)").run(migration);
-      db.exec("COMMIT;");
-    } catch (error) {
-      db.exec("ROLLBACK;");
-      throw error;
+      db.exec("BEGIN IMMEDIATE;");
+      try {
+        db.exec(sql);
+        if (rebuildDevices) {
+          const violations = db.prepare("PRAGMA foreign_key_check;").all();
+          if (violations.length > 0) {
+            throw new Error("Web device migration would break foreign keys");
+          }
+        }
+        db.prepare("INSERT INTO schema_migrations(version) VALUES (?)").run(migration);
+        db.exec("COMMIT;");
+      } catch (error) {
+        db.exec("ROLLBACK;");
+        throw error;
+      }
+    } finally {
+      if (rebuildDevices) db.exec("PRAGMA foreign_keys = ON;");
     }
   }
 }
