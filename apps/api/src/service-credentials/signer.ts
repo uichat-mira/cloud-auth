@@ -4,9 +4,11 @@ import {
   relayTicketContextSchema,
   serviceCredentialClaimsSchema,
   serviceCredentialJwtHeaderSchema,
+  whoYouConfirmationSchema,
   type RelayTicketContext,
   type ServiceCredentialAudience,
   type ServiceCredentialScope,
+  type WhoYouConfirmation,
 } from "@uichat-mira/cloud-auth-contracts";
 import {
   ServiceCredentialIssuanceError,
@@ -33,6 +35,17 @@ export interface IssueServiceCredentialInput {
   audience: ServiceCredentialAudience;
   scope: readonly ServiceCredentialScope[];
   relay?: RelayTicketContext;
+  /**
+   * Stable Guanlan consumer identity, derived server-side from the verified
+   * Cloud Session. Required for the Guanlan audience and rejected for others
+   * by the canonical claims schema.
+   */
+  consumerId?: string;
+  /**
+   * Who You draft-bound user confirmation. Required for whoyou.mail.send and
+   * rejected for every other audience by the canonical claims schema.
+   */
+  confirmation?: WhoYouConfirmation;
 }
 
 function resolvePrivateKey(input: Ed25519PrivateKeyInput): KeyObject {
@@ -90,6 +103,15 @@ export function issueServiceCredential(
     }
   }
 
+  if (input.confirmation !== undefined) {
+    if (!whoYouConfirmationSchema.safeParse(input.confirmation).success) {
+      throw new ServiceCredentialIssuanceError(
+        "INVALID_INPUT",
+        "Who You confirmation is malformed",
+      );
+    }
+  }
+
   const issuedAt = Math.floor((config.now?.() ?? new Date()).getTime() / 1000);
   const claimsResult = serviceCredentialClaimsSchema.safeParse({
     iss: SERVICE_CREDENTIAL_ISSUER,
@@ -101,6 +123,8 @@ export function issueServiceCredential(
     nbf: issuedAt,
     exp: issuedAt + ttlSeconds,
     ...(input.relay === undefined ? {} : { relay: input.relay }),
+    ...(input.consumerId === undefined ? {} : { consumer_id: input.consumerId }),
+    ...(input.confirmation === undefined ? {} : { confirmation: input.confirmation }),
   });
   if (!claimsResult.success) {
     throw new ServiceCredentialIssuanceError(

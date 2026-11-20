@@ -47,11 +47,22 @@ export type {
 } from "./oauth.js";
 
 export {
+  CLOUD_GUANLAN_AUDIENCE,
   CLOUD_RELAY_TRANSPORT_AUDIENCE,
   CLOUD_SHIYAN_AUDIENCE,
+  CLOUD_WHO_YOU_AUDIENCE,
+  GUANLAN_READ_SCOPE,
+  GUANLAN_WRITE_SCOPE,
   RELAY_TRANSPORT_SCOPE,
   SERVICE_CREDENTIAL_ISSUER,
   SHIYAN_AUTHENTICATE_SCOPE,
+  WHOYOU_MAIL_SEND_SCOPE,
+  WHOYOU_MAIL_WRITE_SCOPE,
+  WHOYOU_READ_SCOPE,
+  guanlanConsumerIdSchema,
+  guanlanRequestedScopesSchema,
+  guanlanScopeClaimsSchema,
+  guanlanServiceCredentialClaimsSchema,
   issuedServiceCredentialSchema,
   relayConnectionRoleSchema,
   relayRoomSchema,
@@ -68,9 +79,19 @@ export {
   serviceCredentialRequestSchema,
   serviceCredentialScopeSchema,
   shiyanServiceCredentialClaimsSchema,
+  whoYouConfirmationSchema,
+  whoYouConsumerIdSchema,
+  whoYouContentHashSchema,
+  whoYouDraftIdSchema,
+  whoYouDraftVersionSchema,
+  whoYouRequestedScopesSchema,
+  whoYouScopeClaimsSchema,
+  whoYouServiceCredentialClaimsSchema,
+  whoYouServiceCredentialRequestSchema,
 } from "./service-credential.js";
 
 export type {
+  GuanlanServiceCredentialClaims,
   IssuedServiceCredential,
   RelayConnectionRole,
   RelayServiceCredentialClaims,
@@ -85,6 +106,8 @@ export type {
   ServiceCredentialRequest,
   ServiceCredentialScope,
   ShiyanServiceCredentialClaims,
+  WhoYouConfirmation,
+  WhoYouServiceCredentialClaims,
 } from "./service-credential.js";
 
 export {
