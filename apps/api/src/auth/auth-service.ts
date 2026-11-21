@@ -109,6 +109,7 @@ export class AuthService {
         sessionToken: issued.token,
         account: publicAccount(account),
         expiresAt,
+        deviceId: this.repository.findSessionWithAccount(issued.id)?.session.deviceId ?? null,
       };
     } finally {
       guard.releaseHashSlot();
@@ -155,6 +156,7 @@ export class AuthService {
     return {
       account: publicAccount(authenticated.account),
       expiresAt: authenticated.session.expiresAt,
+      deviceId: authenticated.session.deviceId,
     };
   }
 
@@ -178,6 +180,7 @@ export class AuthService {
       sessionToken: issued.token,
       account: publicAccount(authenticated.account),
       expiresAt,
+      deviceId: authenticated.session.deviceId,
     };
   }
 

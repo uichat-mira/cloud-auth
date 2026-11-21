@@ -208,6 +208,9 @@ describe("Mira Device lifecycle model", () => {
       "last_seen_at",
       "revoked_at",
       "revoke_reason",
+      "device_name",
+      "os_name",
+      "os_version",
     ]);
     const publicKey = columns.find((column) => column.name === "public_key");
     expect(publicKey).toMatchObject({ notnull: 0, dflt_value: null });
