@@ -71,6 +71,17 @@ export class DeviceService {
     return this.repository.listDevicesByAccount(account.id).map(publicDevice);
   }
 
+  /** Return only devices with a currently valid, server-authoritative Cloud Session. */
+  listActiveSessionDevices(token: string): MiraDevice[] {
+    const account = this.authService.requireAccountIdentity(token);
+    return this.repository
+      .listDevicesWithActiveSessionsByAccount(
+        account.id,
+        new Date().toISOString(),
+      )
+      .map(publicDevice);
+  }
+
   revoke(token: string, deviceId: string): MiraDevice {
     const account = this.authService.requireAccountIdentity(token);
     const device = this.repository.revokeDevice(account.id, deviceId, new Date().toISOString());
