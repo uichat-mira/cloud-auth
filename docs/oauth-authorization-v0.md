@@ -140,7 +140,7 @@ JSON error envelope:
 
 Authorization JSON codes are `OAUTH_INVALID_REQUEST`,
 `OAUTH_UNAUTHORIZED_CLIENT`, `OAUTH_REAUTH_REQUIRED`, and `OAUTH_INTERNAL_ERROR`.
-The token exchange adds `OAUTH_INVALID_GRANT` and
+The token exchange adds `OAUTH_INVALID_GRANT`, `OAUTH_DEVICE_REVOKED`, and
 `OAUTH_UNSUPPORTED_GRANT_TYPE`. Invalid CSRF returns 403; invalid sign-in returns
 a fresh login form without disclosing the password. Callback error values are
 bounded by `oauthAuthorizationCallbackErrorSchema`.
@@ -238,8 +238,8 @@ On success the code row is marked consumed (`consumed_at`,
 `consumed_by_session_id`, `consume_reason = 'exchanged'`), the device is created
 or refreshed, and a session with `device_id` bound is inserted in the same
 transaction. A concurrent, replayed, expired, mismatched-verifier, wrong-client,
-redirect-swapped, revoked-device or disabled/denied-account attempt returns one
-bounded error and creates no session, device or authority.
+redirect-swapped, revoked-device or disabled/denied-account attempt creates no
+session, device or authority.
 
 ### Errors
 
@@ -249,6 +249,12 @@ the same non-enumerating response:
 ```json
 { "error": { "code": "OAUTH_INVALID_GRANT", "message": "Authorization code cannot be exchanged" } }
 ```
+
+A Mira Desktop exchange with a valid, unused code, matching PKCE verifier, and
+active account returns HTTP 400 `OAUTH_DEVICE_REVOKED` if the installation
+belongs to that account and is revoked. The owner can explicitly re-enroll
+through a new browser authorization and a new installation identity. The old
+installation, sessions and Host grants stay revoked.
 
 Malformed or unexpected parameters return `OAUTH_INVALID_REQUEST`; a non-code
 grant returns `OAUTH_UNSUPPORTED_GRANT_TYPE`. Errors never contain the code,
