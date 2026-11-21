@@ -35,6 +35,7 @@ describe("Mira Cloud Account HTTP contract", () => {
     const loginBody = issuedCloudSessionSchema.parse(login.json());
     expect(loginBody.sessionToken).toMatch(/^mcs_v1\./);
     expect(loginBody.account.username).toBe("Alice");
+    expect(loginBody.deviceId).toBeNull();
     expect(JSON.stringify(loginBody)).not.toContain(password);
 
     const restored = await app.inject({
@@ -45,6 +46,7 @@ describe("Mira Cloud Account HTTP contract", () => {
     expect(restored.statusCode).toBe(200);
     const restoredBody = cloudSessionSchema.parse(restored.json());
     expect(restoredBody.account).toEqual(loginBody.account);
+    expect(restoredBody.deviceId).toBeNull();
 
     const renewed = await app.inject({
       method: "POST",
@@ -54,6 +56,7 @@ describe("Mira Cloud Account HTTP contract", () => {
     expect(renewed.statusCode).toBe(200);
     const renewedBody = issuedCloudSessionSchema.parse(renewed.json());
     expect(renewedBody.sessionToken).not.toBe(loginBody.sessionToken);
+    expect(renewedBody.deviceId).toBeNull();
 
     const oldAfterRotation = await app.inject({
       method: "GET",

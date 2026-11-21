@@ -9,6 +9,9 @@ export interface DeviceRecord {
   platform: DevicePlatform;
   clientName: string | null;
   clientVersion: string | null;
+  deviceName: string | null;
+  osName: string | null;
+  osVersion: string | null;
   publicKey: string | null;
   createdAt: string;
   lastSeenAt: string;
@@ -23,6 +26,9 @@ export interface RegisterDeviceInput {
   platform: DevicePlatform;
   clientName: string | null;
   clientVersion: string | null;
+  deviceName: string | null;
+  osName: string | null;
+  osVersion: string | null;
   now: string;
 }
 
@@ -33,6 +39,9 @@ type DeviceRow = {
   platform: DevicePlatform;
   client_name: string | null;
   client_version: string | null;
+  device_name: string | null;
+  os_name: string | null;
+  os_version: string | null;
   public_key: string | null;
   created_at: string;
   last_seen_at: string;
@@ -60,17 +69,22 @@ export class DeviceRepository {
         this.db
           .prepare(
             `UPDATE devices
-                SET client_name = ?, client_version = ?, last_seen_at = ?
+                SET client_name = COALESCE(?, client_name),
+                    client_version = COALESCE(?, client_version),
+                    device_name = COALESCE(?, device_name),
+                    os_name = COALESCE(?, os_name),
+                    os_version = COALESCE(?, os_version),
+                    last_seen_at = ?
               WHERE id = ?`,
           )
-          .run(input.clientName, input.clientVersion, input.now, existing.id);
+          .run(input.clientName, input.clientVersion, input.deviceName, input.osName, input.osVersion, input.now, existing.id);
       } else {
         this.db
           .prepare(
             `INSERT INTO devices (
                id, account_id, installation_id, platform, client_name, client_version,
-               public_key, created_at, last_seen_at, revoked_at, revoke_reason
-             ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL)`,
+               device_name, os_name, os_version, public_key, created_at, last_seen_at, revoked_at, revoke_reason
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, NULL, NULL)`,
           )
           .run(
             randomUUID(),
@@ -79,6 +93,9 @@ export class DeviceRepository {
             input.platform,
             input.clientName,
             input.clientVersion,
+            input.deviceName,
+            input.osName,
+            input.osVersion,
             input.now,
             input.now,
           );
@@ -166,7 +183,7 @@ export class DeviceRepository {
   listDevicesByAccount(accountId: string): DeviceRecord[] {
     const rows = this.db
       .prepare(
-        `SELECT id, account_id, installation_id, platform, client_name, client_version, public_key,
+        `SELECT id, account_id, installation_id, platform, client_name, client_version, device_name, os_name, os_version, public_key,
                 created_at, last_seen_at, revoked_at, revoke_reason
            FROM devices
           WHERE account_id = ?
@@ -188,7 +205,7 @@ export class DeviceRepository {
     const rows = this.db
       .prepare(
         `SELECT d.id, d.account_id, d.installation_id, d.platform, d.client_name,
-                d.client_version, d.public_key, d.created_at, d.last_seen_at,
+                d.client_version, d.device_name, d.os_name, d.os_version, d.public_key, d.created_at, d.last_seen_at,
                 d.revoked_at, d.revoke_reason
            FROM devices d
           WHERE d.account_id = ?
@@ -209,7 +226,7 @@ export class DeviceRepository {
   private findByInstallation(accountId: string, installationId: string): DeviceRecord | null {
     const row = this.db
       .prepare(
-        `SELECT id, account_id, installation_id, platform, client_name, client_version, public_key,
+        `SELECT id, account_id, installation_id, platform, client_name, client_version, device_name, os_name, os_version, public_key,
                 created_at, last_seen_at, revoked_at, revoke_reason
            FROM devices
           WHERE account_id = ? AND installation_id = ?`,
@@ -221,7 +238,7 @@ export class DeviceRepository {
   private findById(accountId: string, deviceId: string): DeviceRecord | null {
     const row = this.db
       .prepare(
-        `SELECT id, account_id, installation_id, platform, client_name, client_version, public_key,
+        `SELECT id, account_id, installation_id, platform, client_name, client_version, device_name, os_name, os_version, public_key,
                 created_at, last_seen_at, revoked_at, revoke_reason
            FROM devices
           WHERE account_id = ? AND id = ?`,
@@ -239,6 +256,9 @@ function mapDevice(row: DeviceRow): DeviceRecord {
     platform: row.platform,
     clientName: row.client_name,
     clientVersion: row.client_version,
+    deviceName: row.device_name,
+    osName: row.os_name,
+    osVersion: row.os_version,
     publicKey: row.public_key,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
