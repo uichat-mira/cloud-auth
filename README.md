@@ -12,7 +12,7 @@ Phase III roadmap: https://github.com/uichat-mira/mira-desktop/issues/315
 
 ## V0 boundary
 
-This service will own Mira Cloud Account, Mira Device, Cloud Session, and audience-bound service credential issuance.
+This service owns Mira Cloud Account, Mira Device, Cloud Session, and audience-bound service credential issuance.
 
 It does not replace:
 - Desktop or Mobile local identity;
@@ -42,7 +42,15 @@ Run workspace commands from the repository root; API package-local source, tests
 
 The web application is a separate Vite build providing the `/` account portal home, `/login`, `/account`, and not-found routes. The home page stays visible regardless of session state and offers the appropriate login or account entry. The legacy embedded browser acceptance harness has been retired; use the real Portal for acceptance. Route components use a typed Cloud Auth client and session state layer; `apps/web/src/lib/auth` owns HTTP transport, contract validation, session persistence, and auth state so route components never handle bearer tokens directly.
 
-OPS-001 intentionally provides only the service boundary, persistence/migration substrate, health/readiness, backup procedure, and CI/runtime evidence. Account/password, device lifecycle, and service credential behavior belong to follow-up work items.
+Historically, OPS-001 established the service boundary, persistence/migrations, health and operations substrate. Account/password, device lifecycle, first-party OAuth and service credentials are now implemented in later work items; inspect current code and runtime rather than treating OPS-001 scope as a present-day limitation.
+
+## Who You product boundary (2026-11-21)
+
+Who You is an **MCP Server**, and Mira clients are consumers. Cloud Auth owns login, device-bound Cloud Session and short-lived service-credential issuance, **not** Gmail/Microsoft/IMAP credentials or mailbox management. The one canonical cross-product decision record lives in [Who You product boundaries](https://github.com/uichat-mira/who-you/blob/dev/docs/product-design.md); do not copy a parallel product PRD here.
+
+Current code supports the first-party client `who-you-web` and its **exact** HTTPS callback `https://who-you.tomz.io/auth/callback` (see [OAuth contract](docs/oauth-authorization-v0.md)). The `apps/web` `/account/services` route already exists, but `apps/web/src/components/associated-services.tsx` **does not yet include Who You**: its service entry, reliable consent/connection status and revoke UX are not implemented. Only the identity/entry UI belongs here; actual mailbox linking, provider credentials and unlink belong to Who You. A successfully minted `whoyou.read` ticket must never be displayed as durable mailbox consent.
+
+**Known UI defect, not yet fixed:** `apps/api/src/oauth/routes.ts` maps all non-Desktop clients to the literal `Mira Mobile` in its authorization form. As a result `who-you-web` can be mislabeled in the login/authorization screen despite being correctly registered and cryptographically constrained. This requires a separate code fix and regression test; documentation alone does not make it resolved.
 
 ## Deployment and operations
 
@@ -79,7 +87,7 @@ The API default local database path is `./data/auth.sqlite` relative to `apps/ap
 - POST /v1/auth/session/renew: rotate/extend Cloud Session without resending password
 - POST /v1/auth/password: change the authenticated account password and revoke all sessions
 - POST /v1/auth/logout: revoke current Cloud Session
-- GET /v1/oauth/authorize: issue a short-lived OAuth authorization code to a registered Desktop/Mobile callback (PKCE S256)
+- GET /v1/oauth/authorize: issue a short-lived OAuth authorization code to an exact registered Desktop/Mobile/Who You Web callback (PKCE S256)
 - POST /v1/oauth/token: redeem one authorization code + S256 verifier for a device-bound Cloud Session
 - POST /v1/devices: register the current installation as a Mira Device
 - GET /v1/devices: list the authenticated account's Mira Devices

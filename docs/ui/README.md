@@ -14,6 +14,10 @@ at `/login`. The console rail keeps only the logout action; the header identity 
 longer repeats the login status. These refinements supersede the initial layouts in
 the design and IA documents below.
 
+## Current boundary note (2026-11-21)
+
+The implemented `/account/services` Associated Services route exists, but its current list in `apps/web/src/components/associated-services.tsx` does **not** yet contain Who You. The approved future link/identity association belongs here; provider mailbox setup and credential management belong in Who You, not the Cloud Auth console. The **single product responsibility record** is [Who You `docs/product-design.md`](https://github.com/uichat-mira/who-you/blob/dev/docs/product-design.md). The historical UI IA sections below do not supersede runtime code or imply the Who You service entry is shipped.
+
 ## Documents
 
 | File | What it is |
