@@ -222,5 +222,41 @@ describe("Mira Device SQLite persistence", () => {
     );
 
     second.db.close();
+  });  it("recomputes active Session devices after database reopen without losing inventory", async () => {
+    const dir = mkdtempSync(
+      join(tmpdir(), "mira-active-session-devices-persistence-"),
+    );
+    cleanup.push(dir);
+    const databasePath = join(dir, "auth.sqlite");
+    const first = createTestAuth(databasePath);
+    await first.service.provisionAccount("alice", password);
+    const viewer = await first.service.login("alice", password, "127.0.0.1");
+    const bound = await first.service.login("alice", password, "127.0.0.2");
+    const device = first.deviceService.register(bound.sessionToken, {
+      installationId: randomUUID(),
+      platform: "mobile",
+      clientName: "Mira Mobile",
+    });
+    expect(
+      first.deviceService
+        .listActiveSessionDevices(viewer.sessionToken)
+        .map((d) => d.id),
+    ).toEqual([device.id]);
+    first.db.close();
+
+    const second = createTestAuth(databasePath);
+    expect(
+      second.deviceService
+        .listActiveSessionDevices(viewer.sessionToken)
+        .map((d) => d.id),
+    ).toEqual([device.id]);
+    second.db
+      .prepare("UPDATE sessions SET expires_at = ? WHERE device_id = ?")
+      .run(new Date(Date.now() - 60_000).toISOString(), device.id);
+    expect(
+      second.deviceService.listActiveSessionDevices(viewer.sessionToken),
+    ).toEqual([]);
+    expect(second.deviceService.list(viewer.sessionToken)).toEqual([device]);
+    second.db.close();
   });
 });
