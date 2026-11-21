@@ -7,6 +7,8 @@ import {
   MIRA_DESKTOP_OAUTH_REDIRECT_URI,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_REDIRECT_URI,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
+  WHO_YOU_WEB_OAUTH_REDIRECT_URI,
   oauthApiErrorEnvelopeSchema,
   oauthAuthorizationCallbackErrorSchema,
   oauthAuthorizationCodeSchema,
@@ -152,6 +154,53 @@ describe("OAuth authorization/callback HTTP contract", () => {
     expect(response.statusCode).toBe(303);
     const location = locationOf(response);
     expect(location?.protocol).toBe("mira-mobile:");
+    expect(location?.searchParams.get("state")).toBe(state);
+    expect(oauthAuthorizationCodeSchema.safeParse(location?.searchParams.get("code")).success).toBe(true);
+    await testContext.app.close();
+    testContext.db.close();
+  });
+
+  it("labels each registered client exactly and keeps the Who You Web callback", async () => {
+    const testContext = context();
+    await testContext.service.provisionAccount("alice", password);
+    const clients = [
+      {
+        clientId: MIRA_DESKTOP_OAUTH_CLIENT_ID,
+        redirectUri: MIRA_DESKTOP_OAUTH_REDIRECT_URI,
+        label: "Mira Desktop",
+      },
+      {
+        clientId: MIRA_MOBILE_OAUTH_CLIENT_ID,
+        redirectUri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
+        label: "Mira Mobile",
+      },
+      {
+        clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
+        redirectUri: WHO_YOU_WEB_OAUTH_REDIRECT_URI,
+        label: "狐邮 Who You",
+      },
+    ] as const;
+
+    for (const client of clients) {
+      const url = authorizeUrl({
+        client_id: client.clientId,
+        redirect_uri: client.redirectUri,
+      });
+      const page = await testContext.app.inject({ method: "GET", url });
+      expect(page.statusCode).toBe(200);
+      expect(page.body).toContain("<title>授权 " + client.label + " — Mira Cloud</title>");
+      expect(page.body).toContain("使用 Mira Cloud 账号，授权 <strong>" + client.label + "</strong>。");
+      expect(page.body).toContain('<button type="submit">授权 ' + client.label + "</button>");
+    }
+
+    const { response } = await browserAuthorize(testContext, authorizeUrl({
+      client_id: WHO_YOU_WEB_OAUTH_CLIENT_ID,
+      redirect_uri: WHO_YOU_WEB_OAUTH_REDIRECT_URI,
+    }));
+    expect(response.statusCode).toBe(303);
+    const location = locationOf(response);
+    expect(location?.origin).toBe("https://who-you.tomz.io");
+    expect(location?.pathname).toBe("/auth/callback");
     expect(location?.searchParams.get("state")).toBe(state);
     expect(oauthAuthorizationCodeSchema.safeParse(location?.searchParams.get("code")).success).toBe(true);
     await testContext.app.close();
