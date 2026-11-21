@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: cloud-auth-production
@@ -22,51 +23,107 @@ jobs:
         run: test "${GITHUB_REF}" = "refs/heads/prod"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Build exact production image
+      - name: Build exact production image and guarded release bundle
+        id: package
+        shell: bash
         run: |
           set -euo pipefail
           docker build -t mira-cloud-auth:prod .
           docker save mira-cloud-auth:prod | gzip -1 > mira-cloud-auth-prod-image.tar.gz
           gzip -t mira-cloud-auth-prod-image.tar.gz
+          tar -czf cloud-auth-prod-bundle.tar.gz \
+            docker-compose.prod.yml \
+            scripts/deploy-prod.sh \
+            scripts/install-caddy-prod-route.sh \
+            scripts/publish-web-artifact.sh \
+            deploy/mira-cloud-auth-prod.caddy \
+            mira-cloud-auth-prod-image.tar.gz
+          echo "sha256=$(sha256sum cloud-auth-prod-bundle.tar.gz | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare isolated production directory
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
+      # SCP of the image repeatedly stalled between GitHub runners and the host.
+      # Deliver an immutable artifact over HTTPS without exposing GH_TOKEN to host.
+      - name: Upload immutable release artifact
+        id: bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          port: ${{ secrets.DEPLOY_PORT || '22' }}
-          command_timeout: 2m
-          script: |
-            set -eu
-            mkdir -p /opt/cloud-auth/data /opt/cloud-auth/backups /opt/cloud-auth/scripts /opt/cloud-auth/deploy
-            chmod 700 /opt/cloud-auth/data /opt/cloud-auth/backups
+          name: cloud-auth-prod-${{ github.sha }}
+          path: cloud-auth-prod-bundle.tar.gz
+          retention-days: 2
+          compression-level: 0
+          if-no-files-found: error
 
-      - name: Upload production bundle
-        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          port: ${{ secrets.DEPLOY_PORT || '22' }}
-          source: "docker-compose.prod.yml,scripts/deploy-prod.sh,scripts/install-caddy-prod-route.sh,scripts/publish-web-artifact.sh,deploy/mira-cloud-auth-prod.caddy,mira-cloud-auth-prod-image.tar.gz"
-          target: "/opt/cloud-auth"
-          overwrite: true
+      - name: Resolve short-lived artifact URL
+        id: download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.bundle.outputs.artifact-id }}
+        run: |
+          set -euo pipefail
+          headers="${RUNNER_TEMP}/cloud-auth-artifact-headers"
+          curl --fail --silent --show-error --dump-header "$headers" \
+            --output /dev/null \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          url="$(awk 'tolower($1) == "location:" { print $2 }' "$headers" | tail -n 1 | tr -d '\r')"
+          case "$url" in
+            https://*.blob.core.windows.net/*|https://*.githubusercontent.com/*) ;;
+            *) echo "::error::Unexpected artifact redirect host"; exit 1 ;;
+          esac
+          echo "::add-mask::$url"
+          encoded="$(printf %s "$url" | base64 -w0)"
+          echo "::add-mask::$encoded"
+          echo "url_b64=$encoded" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy, benchmark and local smoke
+      - name: Download verified bundle on host, deploy and smoke
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
         env:
           DEPLOY_SHA: ${{ github.sha }}
+          BUNDLE_SHA256: ${{ steps.package.outputs.sha256 }}
+          ARTIFACT_URL_B64: ${{ steps.download.outputs.url_b64 }}
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           password: ${{ secrets.DEPLOY_PASSWORD }}
           port: ${{ secrets.DEPLOY_PORT || '22' }}
-          command_timeout: 10m
-          envs: DEPLOY_SHA
+          command_timeout: 15m
+          envs: DEPLOY_SHA,BUNDLE_SHA256,ARTIFACT_URL_B64
           script: |
             set -eu
-            chmod +x /opt/cloud-auth/scripts/deploy-prod.sh /opt/cloud-auth/scripts/install-caddy-prod-route.sh /opt/cloud-auth/scripts/publish-web-artifact.sh
+            umask 077
+            mkdir -p /opt/cloud-auth/deploy /opt/cloud-auth/data /opt/cloud-auth/backups
+            staging="$(mktemp -d /opt/cloud-auth/deploy/.bundle.XXXXXXXX)"
+            trap 'rm -rf "$staging"' EXIT
+            url="$(printf %s "$ARTIFACT_URL_B64" | base64 -d)"
+            # Never print or persist the short-lived download capability.
+            curl --fail --location --silent --show-error --connect-timeout 15 \
+              --max-time 600 --retry 3 --retry-delay 2 \
+              --output "$staging/artifact.zip" "$url"
+            python3 - "$staging/artifact.zip" "$staging/bundle.tar.gz" <<'PY'
+            import shutil
+            import sys
+            import zipfile
+            with zipfile.ZipFile(sys.argv[1]) as artifact:
+                names = [n for n in artifact.namelist() if n == 'cloud-auth-prod-bundle.tar.gz']
+                if len(names) != 1:
+                    raise SystemExit('release artifact missing/ambiguous')
+                with artifact.open(names[0]) as source, open(sys.argv[2], 'wb') as target:
+                    shutil.copyfileobj(source, target)
+            PY
+            printf '%s  %s\n' "$BUNDLE_SHA256" "$staging/bundle.tar.gz" | sha256sum -c -
+            tar -tzf "$staging/bundle.tar.gz" >/dev/null
+            if test -r /opt/cloud-auth/.deployed-sha && docker image inspect mira-cloud-auth:prod >/dev/null 2>&1; then
+              previous="$(cat /opt/cloud-auth/.deployed-sha)"
+              case "$previous" in
+                *[!0-9a-f]*|'') echo 'Invalid rollback SHA'; exit 1 ;;
+              esac
+              docker tag mira-cloud-auth:prod "mira-cloud-auth:rollback-$previous"
+            fi
+            tar -xzf "$staging/bundle.tar.gz" -C /opt/cloud-auth
+            chmod +x /opt/cloud-auth/scripts/deploy-prod.sh \
+              /opt/cloud-auth/scripts/install-caddy-prod-route.sh \
+              /opt/cloud-auth/scripts/publish-web-artifact.sh
             /opt/cloud-auth/scripts/deploy-prod.sh
 
       - name: Public production smoke when DNS is live
