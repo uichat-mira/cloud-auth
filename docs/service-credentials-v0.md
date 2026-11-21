@@ -1,12 +1,12 @@
 # Mira Cloud Service Credentials V0
 
-This document describes the implemented OPS-008 run 1 and run 2 scope: the canonical service-credential contract, isolated Ed25519 signing/offline verification helpers, authenticated device-bound issuance, public verifier discovery, and the V0 signing-key overlap strategy. It also covers the OPS-019 account-owned Relay room/role admission layered on the same ticket contract, the GLN-013 Guanlan consumer credential, and the Who You mail-draft confirmation credential.
+This document describes the implemented OPS-008 run 1 and run 2 scope: the canonical service-credential contract, isolated Ed25519 signing/offline verification helpers, authenticated device-bound issuance, public verifier discovery, and the V0 signing-key overlap strategy. It also covers the OPS-019 account-owned Relay room/role admission layered on the same ticket contract, the GLN-013 Guanlan consumer credential, and the Who You draft-send and mailbox-identity confirmation credentials.
 
 Full OPS-008 remains open. Cross-repository consumer implementation and production verification are intentionally not part of this repository change.
 
 GLN-013 adds the Guanlan audience below. It is **not** claimed as working end-to-end: the Guanlan resource deployment, the GLN-012 registration projection and any live JWKS retrieval do not exist yet. See [docs/engineering/gln-013-guanlan-credential.md](engineering/gln-013-guanlan-credential.md).
 
-The Who You audience adds a draft-bound send confirmation: Cloud Auth signs what the device-bound account session confirmed, while the Who You Worker verifies draft ownership, recomputes the content hash and atomically consumes the nonce. Cloud Auth stores no Who You draft, mailbox, message or user content. **Current status (2026-11-21):** the independent Who You Worker at `https://who-you.tomz.io` is deployed; a real browser user has reached a read-only `whoyou.read` MCP identity through the Cloud Auth Web login. This proves only login + read-only identity, **not** third-party mailbox integration, real mailbox sync or end-to-end sending. The draft-bound send contract remains locally tested and any live email operation belongs to the separate Who You service deployment and authorization.
+The Who You audience adds two standalone user-confirmation credentials: draft-bound send confirmation and mailbox identity link/unlink confirmation. Cloud Auth signs only the bounded action the device-bound account session confirmed; Who You remains authoritative for draft ownership/content, mailbox ownership/provider state, and atomic nonce consumption. Cloud Auth stores no Who You draft, mailbox, message, provider credential or user content. **Current status (2026-11-21):** the independent Who You Worker at `https://who-you.tomz.io` is deployed; a real browser user has reached a read-only `whoyou.read` MCP identity through the Cloud Auth Web login. This proves only login + read-only identity, **not** third-party mailbox integration, real mailbox sync or end-to-end sending. Confirmation contracts are locally/integration tested; live mailbox or send operations belong to the separate Who You deployment and authorization.
 
 ## Trust model
 
@@ -71,16 +71,16 @@ The audiences are intentionally non-interchangeable. A Shiyan verifier accepts o
 
 ### Scopes
 
-Each audience has a canonical least-privilege scope set, not an open scope list. Guanlan has a mandatory read gate plus an optional independent write authority; Who You has a read gate, an optional draft-write authority, and a standalone send-confirmation authority that never grants read or write.
+Each audience has a canonical least-privilege scope set, not an open scope list. Guanlan has a mandatory read gate plus an optional independent write authority; Who You has a read gate, an optional general write authority, a standalone draft-send confirmation, and a standalone identity-operation confirmation. Confirmation credentials never carry the read gate.
 
-| Audience | Scope |
-| --- | --- |
-| `mira:cloud-shiyan` | `shiyan:authenticate` |
-| `mira:cloud-relay-transport` | `relay:transport` |
-| `mira:cloud-guanlan` | `guanlan.read` (mandatory) and, only when explicitly requested, `guanlan.write` |
-| `mira:who-you` | `whoyou.read` (default), `whoyou.read` + `whoyou.mail.write` when explicitly requested, or `whoyou.mail.send` alone together with a draft-bound confirmation |
+| Audience                     | Scope                                                                                                                                                                                                                         |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mira:cloud-shiyan`          | `shiyan:authenticate`                                                                                                                                                                                                         |
+| `mira:cloud-relay-transport` | `relay:transport`                                                                                                                                                                                                             |
+| `mira:cloud-guanlan`         | `guanlan.read` (mandatory) and, only when explicitly requested, `guanlan.write`                                                                                                                                               |
+| `mira:who-you`               | `whoyou.read` (default); `whoyou.read` + `whoyou.mail.write` for general mail writes; `whoyou.mail.send` alone with a draft-bound confirmation; or `whoyou.mail.write` alone with a mailbox identity link/unlink confirmation |
 
-These scopes assert only "Cloud Auth authenticated this account/device to this service" or "this is a transport connection ticket" or "this user session confirmed this exact draft revision". They do not grant Shiyan business-resource authorization and do not grant Remote Host Browser, Terminal, Agent, Thread, tool, or other business capabilities. `guanlan.read` admits the caller to the Guanlan MCP resource; `guanlan.write` is checked by each decision tool and is never implied by read. `whoyou.read` admits the caller to the Who You `/mcp` resource; `whoyou.mail.write` is checked by each draft tool; `whoyou.mail.send` is a separate credential argument to the send tool and is never accepted as a `/mcp` bearer.
+These scopes assert only "Cloud Auth authenticated this account/device to this service", "this is a transport connection ticket", or "this user session confirmed this exact bounded operation". They do not grant Shiyan business-resource authorization and do not grant Remote Host Browser, Terminal, Agent, Thread, tool, or other business capabilities. `guanlan.read` admits the caller to the Guanlan MCP resource; `guanlan.write` is checked by each decision tool and is never implied by read. `whoyou.read` admits the caller to the Who You `/mcp` resource. A general Who You write bearer carries `whoyou.read + whoyou.mail.write`; a draft-send confirmation carries only `whoyou.mail.send`; an identity link/unlink confirmation carries only `whoyou.mail.write`. The two standalone confirmation forms cannot satisfy the global `whoyou.read` MCP gate.
 
 Unsupported, missing, duplicate, cross-audience, or additional scopes are rejected by the canonical schema before any service consumes the claims.
 
@@ -199,9 +199,38 @@ Who You send confirmation (standalone scope, no read or write):
 ```
 
 - `consumer_id` is derived from the verified, device-bound Cloud Session and must equal `sub`; a request body field named `consumer_id` is rejected by the strict request schema.
-- `confirmation` is present only with the standalone `whoyou.mail.send` scope and is required there. It binds one draft id, one positive draft version, one lowercase SHA-256 content hash and one bounded nonce; the server rejects unknown keys.
+- A draft confirmation is present only with standalone `whoyou.mail.send` and is required there. It binds one draft id, one positive draft version, one lowercase SHA-256 content hash and one bounded nonce; the server rejects unknown keys. Mailbox identity confirmation is the separate write-only variant described below.
 - Cloud Auth does not verify that the draft exists, that the account owns it, or that the hash matches stored content. It asserts only that this device-bound account session confirmed that exact content identity. Who You remains authoritative for draft ownership, version and hash checks, and must atomically consume the nonce before any send side effect.
 - The request body never carries draft binding for Cloud Auth to trust blindly beyond signing; a client can obtain a confirmation only for content it presented, and Who You rejects any confirmation that does not match its own stored draft.
+
+Who You mailbox identity confirmation (standalone write-only scope, no read or send):
+
+```json
+{
+  "iss": "mira:cloud-auth",
+  "sub": "<Mira Cloud account id>",
+  "device_id": "<Mira Device id>",
+  "aud": "mira:who-you",
+  "scope": ["whoyou.mail.write"],
+  "consumer_id": "<Mira Cloud account id>",
+  "confirmation": {
+    "actor": "user",
+    "action": "unlink",
+    "provider": "gmail",
+    "mailbox_id": "mailbox-0123456789abcdef",
+    "nonce": "<bounded base64url nonce>"
+  },
+  "iat": 1790000000,
+  "nbf": 1790000000,
+  "exp": 1790000300
+}
+```
+
+- Identity confirmation supports only `action=link|unlink` and `provider=gmail|microsoft|imap_smtp`.
+- `link` requires `mailbox_id: null`; the provider callback is authoritative for the mailbox identity eventually created.
+- `unlink` requires one bounded `mailbox_id`; Who You must prove that mailbox belongs to the token account and matches the confirmed provider before deletion.
+- The identity confirmation is deliberately write-only. It is passed as a tool argument beside a normal `whoyou.read + whoyou.mail.write` MCP bearer and cannot itself enter `/mcp`.
+- Cloud Auth signs but does not persist or consume the nonce. Who You must atomically consume it before starting the confirmed identity mutation.
 
 ## HTTP API
 
@@ -259,7 +288,35 @@ Who You send confirmation request:
 }
 ```
 
-`scopes` and `confirmation` are mutually exclusive. A Who You request that asks for `whoyou.mail.send` as a scope, or that sends an invalid draft binding, returns `400 SERVICE_CREDENTIAL_INVALID_REQUEST`.
+Who You mailbox identity confirmation requests:
+
+```json
+{
+  "audience": "mira:who-you",
+  "confirmation": {
+    "actor": "user",
+    "action": "link",
+    "provider": "gmail",
+    "mailbox_id": null,
+    "nonce": "<bounded base64url nonce>"
+  }
+}
+```
+
+```json
+{
+  "audience": "mira:who-you",
+  "confirmation": {
+    "actor": "user",
+    "action": "unlink",
+    "provider": "gmail",
+    "mailbox_id": "mailbox-0123456789abcdef",
+    "nonce": "<bounded base64url nonce>"
+  }
+}
+```
+
+`scopes` and `confirmation` are mutually exclusive. Clients cannot directly request standalone `whoyou.mail.send` or write-only `whoyou.mail.write`: Cloud Auth derives those scopes from the strict confirmation variant. Invalid draft binding, action/provider/mailbox combinations, duplicate fields or unknown confirmation keys return `400 SERVICE_CREDENTIAL_INVALID_REQUEST`.
 
 Success returns only the short-lived credential and necessary metadata:
 
@@ -347,7 +404,7 @@ Verification is offline and fail-closed. It rejects:
 - an audience other than the verifier's single configured audience;
 - missing or unexpected scope;
 - a Guanlan credential without a non-blank `consumer_id`, with a blank, whitespace-padded or over-long consumer, with a write-only scope, or with a scope order other than read then read+write;
-- a Who You credential without `consumer_id == sub`; with a non-canonical scope set, reversed scope order, or `whoyou.mail.send` combined with read/write; with `whoyou.mail.send` but no `confirmation`; with `confirmation` on a read or write credential; or with an unknown confirmation key, a non-`user` actor, an out-of-range draft version, a non-lowercase or non-64-hex content hash, or an out-of-bounds nonce;
+- a Who You credential without `consumer_id == sub`; with a non-canonical scope set or reversed general-bearer scope order; with `whoyou.mail.send` but no draft confirmation; with write-only `whoyou.mail.write` but no identity confirmation; with any confirmation on a read/general-write bearer; with the wrong confirmation variant for send vs identity write; or with unknown confirmation keys, a non-`user` actor, invalid draft/hash/nonce values, an unsupported identity provider/action, a non-null link mailbox id, or a missing/invalid unlink mailbox id;
 - `iat` in the future, `nbf` not yet reached, `exp` passed, or lifetime above the verifier limit;
 - a Relay verifier that omits the expected room/role, or a ticket whose room or role does not match that connection context;
 - an invalid verifier clock, so expiry cannot be checked safely.
@@ -383,13 +440,14 @@ const guanlan = verifyServiceCredential(resourceCredential, {
 });
 if (!guanlan.claims.scope.includes("guanlan.read")) throw new Error("not admitted");
 
-// Who You: read/write on `/mcp`, and a separate send confirmation.
+// Who You: read/write on `/mcp`, plus standalone send and identity confirmations.
 const whoYou = verifyServiceCredential(credential, {
   issuer: SERVICE_CREDENTIAL_ISSUER,
   audience: CLOUD_WHO_YOU_AUDIENCE,
   publicKeys: trustedKeysFromJwks,
 });
-if (!whoYou.claims.scope.includes("whoyou.read")) throw new Error("not admitted");
+if (!whoYou.claims.scope.includes("whoyou.read"))
+  throw new Error("not admitted");
 
 const confirmation = verifyServiceCredential(confirmationCredential, {
   issuer: SERVICE_CREDENTIAL_ISSUER,
@@ -398,7 +456,23 @@ const confirmation = verifyServiceCredential(confirmationCredential, {
 });
 // Who You must check draft ownership, version and content hash, then consume
 // the nonce atomically before any send side effect.
-if (!confirmation.claims.scope.includes("whoyou.mail.send")) throw new Error("not a confirmation");
+if (!confirmation.claims.scope.includes("whoyou.mail.send"))
+  throw new Error("not a send confirmation");
+
+const identityConfirmation = verifyServiceCredential(
+  identityConfirmationCredential,
+  {
+    issuer: SERVICE_CREDENTIAL_ISSUER,
+    audience: CLOUD_WHO_YOU_AUDIENCE,
+    publicKeys: trustedKeysFromJwks,
+  },
+);
+// This token is only a user-confirmation argument. It cannot satisfy the
+// whoyou.read resource gate. Who You additionally checks action/provider/
+// mailbox_id and atomically consumes the nonce before the identity write.
+if (identityConfirmation.claims.scope.join(" ") !== "whoyou.mail.write") {
+  throw new Error("not an identity confirmation");
+}
 ```
 
 The tests under `apps/api/tests/contract` and `apps/api/tests/integration` are the executable examples for all audiences, including negative cases. They generate ephemeral Ed25519 key pairs at test time; no key material is committed.
@@ -411,7 +485,7 @@ Revoking an account, device, or Cloud Session stops **future issuance**. An alre
 
 This is the agreed GLN-013 semantics: no `jti`, no revocation table and no online introspection were added. Revocation is `short TTL + issuance-time re-check`. For the Guanlan audience the recommended TTL is **at most 300 seconds** (the implemented maximum of 600 seconds is unchanged), and a Guanlan credential is accepted for at most its remaining lifetime after an account, device or session is revoked.
 
-Who You follows the same model. Cloud Auth signs the confirmation nonce but stores no nonce, draft or send state; Who You must reject a replayed nonce atomically, so a revoked account or device stops future confirmations while an already-issued one remains usable only until its `exp` and its first consumption.
+Who You follows the same model. Cloud Auth signs confirmation nonces but stores no nonce, draft, mailbox or provider state. Who You must reject a replayed nonce atomically for both send and identity operations, so a revoked account or device stops future confirmations while an already-issued one remains usable only until its `exp` and its first consumption.
 
 ## V0 key rotation
 

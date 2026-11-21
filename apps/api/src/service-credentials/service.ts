@@ -43,9 +43,14 @@ function scopeForRequest(request: ServiceCredentialRequest): ServiceCredentialSc
       : [GUANLAN_READ_SCOPE];
   }
   if (request.audience === CLOUD_WHO_YOU_AUDIENCE) {
-    // A confirmation is a standalone send authority; it never carries read or
-    // write scope, so it cannot be used as a general /mcp bearer.
-    if (request.confirmation !== undefined) return [WHOYOU_MAIL_SEND_SCOPE];
+    // Confirmations are standalone authorities, never general MCP bearers.
+    // Draft-bound send gets mail.send; identity link/unlink gets write-only,
+    // which cannot satisfy Who You's global whoyou.read MCP gate.
+    if (request.confirmation !== undefined) {
+      return "action" in request.confirmation
+        ? [WHOYOU_MAIL_WRITE_SCOPE]
+        : [WHOYOU_MAIL_SEND_SCOPE];
+    }
     const requested = request.scopes ?? [WHOYOU_READ_SCOPE];
     return requested.includes(WHOYOU_MAIL_WRITE_SCOPE)
       ? [WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE]

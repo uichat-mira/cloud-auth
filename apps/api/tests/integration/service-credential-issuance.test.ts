@@ -592,15 +592,67 @@ describe("authenticated service credential issuance", () => {
       confirmation,
     });
 
+    const identityConfirmations = [
+      {
+        actor: "user",
+        action: "link",
+        provider: "gmail",
+        mailbox_id: null,
+        nonce: "nonce-link-gmail-0123456789abcdef",
+      },
+      {
+        actor: "user",
+        action: "link",
+        provider: "microsoft",
+        mailbox_id: null,
+        nonce: "nonce-link-microsoft-0123456789abcdef",
+      },
+      {
+        actor: "user",
+        action: "link",
+        provider: "imap_smtp",
+        mailbox_id: null,
+        nonce: "nonce-link-imap-0123456789abcdef",
+      },
+      {
+        actor: "user",
+        action: "unlink",
+        provider: "gmail",
+        mailbox_id: "mailbox-0123456789abcdef",
+        nonce: "nonce-unlink-0123456789abcdef",
+      },
+    ] as const;
+    for (const identityConfirmation of identityConfirmations) {
+      const response = await issue(context, login.sessionToken, {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        confirmation: identityConfirmation,
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.body).not.toContain(login.sessionToken);
+      const verified = verifyServiceCredential(
+        issuedServiceCredentialSchema.parse(response.json()).token,
+        whoYouVerifier(context),
+      );
+      expect(verified.claims).toMatchObject({
+        sub: login.account.id,
+        device_id: device.id,
+        consumer_id: login.account.id,
+        scope: [WHOYOU_MAIL_WRITE_SCOPE],
+        confirmation: identityConfirmation,
+      });
+      expect(verified.claims.scope).not.toContain(WHOYOU_READ_SCOPE);
+      expect(verified.claims.scope).not.toContain(WHOYOU_MAIL_SEND_SCOPE);
+    }
+
     const rejected = await issue(context, login.sessionToken, {
       audience: CLOUD_WHO_YOU_AUDIENCE,
       scopes: [WHOYOU_READ_SCOPE],
       confirmation,
     });
     expect(rejected.statusCode).toBe(400);
-    expect(serviceCredentialErrorEnvelopeSchema.parse(rejected.json()).error.code).toBe(
-      "SERVICE_CREDENTIAL_INVALID_REQUEST",
-    );
+    expect(
+      serviceCredentialErrorEnvelopeSchema.parse(rejected.json()).error.code,
+    ).toBe("SERVICE_CREDENTIAL_INVALID_REQUEST");
 
     context.db.close();
     await context.app.close();
