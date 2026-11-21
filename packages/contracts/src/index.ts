@@ -82,6 +82,11 @@ export {
   serviceCredentialScopeSchema,
   shiyanServiceCredentialClaimsSchema,
   whoYouConfirmationSchema,
+  whoYouDraftConfirmationSchema,
+  whoYouIdentityConfirmationSchema,
+  whoYouIdentityProviderSchema,
+  whoYouMailboxIdSchema,
+  whoYouUserConfirmationSchema,
   whoYouConsumerIdSchema,
   whoYouContentHashSchema,
   whoYouDraftIdSchema,
@@ -108,7 +113,10 @@ export type {
   ServiceCredentialRequest,
   ServiceCredentialScope,
   ShiyanServiceCredentialClaims,
+  WhoYouDraftConfirmation,
+  WhoYouIdentityConfirmation,
   WhoYouConfirmation,
+  WhoYouUserConfirmation,
   WhoYouServiceCredentialClaims,
 } from "./service-credential.js";
 

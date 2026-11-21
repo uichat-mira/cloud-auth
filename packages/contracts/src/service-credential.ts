@@ -189,7 +189,7 @@ export const whoYouConfirmationNonceSchema = z
  * that the device-bound account session confirmed this content identity. It
  * does not read, store or authorize Who You drafts or user content.
  */
-export const whoYouConfirmationSchema = z
+export const whoYouDraftConfirmationSchema = z
   .object({
     actor: z.literal("user"),
     draft_id: whoYouDraftIdSchema,
@@ -199,13 +199,66 @@ export const whoYouConfirmationSchema = z
   })
   .strict();
 
+/** Backward-compatible name for the original draft-send confirmation contract. */
+export const whoYouConfirmationSchema = whoYouDraftConfirmationSchema;
+
+export const whoYouIdentityProviderSchema = z.enum([
+  "gmail",
+  "microsoft",
+  "imap_smtp",
+]);
+
+export const whoYouMailboxIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9._:-]+$/, "mailbox_id must be a bounded identifier");
+
+const whoYouIdentityLinkConfirmationSchema = z
+  .object({
+    actor: z.literal("user"),
+    action: z.literal("link"),
+    provider: whoYouIdentityProviderSchema,
+    mailbox_id: z.null(),
+    nonce: whoYouConfirmationNonceSchema,
+  })
+  .strict();
+
+const whoYouIdentityUnlinkConfirmationSchema = z
+  .object({
+    actor: z.literal("user"),
+    action: z.literal("unlink"),
+    provider: whoYouIdentityProviderSchema,
+    mailbox_id: whoYouMailboxIdSchema,
+    nonce: whoYouConfirmationNonceSchema,
+  })
+  .strict();
+
 /**
- * Canonical Who You scope sets. Read admits `/mcp`, mail.write edits drafts,
- * and mail.send is valid only together with a draft-bound confirmation.
+ * One user-confirmed third-party mailbox identity operation. These credentials
+ * carry write-only scope so they cannot pass Who You's global whoyou.read MCP
+ * gate. The consumer atomically consumes the nonce before starting the write.
+ */
+export const whoYouIdentityConfirmationSchema = z.discriminatedUnion("action", [
+  whoYouIdentityLinkConfirmationSchema,
+  whoYouIdentityUnlinkConfirmationSchema,
+]);
+
+/** Canonical user-confirmation claim variants accepted for Who You issuance. */
+export const whoYouUserConfirmationSchema = z.union([
+  whoYouDraftConfirmationSchema,
+  whoYouIdentityConfirmationSchema,
+]);
+
+/**
+ * Canonical Who You scope sets. General MCP bearers carry read or
+ * read+write. Standalone draft-send and identity-operation confirmations
+ * carry send-only and write-only respectively, and never carry read.
  */
 export const whoYouScopeClaimsSchema = z.union([
   z.tuple([z.literal(WHOYOU_READ_SCOPE)]),
   z.tuple([z.literal(WHOYOU_READ_SCOPE), z.literal(WHOYOU_MAIL_WRITE_SCOPE)]),
+  z.tuple([z.literal(WHOYOU_MAIL_WRITE_SCOPE)]),
   z.tuple([z.literal(WHOYOU_MAIL_SEND_SCOPE)]),
 ]);
 
@@ -240,7 +293,7 @@ export const whoYouServiceCredentialClaimsSchema = z
     aud: z.literal(CLOUD_WHO_YOU_AUDIENCE),
     scope: whoYouScopeClaimsSchema,
     consumer_id: whoYouConsumerIdSchema,
-    confirmation: whoYouConfirmationSchema.optional(),
+    confirmation: whoYouUserConfirmationSchema.optional(),
   })
   .strict()
   .refine(
@@ -250,17 +303,37 @@ export const whoYouServiceCredentialClaimsSchema = z
   .superRefine((claims, context) => {
     const isSend =
       claims.scope.length === 1 && claims.scope[0] === WHOYOU_MAIL_SEND_SCOPE;
-    if (isSend && claims.confirmation === undefined) {
+    const isIdentityWrite =
+      claims.scope.length === 1 && claims.scope[0] === WHOYOU_MAIL_WRITE_SCOPE;
+    const draftConfirmation =
+      claims.confirmation === undefined
+        ? false
+        : whoYouDraftConfirmationSchema.safeParse(claims.confirmation).success;
+    const identityConfirmation =
+      claims.confirmation === undefined
+        ? false
+        : whoYouIdentityConfirmationSchema.safeParse(claims.confirmation)
+            .success;
+
+    if (isSend && !draftConfirmation) {
       context.addIssue({
         code: "custom",
         message: "whoyou.mail.send requires a draft-bound confirmation",
         path: ["confirmation"],
       });
     }
-    if (!isSend && claims.confirmation !== undefined) {
+    if (isIdentityWrite && !identityConfirmation) {
       context.addIssue({
         code: "custom",
-        message: "confirmation is only valid with whoyou.mail.send",
+        message:
+          "write-only whoyou.mail.write requires an identity confirmation",
+        path: ["confirmation"],
+      });
+    }
+    if (!isSend && !isIdentityWrite && claims.confirmation !== undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "confirmation is not valid with a general Who You bearer",
         path: ["scope"],
       });
     }
@@ -327,14 +400,15 @@ export const whoYouRequestedScopesSchema = z
   });
 
 /**
- * Who You request: either a read/write scope set or one draft-bound send
- * confirmation. Both shapes are mutually exclusive and strictly validated.
+ * Who You request: either a general read/write scope set or one standalone
+ * user confirmation (draft send or mailbox identity operation). The shapes are
+ * mutually exclusive and strictly validated.
  */
 export const whoYouServiceCredentialRequestSchema = z
   .object({
     audience: z.literal(CLOUD_WHO_YOU_AUDIENCE),
     scopes: whoYouRequestedScopesSchema.optional(),
-    confirmation: whoYouConfirmationSchema.optional(),
+    confirmation: whoYouUserConfirmationSchema.optional(),
   })
   .strict();
 
@@ -439,7 +513,17 @@ export type RelayServiceCredentialClaims = z.infer<typeof relayServiceCredential
 export type GuanlanServiceCredentialClaims = z.infer<
   typeof guanlanServiceCredentialClaimsSchema
 >;
+export type WhoYouDraftConfirmation = z.infer<
+  typeof whoYouDraftConfirmationSchema
+>;
+export type WhoYouIdentityConfirmation = z.infer<
+  typeof whoYouIdentityConfirmationSchema
+>;
+/** Backward-compatible type alias for the original draft-send confirmation. */
 export type WhoYouConfirmation = z.infer<typeof whoYouConfirmationSchema>;
+export type WhoYouUserConfirmation = z.infer<
+  typeof whoYouUserConfirmationSchema
+>;
 export type WhoYouServiceCredentialClaims = z.infer<
   typeof whoYouServiceCredentialClaimsSchema
 >;
