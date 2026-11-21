@@ -6,7 +6,7 @@ Full OPS-008 remains open. Cross-repository consumer implementation and producti
 
 GLN-013 adds the Guanlan audience below. It is **not** claimed as working end-to-end: the Guanlan resource deployment, the GLN-012 registration projection and any live JWKS retrieval do not exist yet. See [docs/engineering/gln-013-guanlan-credential.md](engineering/gln-013-guanlan-credential.md).
 
-The Who You audience adds a draft-bound send confirmation: Cloud Auth signs what the device-bound account session confirmed, while the Who You Worker verifies draft ownership, recomputes the content hash and atomically consumes the nonce. Cloud Auth stores no Who You draft, mailbox, message or user content. This credential is implemented and locally tested here, but Who You resource deployment and end-to-end sending remain outside this repository.
+The Who You audience adds a draft-bound send confirmation: Cloud Auth signs what the device-bound account session confirmed, while the Who You Worker verifies draft ownership, recomputes the content hash and atomically consumes the nonce. Cloud Auth stores no Who You draft, mailbox, message or user content. **Current status (2026-11-21):** the independent Who You Worker at `https://who-you.tomz.io` is deployed; a real browser user has reached a read-only `whoyou.read` MCP identity through the Cloud Auth Web login. This proves only login + read-only identity, **not** third-party mailbox integration, real mailbox sync or end-to-end sending. The draft-bound send contract remains locally tested and any live email operation belongs to the separate Who You service deployment and authorization.
 
 ## Trust model
 
