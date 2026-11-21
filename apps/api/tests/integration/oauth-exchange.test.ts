@@ -329,6 +329,11 @@ describe("OAuth token exchange SQLite runtime", () => {
     expect(bobDeviceRow.revoked_at).toBeNull();
     expect(context.service.getSession(bobLogin.sessionToken).account.username).toBe("bob");
 
+    const oldHost = context.hostService.register(aliceSession.sessionToken);
+    context.hostGrantService.setPolicy(aliceSession.sessionToken, oldHost.id, {
+      expectedRevision: 0,
+      scopes: ["threads:read"],
+    });
     context.deviceService.revoke(aliceSession.sessionToken, aliceDevice.id);
     expect(() => context.service.getSession(aliceSession.sessionToken)).toThrow(
       /Re-authentication/,
@@ -340,13 +345,18 @@ describe("OAuth token exchange SQLite runtime", () => {
       "127.0.0.1",
       authorizationRequest,
     );
+    const wrongVerifier = await exchangeViaApp(context, tokenRequest(nextCode.code, installationId, {
+      code_verifier: 'x'.repeat(43),
+    }));
+    expect(wrongVerifier.json()).toMatchObject({ error: { code: "OAUTH_INVALID_GRANT" } });
+
     const revokedDeviceExchange = await exchangeViaApp(
       context,
       tokenRequest(nextCode.code, installationId),
     );
     expect(revokedDeviceExchange.statusCode).toBe(400);
     expect(revokedDeviceExchange.json()).toMatchObject({
-      error: { code: "OAUTH_INVALID_GRANT" },
+      error: { code: "OAUTH_DEVICE_REVOKED" },
     });
     expect(
       context.db.prepare("SELECT COUNT(*) AS count FROM devices").get(),
@@ -361,6 +371,21 @@ describe("OAuth token exchange SQLite runtime", () => {
         .prepare("SELECT consumed_at FROM oauth_authorization_codes WHERE id = ?")
         .get(parseAuthorizationCode(nextCode.code)!.id),
     ).toMatchObject({ consumed_at: null });
+
+    const recoveryCode = await context.oauthService.authorizeWithPassword(
+      "alice", password, "127.0.0.1", authorizationRequest,
+    );
+    const recovery = await exchangeViaApp(context, tokenRequest(recoveryCode.code, randomUUID()));
+    expect(recovery.statusCode).toBe(200);
+    const recoverySession = issuedCloudSessionSchema.parse(recovery.json());
+    const newHost = context.hostService.register(recoverySession.sessionToken);
+    expect(newHost.id).not.toBe(oldHost.id);
+    expect(newHost.deviceId).not.toBe(oldHost.deviceId);
+    expect(context.hostGrantService.getSnapshot(recoverySession.sessionToken, newHost.id))
+      .toMatchObject({ policyConfigured: false, policyScopes: [], grants: [] });
+    expect(context.db.prepare("SELECT revoked_at FROM desktop_hosts WHERE id = ?")
+      .get(oldHost.id)).toMatchObject({ revoked_at: expect.any(String) });
+    expect(() => context.service.getSession(aliceSession.sessionToken)).toThrow(/Re-authentication/);
 
     context.db.close();
     await context.app.close();
