@@ -3,18 +3,19 @@
 This document specifies the first-party OAuth 2.0 Authorization Code + PKCE S256
 authorization boundary implemented by OPS-016 and the one-time token exchange
 implemented by OPS-017. It issues one short-lived, single-use authorization
-code to a registered native callback, then redeems it once for the existing
+code to an exact registered callback (native or reviewed HTTPS Web), then redeems it once for the existing
 revocable, device-bound Mira Cloud Session authority. It does not grant Host,
 Tool, Relay, or other business authorization.
 
 ## First-party client registry
 
-Only the following static, reviewed public native clients are accepted:
+The current static, reviewed first-party client registry accepts exactly these clients (as of 2026-11-21):
 
 | Client id | Platform | Exact registered redirect URI |
 | --- | --- | --- |
 | `mira-desktop` | Desktop | `mira-desktop://oauth/callback` |
 | `mira-mobile` | Mobile | `mira-mobile://oauth/callback` |
+| `who-you-web` | Web | `https://who-you.tomz.io/auth/callback` |
 
 The shared literals live in
 `packages/contracts/src/oauth.ts` and are exported from
@@ -24,21 +25,20 @@ Registration rules:
 
 - Matching is an exact string comparison. Case, trailing slash, query, fragment,
   encoding, and port differences are not normalized.
-- No wildcard, dynamic loopback port, `http`, `https`, `javascript:`, `data:`, or
-  caller-supplied scheme is accepted.
+- No wildcard, dynamic loopback port, arbitrary `http` or `https` callback, `javascript:`, `data:`, or caller-supplied scheme is accepted. The **only** reviewed HTTPS exception is the exact `who-you-web` URI above; the old `workers.dev` callback is not registered.
 - Adding or changing a client or redirect URI requires a reviewed change to the
   shared registry; it is not deployment configuration and not supplied by the
   requesting client.
-- Desktop/Mobile owners must implement the callback handler for the exact URI
-  above. DSK-005/MOB-078 own the native browser and secure-storage journey.
+- Desktop/Mobile owners implement native callback handlers (DSK-005/MOB-078). Who You owns its **Web** `/auth/callback` in `uichat-mira/who-you/src/web/cloud-auth.ts`. Each consumer must bind the one-use code to the original PKCE verifier and state; registering a client does not authorize provider mail access.
 
 ## Browser authorization (GET and POST)
 
-The native app opens the standard authorization URL in the **system browser**.
-The server returns an HTML login/authorization form (HTTP 200), not an
-authorization code. The user explicitly signs in and selects **授权 Mira Desktop** or
-**授权 Mira Mobile** (native-app authorization buttons). The form posts to the same
-first-party origin, and the server issues the code only after a successful
+> **2026-11-21 current Web extension and evidence boundary.** OAuth PKCE for `who-you-web` is deployed with callback `https://who-you.tomz.io/auth/callback`. A user has visibly reached Who You `/account` with a confirmed `whoyou.read` MCP identity; this verifies the login/read-only service-credential path, **not** provider mailbox OAuth, live mail sync, send confirmation or the proposed Cloud Auth Associated Services UI. The product responsibility decision is owned by [Who You product boundaries](https://github.com/uichat-mira/who-you/blob/dev/docs/product-design.md). The native-client examples and fixtures further below remain native examples, not a complete registry description.
+>
+> **Known form-label defect:** `apps/api/src/oauth/routes.ts` currently renders non-Desktop clients as `Mira Mobile`, including `who-you-web`. It is an unresolved UI defect; no claim is made that the authorization form correctly names Who You.
+
+
+A first-party client opens the standard authorization URL in a browser (Desktop/Mobile use the system browser; Who You Web redirects the browser from its `/auth/start` route). The server returns an HTML login/authorization form (HTTP 200), not an authorization code. The user explicitly signs in; the form posts to the same first-party origin, and the server issues the code only after a successful
 Mira Cloud account/password check. No client can attach an arbitrary Bearer
 to bypass the browser interaction.
 
@@ -64,10 +64,9 @@ Browser transaction:
    and admission checks**. It does *not* mint a Cloud Session for this step.
 4. If accepted, the server creates the existing opaque, short-lived,
    hash-stored authorization code and responds with HTTP 303 to the exact
-   registered native callback, preserving the caller's original `state`.
+   registered callback, preserving the caller's original `state`.
 
-No password, Cloud Session or bearer is returned to the native app, logged,
-or embedded in a URL. No new browser-session table/cookie is introduced:
+No password, Cloud Session or bearer is returned in the authorization redirect, logged, or embedded in a URL. The Web callback performs the code exchange server-side and places the resulting Cloud Session in an authenticated, encrypted HttpOnly cookie owned by Who You; it does not expose that session or the Who You service credential to browser JavaScript. No new browser-session table/cookie is introduced:
 authorization is deliberately a fresh, explicit first-party sign-in per
 request for this minimal V0 boundary. Portal `sessionStorage` is not used
 or silently elevated to OAuth authorization. UX / SSO enhancements belong

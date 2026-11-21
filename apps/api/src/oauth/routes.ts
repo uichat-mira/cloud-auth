@@ -1,5 +1,8 @@
 import {
+  MIRA_DESKTOP_OAUTH_CLIENT_ID,
+  MIRA_MOBILE_OAUTH_CLIENT_ID,
   OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
   oauthAuthorizationCallbackErrorSchema,
   oauthAuthorizationRequestSchema,
   oauthStateSchema,
@@ -118,6 +121,17 @@ const TOKEN_FORM_FIELDS = new Set<string>([
   "platform",
 ]);
 
+/** Consent copy is keyed by exact client ID so a new client cannot inherit another name. */
+const OAUTH_CLIENT_LABELS: Record<FirstPartyOAuthClient["clientId"], string> = {
+  [MIRA_DESKTOP_OAUTH_CLIENT_ID]: "Mira Desktop",
+  [MIRA_MOBILE_OAUTH_CLIENT_ID]: "Mira Mobile",
+  [WHO_YOU_WEB_OAUTH_CLIENT_ID]: "狐邮 Who You",
+};
+
+function oauthClientLabel(client: FirstPartyOAuthClient): string {
+  return OAUTH_CLIENT_LABELS[client.clientId];
+}
+
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
     switch (character) {
@@ -162,7 +176,7 @@ function renderLoginForm(
     '<input type="hidden" name="' + key + '" value="' +
     escapeHtml(parameters[key]) + '">'
   ).join("\n");
-  const clientLabel = client.platform === "desktop" ? "Mira Desktop" : "Mira Mobile";
+  const clientLabel = oauthClientLabel(client);
   const page = [
     "<!doctype html>",
     '<html lang="zh-CN"><head><meta charset="utf-8">',

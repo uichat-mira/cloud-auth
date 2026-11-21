@@ -134,6 +134,26 @@ describe("service credential HTTP contract", () => {
           nonce: "nonce-0123456789abcdef",
         },
       },
+      {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        confirmation: {
+          actor: "user",
+          action: "link",
+          provider: "gmail",
+          mailbox_id: null,
+          nonce: "nonce-link-0123456789abcdef",
+        },
+      },
+      {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        confirmation: {
+          actor: "user",
+          action: "unlink",
+          provider: "imap_smtp",
+          mailbox_id: "mailbox-0123456789abcdef",
+          nonce: "nonce-unlink-0123456789abcdef",
+        },
+      },
     ]) {
       expect(serviceCredentialRequestSchema.parse(body)).toEqual(body);
     }
@@ -141,7 +161,10 @@ describe("service credential HTTP contract", () => {
     for (const body of [
       { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: [] },
       { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: [WHOYOU_MAIL_WRITE_SCOPE] },
-      { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: [WHOYOU_READ_SCOPE, WHOYOU_READ_SCOPE] },
+      {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        scopes: [WHOYOU_READ_SCOPE, WHOYOU_READ_SCOPE],
+      },
       { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: ["whoyou.mail.send"] },
       {
         audience: CLOUD_WHO_YOU_AUDIENCE,
@@ -164,10 +187,43 @@ describe("service credential HTTP contract", () => {
           nonce: "nonce-0123456789abcdef",
         },
       },
+      {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        confirmation: {
+          actor: "user",
+          action: "link",
+          provider: "gmail",
+          mailbox_id: "must-be-null",
+          nonce: "nonce-link-0123456789abcdef",
+        },
+      },
+      {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        confirmation: {
+          actor: "user",
+          action: "unlink",
+          provider: "microsoft",
+          mailbox_id: null,
+          nonce: "nonce-unlink-0123456789abcdef",
+        },
+      },
+      {
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        confirmation: {
+          actor: "user",
+          action: "link",
+          provider: "gmail",
+          mailbox_id: null,
+          nonce: "nonce-link-0123456789abcdef",
+          extra: true,
+        },
+      },
       { audience: CLOUD_WHO_YOU_AUDIENCE, consumer_id: "account-0001" },
       { audience: CLOUD_WHO_YOU_AUDIENCE, accountId: "account-0001" },
     ]) {
-      expect(serviceCredentialRequestSchema.safeParse(body).success).toBe(false);
+      expect(serviceCredentialRequestSchema.safeParse(body).success).toBe(
+        false,
+      );
     }
   });
 });

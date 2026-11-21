@@ -4,11 +4,11 @@ import {
   relayTicketContextSchema,
   serviceCredentialClaimsSchema,
   serviceCredentialJwtHeaderSchema,
-  whoYouConfirmationSchema,
+  whoYouUserConfirmationSchema,
   type RelayTicketContext,
   type ServiceCredentialAudience,
   type ServiceCredentialScope,
-  type WhoYouConfirmation,
+  type WhoYouUserConfirmation,
 } from "@uichat-mira/cloud-auth-contracts";
 import {
   ServiceCredentialIssuanceError,
@@ -42,10 +42,11 @@ export interface IssueServiceCredentialInput {
    */
   consumerId?: string;
   /**
-   * Who You draft-bound user confirmation. Required for whoyou.mail.send and
+   * Who You user confirmation. Draft-bound send maps to whoyou.mail.send;
+   * identity link/unlink maps to write-only whoyou.mail.write. Both are
    * rejected for every other audience by the canonical claims schema.
    */
-  confirmation?: WhoYouConfirmation;
+  confirmation?: WhoYouUserConfirmation;
 }
 
 function resolvePrivateKey(input: Ed25519PrivateKeyInput): KeyObject {
@@ -104,7 +105,7 @@ export function issueServiceCredential(
   }
 
   if (input.confirmation !== undefined) {
-    if (!whoYouConfirmationSchema.safeParse(input.confirmation).success) {
+    if (!whoYouUserConfirmationSchema.safeParse(input.confirmation).success) {
       throw new ServiceCredentialIssuanceError(
         "INVALID_INPUT",
         "Who You confirmation is malformed",
