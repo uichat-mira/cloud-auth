@@ -1,5 +1,6 @@
 import {
   findFirstPartyOAuthClient,
+  MIRA_DESKTOP_OAUTH_CLIENT_ID,
   type FirstPartyOAuthClient,
   type IssuedCloudSession,
   type OAuthAuthorizationRequest,
@@ -70,9 +71,8 @@ export class OAuthService {
    * refresh token: renew, logout, device revoke and service credentials work
    * through the same session/repository checks as password login.
    *
-   * Every invalid condition maps to one bounded invalid_grant response so the
-   * endpoint does not reveal whether a code exists, expired, was consumed,
-   * belongs to another client/redirect, or failed PKCE verification.
+   * Invalid grants share a response. A verified Desktop grant can distinguish
+   * a revoked installation in its own account so the owner can re-enroll it.
    */
   exchangeAuthorizationCode(request: OAuthTokenRequest): IssuedCloudSession {
     const parsed = parseAuthorizationCode(request.code);
@@ -98,7 +98,12 @@ export class OAuthService {
       sessionSecretHash: issued.secretHash,
       sessionExpiresAt: expiresAt,
     });
-    if (!exchanged.ok) throw invalidGrant();
+    if (!exchanged.ok) {
+      if (exchanged.reason === "device_revoked" && request.client_id === MIRA_DESKTOP_OAUTH_CLIENT_ID) {
+        throw new OAuthError("OAUTH_DEVICE_REVOKED", 400, "This Mira Desktop installation has been revoked");
+      }
+      throw invalidGrant();
+    }
 
     return {
       sessionToken: issued.token,
