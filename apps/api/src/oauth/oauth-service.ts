@@ -107,6 +107,7 @@ export class OAuthService {
         username: exchanged.value.accountUsername,
       },
       expiresAt,
+      deviceId: exchanged.value.deviceId,
     };
   }
 
