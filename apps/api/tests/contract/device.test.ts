@@ -11,6 +11,7 @@ import {
   miraDeviceSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 import { buildApp } from "../../src/app.js";
+import { parseSessionToken } from "../../src/security/session-token.js";
 import { createTestAuth, type TestAuthContext } from "../helpers/auth.js";
 
 const cleanup: string[] = [];
@@ -496,6 +497,130 @@ describe("Mira Device HTTP contract", () => {
     });
     expect(boundSession.statusCode).toBe(401);
 
+    await app.close();
+    context.db.close();
+  });  it("exposes only session-active account-owned devices without changing the inventory", async () => {
+    const context = createContext();
+    const aliceAccount = await context.service.provisionAccount(
+      "alice",
+      password,
+    );
+    await context.service.provisionAccount("bob", password);
+    // A browser-like session may inspect the devices but has no device of its own.
+    const viewer = await context.service.login("alice", password, "127.0.0.1");
+    const a1 = await context.service.login("alice", password, "127.0.0.2");
+    const a2 = await context.service.login("alice", password, "127.0.0.3");
+    const mobileSession = await context.service.login(
+      "alice",
+      password,
+      "127.0.0.4",
+    );
+    const bob = await context.service.login("bob", password, "127.0.0.5");
+    const desktopId = randomUUID();
+    const mobileId = randomUUID();
+    const desktop = context.deviceService.register(a1.sessionToken, {
+      installationId: desktopId,
+      platform: "desktop",
+      clientName: "Desktop",
+    });
+    const duplicate = context.deviceService.register(a2.sessionToken, {
+      installationId: desktopId,
+      platform: "desktop",
+      clientName: "Desktop",
+    });
+    expect(duplicate.id).toBe(desktop.id);
+    const mobile = context.deviceService.register(mobileSession.sessionToken, {
+      installationId: mobileId,
+      platform: "mobile",
+      clientName: "Mobile",
+    });
+    const foreign = context.deviceService.register(bob.sessionToken, {
+      installationId: randomUUID(),
+      platform: "desktop",
+      clientName: "Bob's desktop",
+    });
+    const app = await buildDeviceApp(context);
+    const getActive = (token: string) =>
+      app.inject({
+        method: "GET",
+        url: "/v1/devices/active-sessions",
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+    const first = await getActive(viewer.sessionToken);
+    expect(first.statusCode).toBe(200);
+    expect(
+      deviceListResponseSchema
+        .parse(first.json())
+        .devices.map((d) => d.id)
+        .sort(),
+    ).toEqual([desktop.id, mobile.id].sort());
+    expect(first.body).not.toContain(foreign.id);
+    expect(first.body).not.toContain(desktopId);
+    expect(first.body).not.toContain(mobileId);
+    expect(first.body).not.toContain("secret_hash");
+    expect((await getActive(bob.sessionToken)).json()).toEqual({
+      devices: [foreign],
+    });
+    expect(
+      (await app.inject({ method: "GET", url: "/v1/devices/active-sessions" }))
+        .statusCode,
+    ).toBe(401);
+
+    // Expire one of two Desktop sessions: the second still authorizes that installation.
+    context.db
+      .prepare("UPDATE sessions SET expires_at = ? WHERE id = ?")
+      .run(
+        new Date(Date.now() - 60_000).toISOString(),
+        parseSessionToken(a1.sessionToken)!.id,
+      );
+    expect(
+      deviceListResponseSchema
+        .parse((await getActive(viewer.sessionToken)).json())
+        .devices.map((d) => d.id)
+        .sort(),
+    ).toEqual([desktop.id, mobile.id].sort());
+    const logout = await app.inject({
+      method: "POST",
+      url: "/v1/auth/logout",
+      headers: { authorization: `Bearer ${a2.sessionToken}` },
+    });
+    expect(logout.statusCode).toBe(204);
+    expect(
+      deviceListResponseSchema
+        .parse((await getActive(viewer.sessionToken)).json())
+        .devices.map((d) => d.id),
+    ).toEqual([mobile.id]);
+
+    // Revoking the last authorized device leaves only asset history, not an active row.
+    const revoked = await app.inject({
+      method: "DELETE",
+      url: `/v1/devices/${mobile.id}`,
+      headers: { authorization: `Bearer ${viewer.sessionToken}` },
+    });
+    expect(revoked.statusCode).toBe(200);
+    expect(
+      deviceListResponseSchema.parse(
+        (await getActive(viewer.sessionToken)).json(),
+      ).devices,
+    ).toEqual([]);
+    const inventory = await app.inject({
+      method: "GET",
+      url: "/v1/devices",
+      headers: { authorization: `Bearer ${viewer.sessionToken}` },
+    });
+    expect(
+      deviceListResponseSchema
+        .parse(inventory.json())
+        .devices.map((d) => d.id)
+        .sort(),
+    ).toEqual([desktop.id, mobile.id].sort());
+
+    // A disabled account cannot use the active view, even with an unexpired token.
+    context.db
+      .prepare("UPDATE accounts SET is_allowed = 0 WHERE id = ?")
+      .run(aliceAccount.id);
+    expect((await getActive(viewer.sessionToken)).statusCode).toBe(401);
     await app.close();
     context.db.close();
   });

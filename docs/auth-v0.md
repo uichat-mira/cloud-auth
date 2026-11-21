@@ -157,6 +157,23 @@ Requires `Authorization: Bearer <Cloud Session>`.
 
 The list is scoped to the authenticated account. It never returns password hashes, Cloud Session secret material, installation IDs, public keys, Remote V1 credentials, Provider secrets, or Push tokens.
 
+### GET /v1/devices/active-sessions
+
+Requires `Authorization: Bearer <Cloud Session>` and returns the same public
+`{ "devices": [...] }` response shape as `GET /v1/devices`, but only includes
+account-owned, non-revoked installations with **at least one unrevoked,
+non-expired, device-bound Cloud Session** at query time. Multiple active
+Sessions for one installation produce one device row. Browser/legacy Sessions
+without a device binding do not generate a device. Disabled/disallowed
+accounts are rejected through normal session authorization.
+
+This is the authoritative Mobile "My devices" view. It is **not** a realtime
+online/presence claim. The existing `GET /v1/devices` remains the audit/asset
+inventory, including unrevoked installations whose Sessions have expired and
+revoked-device tombstones. Never use the inventory or `lastSeenAt` to infer
+Session validity on the client. During network failure Mobile must not present
+cached asset rows as actively authorized.
+
 ### DELETE /v1/devices/:deviceId
 
 Requires `Authorization: Bearer <Cloud Session>`.
