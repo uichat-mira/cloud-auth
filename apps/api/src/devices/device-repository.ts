@@ -176,6 +176,36 @@ export class DeviceRepository {
     return rows.map(mapDevice);
   }
 
+  /**
+   * This is an authorization view, not the device asset inventory. An active
+   * device needs at least one non-revoked, non-expired session of this account.
+   * EXISTS avoids duplicate rows when a device has several valid sessions.
+   */
+  listDevicesWithActiveSessionsByAccount(
+    accountId: string,
+    now: string,
+  ): DeviceRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT d.id, d.account_id, d.installation_id, d.platform, d.client_name,
+                d.client_version, d.public_key, d.created_at, d.last_seen_at,
+                d.revoked_at, d.revoke_reason
+           FROM devices d
+          WHERE d.account_id = ?
+            AND d.revoked_at IS NULL
+            AND EXISTS (
+              SELECT 1 FROM sessions s
+               WHERE s.device_id = d.id
+                 AND s.account_id = d.account_id
+                 AND s.revoked_at IS NULL
+                 AND s.expires_at > ?
+            )
+          ORDER BY d.created_at ASC, d.id ASC`,
+      )
+      .all(accountId, now) as DeviceRow[];
+    return rows.map(mapDevice);
+  }
+
   private findByInstallation(accountId: string, installationId: string): DeviceRecord | null {
     const row = this.db
       .prepare(

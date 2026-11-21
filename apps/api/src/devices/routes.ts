@@ -38,6 +38,22 @@ export function registerDeviceRoutes(app: FastifyInstance, deviceService: Device
     }
   });
 
+  // The asset inventory above intentionally retains historical devices.
+  // Mobile's "My devices" must use the active-Session view instead.
+  app.get("/v1/devices/active-sessions", async (request, reply) => {
+    try {
+      return reply
+        .code(200)
+        .send({
+          devices: deviceService.listActiveSessionDevices(
+            readBearerToken(request),
+          ),
+        });
+    } catch (error) {
+      return sendDeviceError(reply, error);
+    }
+  });
+
   app.delete<{ Params: { deviceId: string } }>(
     "/v1/devices/:deviceId",
     async (request, reply) => {
