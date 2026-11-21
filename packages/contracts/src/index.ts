@@ -227,6 +227,8 @@ export const cloudSessionSchema = z
   .object({
     account: accountIdentitySchema,
     expiresAt: z.iso.datetime(),
+    // Additive field: device-less and browser sessions use explicit null.
+    deviceId: z.uuid().nullable().optional(),
   })
   .strict();
 
@@ -249,6 +251,9 @@ export const registerDeviceRequestSchema = z
       .max(64)
       .regex(/\S/, "clientVersion must not be blank")
       .optional(),
+    deviceName: z.string().trim().min(1).max(80).optional(),
+    osName: z.string().trim().min(1).max(64).optional(),
+    osVersion: z.string().trim().min(1).max(64).optional(),
   })
   .strict();
 
@@ -258,6 +263,10 @@ export const miraDeviceSchema = z
     platform: devicePlatformSchema,
     clientName: z.string().min(1).max(80).nullable(),
     clientVersion: z.string().min(1).max(64).nullable(),
+    // Optional for older fixtures and clients; API emits null for unknowns.
+    deviceName: z.string().min(1).max(80).nullable().optional(),
+    osName: z.string().min(1).max(64).nullable().optional(),
+    osVersion: z.string().min(1).max(64).nullable().optional(),
     createdAt: z.iso.datetime(),
     lastSeenAt: z.iso.datetime(),
     revokedAt: z.iso.datetime().nullable(),

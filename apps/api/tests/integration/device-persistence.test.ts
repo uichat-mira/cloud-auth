@@ -37,7 +37,7 @@ describe("Mira Device SQLite persistence", () => {
 
     const second = createTestAuth(databasePath);
     expect(second.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({
-      count: 9,
+      count: 10,
     });
     expect(second.db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'devices'").get()).toMatchObject({
       name: "devices",
@@ -53,6 +53,9 @@ describe("Mira Device SQLite persistence", () => {
       platform: "desktop",
       clientName: "Mira Desktop",
       clientVersion: "1.0.0",
+      deviceName: "Mac mini",
+      osName: "macOS",
+      osVersion: "15.7",
     });
     const aliceMobileSession = await second.service.login("alice2", password, "127.0.0.4");
     const mobile = second.deviceService.register(aliceMobileSession.sessionToken, {
@@ -75,7 +78,7 @@ describe("Mira Device SQLite persistence", () => {
 
     const third = createTestAuth(databasePath);
     expect(third.db.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({
-      count: 9,
+      count: 10,
     });
 
     const aliceDevices = third.deviceService.list(aliceSession.sessionToken);
@@ -86,6 +89,9 @@ describe("Mira Device SQLite persistence", () => {
       platform: "desktop",
       clientName: "Mira Desktop",
       clientVersion: "1.0.0",
+      deviceName: "Mac mini",
+      osName: "macOS",
+      osVersion: "15.7",
     });
     expect(aliceDevices.find((device) => device.id === mobile.id)).toMatchObject({
       platform: "mobile",
@@ -113,6 +119,9 @@ describe("Mira Device SQLite persistence", () => {
       "last_seen_at",
       "revoked_at",
       "revoke_reason",
+      "device_name",
+      "os_name",
+      "os_version",
     ]);
     expect(columns.find((column) => column.name === "public_key")?.notnull).toBe(0);
     expect(columns.some((column) => /imei|mac|serial|fingerprint|hardware/i.test(column.name))).toBe(

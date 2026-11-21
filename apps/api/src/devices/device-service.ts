@@ -36,6 +36,9 @@ export class DeviceService {
       platform: request.platform,
       clientName: request.clientName?.trim() ?? null,
       clientVersion: request.clientVersion?.trim() ?? null,
+      deviceName: request.deviceName?.trim() ?? null,
+      osName: request.osName?.trim() ?? null,
+      osVersion: request.osVersion?.trim() ?? null,
       now: new Date().toISOString(),
     });
 
@@ -98,6 +101,9 @@ function publicDevice(device: DeviceRecord): MiraDevice {
     platform: device.platform,
     clientName: device.clientName,
     clientVersion: device.clientVersion,
+    deviceName: device.deviceName,
+    osName: device.osName,
+    osVersion: device.osVersion,
     createdAt: device.createdAt,
     lastSeenAt: device.lastSeenAt,
     revokedAt: device.revokedAt,
