@@ -61,11 +61,27 @@ jobs:
         run: |
           set -euo pipefail
           headers="${RUNNER_TEMP}/cloud-auth-artifact-headers"
-          curl --fail --silent --show-error --dump-header "$headers" \
-            --output /dev/null \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          # GitHub can briefly return 404 while a newly finalized artifact is
+          # indexed for REST access. Retry only this transient condition.
+          for attempt in $(seq 1 12); do
+            status="$(curl --silent --show-error --max-time 15 \
+              --dump-header "$headers" --output /dev/null --write-out '%{http_code}' \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip")"
+            if [ "$status" = "302" ]; then
+              break
+            fi
+            if [ "$status" != "404" ]; then
+              echo "::error::Artifact download API unexpected status $status"
+              exit 1
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "::error::Artifact download API still returned 404 after bounded retries"
+              exit 1
+            fi
+            sleep 3
+          done
           url="$(awk 'tolower($1) == "location:" { print $2 }' "$headers" | tail -n 1 | tr -d '\r')"
           case "$url" in
             https://*.blob.core.windows.net/*|https://*.githubusercontent.com/*) ;;
