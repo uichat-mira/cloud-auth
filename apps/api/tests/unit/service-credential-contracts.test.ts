@@ -14,6 +14,8 @@ import {
   serviceCredentialClaimsSchema,
   serviceCredentialJwtHeaderSchema,
   shiyanServiceCredentialClaimsSchema,
+  whoYouConfirmationSchema,
+  whoYouUserConfirmationSchema,
   whoYouServiceCredentialClaimsSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 
@@ -155,6 +157,30 @@ const whoYouSendClaims = {
   },
 };
 
+const whoYouLinkClaims = {
+  ...whoYouReadClaims,
+  scope: [WHOYOU_MAIL_WRITE_SCOPE],
+  confirmation: {
+    actor: "user",
+    action: "link",
+    provider: "gmail",
+    mailbox_id: null,
+    nonce: "nonce-link-0123456789abcdef",
+  },
+};
+
+const whoYouUnlinkClaims = {
+  ...whoYouReadClaims,
+  scope: [WHOYOU_MAIL_WRITE_SCOPE],
+  confirmation: {
+    actor: "user",
+    action: "unlink",
+    provider: "microsoft",
+    mailbox_id: "mailbox-0123456789abcdef",
+    nonce: "nonce-unlink-0123456789abcdef",
+  },
+};
+
 describe("Who You service credential contract", () => {
   it("pins Who You audience and scope literals", () => {
     expect(CLOUD_WHO_YOU_AUDIENCE).toBe("mira:who-you");
@@ -163,8 +189,29 @@ describe("Who You service credential contract", () => {
     expect(WHOYOU_MAIL_SEND_SCOPE).toBe("whoyou.mail.send");
   });
 
+  it("keeps the original draft confirmation schema backward-compatible", () => {
+    expect(whoYouConfirmationSchema.parse(whoYouSendClaims.confirmation)).toEqual(
+      whoYouSendClaims.confirmation,
+    );
+    expect(whoYouConfirmationSchema.safeParse(whoYouLinkClaims.confirmation).success).toBe(
+      false,
+    );
+    expect(whoYouUserConfirmationSchema.parse(whoYouSendClaims.confirmation)).toEqual(
+      whoYouSendClaims.confirmation,
+    );
+    expect(whoYouUserConfirmationSchema.parse(whoYouLinkClaims.confirmation)).toEqual(
+      whoYouLinkClaims.confirmation,
+    );
+  });
+
   it("accepts the canonical read, write and send shapes", () => {
-    for (const claims of [whoYouReadClaims, whoYouWriteClaims, whoYouSendClaims]) {
+    for (const claims of [
+      whoYouReadClaims,
+      whoYouWriteClaims,
+      whoYouSendClaims,
+      whoYouLinkClaims,
+      whoYouUnlinkClaims,
+    ]) {
       expect(serviceCredentialClaimsSchema.parse(claims)).toEqual(claims);
       expect(whoYouServiceCredentialClaimsSchema.parse(claims)).toEqual(claims);
     }
@@ -190,6 +237,59 @@ describe("Who You service credential contract", () => {
       { ...whoYouWriteClaims, confirmation: confirmationValue },
     ]) {
       expect(whoYouServiceCredentialClaimsSchema.safeParse(payload).success).toBe(false);
+    }
+  });
+
+  it("binds identity confirmations to write-only scope and exact operation shape", () => {
+    for (const payload of [
+      {
+        ...whoYouLinkClaims,
+        scope: [WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE],
+      },
+      { ...whoYouLinkClaims, scope: [WHOYOU_MAIL_SEND_SCOPE] },
+      { ...whoYouLinkClaims, confirmation: undefined },
+      {
+        ...whoYouLinkClaims,
+        confirmation: {
+          ...whoYouLinkClaims.confirmation,
+          mailbox_id: "mailbox-1",
+        },
+      },
+      {
+        ...whoYouLinkClaims,
+        confirmation: { ...whoYouLinkClaims.confirmation, provider: null },
+      },
+      {
+        ...whoYouLinkClaims,
+        confirmation: { ...whoYouLinkClaims.confirmation, provider: "unknown" },
+      },
+      {
+        ...whoYouLinkClaims,
+        confirmation: { ...whoYouLinkClaims.confirmation, nonce: "short" },
+      },
+      {
+        ...whoYouLinkClaims,
+        confirmation: { ...whoYouLinkClaims.confirmation, extra: true },
+      },
+      {
+        ...whoYouUnlinkClaims,
+        confirmation: { ...whoYouUnlinkClaims.confirmation, mailbox_id: null },
+      },
+      {
+        ...whoYouUnlinkClaims,
+        confirmation: {
+          ...whoYouUnlinkClaims.confirmation,
+          mailbox_id: "bad id",
+        },
+      },
+      {
+        ...whoYouUnlinkClaims,
+        confirmation: { ...whoYouUnlinkClaims.confirmation, action: "link" },
+      },
+    ]) {
+      expect(
+        whoYouServiceCredentialClaimsSchema.safeParse(payload).success,
+      ).toBe(false);
     }
   });
 

@@ -254,6 +254,20 @@ describe("Who You service credential issuance", () => {
     content_hash: "a".repeat(64),
     nonce: "nonce-0123456789abcdef",
   };
+  const linkConfirmation = {
+    actor: "user" as const,
+    action: "link" as const,
+    provider: "gmail" as const,
+    mailbox_id: null,
+    nonce: "nonce-link-0123456789abcdef",
+  };
+  const unlinkConfirmation = {
+    actor: "user" as const,
+    action: "unlink" as const,
+    provider: "gmail" as const,
+    mailbox_id: "mailbox-0123456789abcdef",
+    nonce: "nonce-unlink-0123456789abcdef",
+  };
 
   it("derives the Who You consumer from the account and signs read scope", () => {
     const token = issueServiceCredential(config, {
@@ -309,6 +323,69 @@ describe("Who You service credential issuance", () => {
       consumer_id: ACCOUNT_ID,
       confirmation,
     });
+  });
+
+  it("signs write-only identity confirmations that cannot act as general read bearers", () => {
+    for (const identityConfirmation of [linkConfirmation, unlinkConfirmation]) {
+      const token = issueServiceCredential(config, {
+        accountId: ACCOUNT_ID,
+        deviceId: DEVICE_ID,
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        scope: [WHOYOU_MAIL_WRITE_SCOPE],
+        consumerId: ACCOUNT_ID,
+        confirmation: identityConfirmation,
+      });
+      expect(decodeSegment(token.split(".")[1]!)).toMatchObject({
+        sub: ACCOUNT_ID,
+        aud: CLOUD_WHO_YOU_AUDIENCE,
+        consumer_id: ACCOUNT_ID,
+        scope: [WHOYOU_MAIL_WRITE_SCOPE],
+        confirmation: identityConfirmation,
+      });
+    }
+  });
+
+  it("rejects identity confirmation with read/send authority or malformed operation binding", () => {
+    const invalidInputs: IssueServiceCredentialInput[] = [
+      {
+        accountId: ACCOUNT_ID,
+        deviceId: DEVICE_ID,
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        scope: [WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE],
+        consumerId: ACCOUNT_ID,
+        confirmation: linkConfirmation,
+      },
+      {
+        accountId: ACCOUNT_ID,
+        deviceId: DEVICE_ID,
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        scope: [WHOYOU_MAIL_SEND_SCOPE],
+        consumerId: ACCOUNT_ID,
+        confirmation: linkConfirmation,
+      },
+      {
+        accountId: ACCOUNT_ID,
+        deviceId: DEVICE_ID,
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        scope: [WHOYOU_MAIL_WRITE_SCOPE],
+        consumerId: ACCOUNT_ID,
+        confirmation: { ...linkConfirmation, mailbox_id: "mailbox-1" } as never,
+      },
+      {
+        accountId: ACCOUNT_ID,
+        deviceId: DEVICE_ID,
+        audience: CLOUD_WHO_YOU_AUDIENCE,
+        scope: [WHOYOU_MAIL_WRITE_SCOPE],
+        consumerId: ACCOUNT_ID,
+        confirmation: { ...unlinkConfirmation, mailbox_id: null } as never,
+      },
+    ];
+    for (const input of invalidInputs) {
+      expectIssuanceError(
+        () => issueServiceCredential(config, input),
+        "INVALID_INPUT",
+      );
+    }
   });
 
   it("rejects send without confirmation and confirmation without send", () => {
