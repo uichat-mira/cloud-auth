@@ -132,6 +132,7 @@ describe("OAuth authorization_code + PKCE S256 token exchange", () => {
     expect(session.account.username).toBe("alice");
     expect(Object.keys(response.json() as object).sort()).toEqual([
       "account",
+      "deviceId",
       "expiresAt",
       "sessionToken",
     ]);
@@ -165,6 +166,7 @@ describe("OAuth authorization_code + PKCE S256 token exchange", () => {
       revoked_at: null,
       device_revoked_at: null,
     });
+    expect(session.deviceId).toBe(sessionRow.device_id);
     expect(String(sessionRow.secret_hash)).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(sessionRow)).not.toContain(session.sessionToken);
 
@@ -174,7 +176,7 @@ describe("OAuth authorization_code + PKCE S256 token exchange", () => {
       headers: { authorization: `Bearer ${session.sessionToken}` },
     });
     expect(restore.statusCode).toBe(200);
-    expect(restore.json()).toMatchObject({ account: { username: "alice" } });
+    expect(restore.json()).toMatchObject({ account: { username: "alice" }, deviceId: session.deviceId });
 
     const renew = await testContext.app.inject({
       method: "POST",
@@ -183,6 +185,7 @@ describe("OAuth authorization_code + PKCE S256 token exchange", () => {
     });
     expect(renew.statusCode).toBe(200);
     const renewed = issuedCloudSessionSchema.parse(renew.json());
+    expect(renewed.deviceId).toBe(session.deviceId);
     expect(renew.body).not.toContain(session.sessionToken);
 
     const deviceList = await testContext.app.inject({

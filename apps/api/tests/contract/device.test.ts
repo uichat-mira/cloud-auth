@@ -61,6 +61,9 @@ describe("Mira Device HTTP contract", () => {
       platform: "desktop",
       clientName: "Mira Desktop",
       clientVersion: "1.0.0",
+      deviceName: "Mac mini",
+      osName: "macOS",
+      osVersion: "15.7",
     });
     expect(desktop.statusCode).toBe(200);
     const desktopDevice = miraDeviceSchema.parse(desktop.json());
@@ -68,6 +71,9 @@ describe("Mira Device HTTP contract", () => {
       platform: "desktop",
       clientName: "Mira Desktop",
       clientVersion: "1.0.0",
+      deviceName: "Mac mini",
+      osName: "macOS",
+      osVersion: "15.7",
       revokedAt: null,
     });
 
@@ -78,7 +84,7 @@ describe("Mira Device HTTP contract", () => {
       clientVersion: "1.0.1",
     });
     expect(desktopAgain.statusCode).toBe(200);
-    expect(miraDeviceSchema.parse(desktopAgain.json()).id).toBe(desktopDevice.id);
+    expect(miraDeviceSchema.parse(desktopAgain.json())).toMatchObject({ id: desktopDevice.id, deviceName: "Mac mini", osName: "macOS", osVersion: "15.7", clientVersion: "1.0.1" });
 
     const desktopBeforeConflict = miraDeviceSchema.parse(desktopAgain.json());
     const platformMismatch = await register(alice.sessionToken, {

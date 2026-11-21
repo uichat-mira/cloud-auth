@@ -19,11 +19,11 @@ describe("SQLite runtime", () => {
     const first = openDatabase({ databasePath: path });
     const journal = first.prepare("PRAGMA journal_mode").get() as { journal_mode?: string };
     expect(journal.journal_mode?.toLowerCase()).toBe("wal");
-    expect(first.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 9 });
+    expect(first.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 10 });
     first.close();
 
     const second = openDatabase({ databasePath: path });
-    expect(second.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 9 });
+    expect(second.prepare("SELECT COUNT(*) AS count FROM schema_migrations").get()).toMatchObject({ count: 10 });
     second.close();
   });
 });

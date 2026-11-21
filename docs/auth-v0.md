@@ -278,3 +278,33 @@ Password reset, deny and disable revoke existing Cloud Sessions. Resetting the p
 The application does not log login request bodies. Authorization and Cookie headers are explicitly redacted in the production logger configuration.
 
 Normal auth errors expose stable error codes rather than credential values.
+
+
+## OPS-029 · Device identity metadata (2026-11-21)
+
+Cloud Session responses from OAuth code exchange, password login, `GET /v1/auth/session`
+and `POST /v1/auth/session/renew` now include a server-derived `deviceId`.
+A Session without a device (for example a browser Portal Session) returns `null`.
+The UUID is the Cloud Auth database Device ID, **not** the installation ID,
+hardware identifier or a Relay/Host identity. Never infer it from an asset list.
+
+`POST /v1/devices` remains the only native metadata refresh operation.
+It uses the authenticated Session and the caller's existing stable `installationId`;
+it neither switches a bound Session to another Device nor registers a revoked installation.
+Existing `clientName` and `clientVersion` remain supported. Three optional
+non-sensitive fields `deviceName` (model/class label), `osName` and `osVersion`
+are supported and returned as nullable properties of `MiraDevice`.
+Unknown values remain `null`; legacy clients may omit the new input properties.
+Missing metadata never clears previously recorded values. The installed client
+must not submit a hardware fingerprint, MAC/IMEI/serial number or session credential
+as descriptive metadata.
+
+`GET /v1/devices/active-sessions` still filters by valid Cloud Session
+authority rather than `lastSeenAt` or physical network presence. The full
+`GET /v1/devices` inventory and revoke tombstones remain available for audit.
+Migration `010_device_identity_metadata.sql` adds nullable columns without
+reissuing device IDs or clearing existing data.
+
+Mobile consumers implementing OPS-029 can use the returned `deviceId` to mark their own
+installation only after a fresh server Session check. Older devices without
+reported metadata continue to display a neutral device label and short ID.

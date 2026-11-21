@@ -91,6 +91,7 @@ The API default local database path is `./data/auth.sqlite` relative to `apps/ap
 - POST /v1/oauth/token: redeem one authorization code + S256 verifier for a device-bound Cloud Session
 - POST /v1/devices: register the current installation as a Mira Device
 - GET /v1/devices: list the authenticated account's Mira Devices
+- GET /v1/devices/active-sessions: list devices with a currently valid Cloud Session; Session restore/renew/exchange includes the server-owned current deviceId
 - DELETE /v1/devices/:deviceId: revoke one owned Mira Device and its Cloud Sessions
 - POST /v1/hosts: register or refresh the approved Desktop Host presence lease
 - GET /v1/hosts: list the authenticated account's registered Desktop Hosts and lease state
