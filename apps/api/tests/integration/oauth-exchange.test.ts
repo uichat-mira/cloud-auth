@@ -12,6 +12,8 @@ import {
   CLOUD_SHIYAN_AUDIENCE,
   MIRA_DESKTOP_OAUTH_CLIENT_ID,
   MIRA_DESKTOP_OAUTH_REDIRECT_URI,
+  MIRA_MOBILE_OAUTH_CLIENT_ID,
+  MIRA_MOBILE_OAUTH_REDIRECT_URI,
   SERVICE_CREDENTIAL_ISSUER,
   SHIYAN_AUTHENTICATE_SCOPE,
   issuedCloudSessionSchema,
@@ -387,6 +389,48 @@ describe("OAuth token exchange SQLite runtime", () => {
       .get(oldHost.id)).toMatchObject({ revoked_at: expect.any(String) });
     expect(() => context.service.getSession(aliceSession.sessionToken)).toThrow(/Re-authentication/);
 
+    context.db.close();
+    await context.app.close();
+  });
+
+  it("requires fresh Mobile enrollment after device revocation without restoring old authority", async () => {
+    const context = createContext(databasePath(), {});
+    await context.service.provisionAccount("alice", password);
+    const mobile = {
+      client_id: MIRA_MOBILE_OAUTH_CLIENT_ID,
+      redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
+      platform: "mobile",
+    } as const;
+    const authorize = () => context.oauthService.authorizeWithPassword(
+      "alice", password, "127.0.0.1", { ...authorizationRequest,
+        client_id: mobile.client_id, redirect_uri: mobile.redirect_uri },
+    );
+    const installation = randomUUID();
+    const first = await authorize();
+    const initial = await exchangeViaApp(context, tokenRequest(first.code, installation, mobile));
+    expect(initial.statusCode).toBe(200);
+    const old = issuedCloudSessionSchema.parse(initial.json());
+    const deviceId = old.deviceId!;
+    context.deviceService.revoke(old.sessionToken, deviceId);
+    const next = await authorize();
+    const invalid = await exchangeViaApp(context, tokenRequest(next.code, installation, {
+      ...mobile, code_verifier: "x".repeat(43),
+    }));
+    expect(invalid.json()).toMatchObject({ error: { code: "OAUTH_INVALID_GRANT" } });
+    const revoked = await exchangeViaApp(context, tokenRequest(next.code, installation, mobile));
+    expect(revoked.statusCode).toBe(400);
+    expect(revoked.json()).toMatchObject({ error: { code: "OAUTH_DEVICE_REVOKED" } });
+    expect(context.db.prepare("SELECT COUNT(*) AS count FROM devices").get()).toMatchObject({ count: 1 });
+    expect(context.db.prepare("SELECT COUNT(*) AS count FROM sessions").get()).toMatchObject({ count: 1 });
+    const fresh = await authorize();
+    const recovery = await exchangeViaApp(context, tokenRequest(fresh.code, randomUUID(), mobile));
+    expect(recovery.statusCode).toBe(200);
+    const current = issuedCloudSessionSchema.parse(recovery.json());
+    expect(current.deviceId).not.toBe(deviceId);
+    expect(context.service.getSession(current.sessionToken).account.username).toBe("alice");
+    expect(() => context.service.getSession(old.sessionToken)).toThrow(/Re-authentication/);
+    expect(context.db.prepare("SELECT revoked_at FROM devices WHERE id = ?").get(deviceId))
+      .toMatchObject({ revoked_at: expect.any(String) });
     context.db.close();
     await context.app.close();
   });
