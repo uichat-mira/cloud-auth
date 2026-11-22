@@ -250,11 +250,13 @@ the same non-enumerating response:
 { "error": { "code": "OAUTH_INVALID_GRANT", "message": "Authorization code cannot be exchanged" } }
 ```
 
-A Mira Desktop exchange with a valid, unused code, matching PKCE verifier, and
+A Mira Desktop or Mobile exchange with a valid, unused code, matching PKCE verifier, and
 active account returns HTTP 400 `OAUTH_DEVICE_REVOKED` if the installation
 belongs to that account and is revoked. The owner can explicitly re-enroll
 through a new browser authorization and a new installation identity. The old
-installation, sessions and Host grants stay revoked.
+installation, sessions and Host grants (where applicable) stay revoked. Mobile
+re-enrollment changes only its Cloud installation identity, never its independent
+Local Provider, Remote Host pairing or Push identity.
 
 Malformed or unexpected parameters return `OAUTH_INVALID_REQUEST`; a non-code
 grant returns `OAUTH_UNSUPPORTED_GRANT_TYPE`. Errors never contain the code,
