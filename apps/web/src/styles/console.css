@@ -60,7 +60,7 @@
   flex: none;
   overflow: hidden;
   border-radius: 7px;
-  background: var(--mc-brand-canvas);
+  background: var(--mc-brand-navy);
   box-shadow: var(--mc-hairline-muted);
 }
 

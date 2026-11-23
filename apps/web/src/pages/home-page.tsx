@@ -31,7 +31,7 @@ export function HomePage() {
   return (
     <div className="cloud-home">
       <header className="console-page-head">
-        <h1 id="home-title">Mira Cloud 账户</h1>
+        <h1 id="home-title">Mira 账号</h1>
         <p className="console-page-caption">登录后查看 Mira 设备、调整访问授权，并管理账户安全。</p>
       </header>
 

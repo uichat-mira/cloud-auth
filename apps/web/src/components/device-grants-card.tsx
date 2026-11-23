@@ -219,7 +219,7 @@ function GrantsEmpty() {
         此账户当前没有在云端注册的 Desktop Host。请先在 Mira Desktop 登录并允许云端授权。
       </CardDescription>
       <p className="cloud-grants-empty-note">
-        此处会保留仍属于本账号、设备尚未撤销的历史 Host 授权。设备退出云账号或 Session
+        此处会保留仍属于本账号、设备尚未撤销的历史 Host 授权。设备退出 Mira 账号或 Session
         过期时也可管理已保存的权限。
       </p>
     </Card>

@@ -57,7 +57,7 @@ export function SessionRecovery() {
             <p className="console-recovery-copy">
               {failure?.kind === "reauth_required"
                 ? "登录已过期。重新登录后将返回刚才的页面，不会自动重试任何控制操作。"
-                : "登录 Mira Cloud 账户后，即可在此管理已授权设备与访问权限。"}
+                : "登录 Mira 账号后，即可在此管理已授权设备与访问权限。"}
             </p>
             <div className="console-recovery-actions">
               <Button asChild>

@@ -8,7 +8,7 @@ export type AuthStatus = "idle" | "restoring" | "authenticated" | "unauthenticat
 
 export type AuthOperation = "login" | "restore" | "renew" | "changePassword" | "logout";
 
-export type AuthNotice = "session_renewed" | "password_changed";
+export type AuthNotice = "login_succeeded" | "session_renewed" | "password_changed";
 
 export interface AuthStoreState {
   status: AuthStatus;
@@ -55,7 +55,7 @@ export function createAuthStore({ client, storage }: AuthStoreDependencies): Aut
 
       try {
         const issued = await client.login({ username, password });
-        applySession(set, storage, issued.sessionToken, issued);
+        applySession(set, storage, issued.sessionToken, issued, "login_succeeded");
       } catch (error) {
         const failure = toAuthFailure(error);
         set((state) => ({
@@ -234,6 +234,7 @@ function applySession(
   storage: SessionStorageAdapter,
   sessionToken: string,
   session: CloudSession,
+  notice: AuthNotice | null = null,
 ): void {
   storage.save({
     sessionToken,
@@ -244,7 +245,7 @@ function applySession(
     account: session.account,
     expiresAt: session.expiresAt,
     failure: null,
-    notice: null,
+    notice,
     pending: null,
   });
 }

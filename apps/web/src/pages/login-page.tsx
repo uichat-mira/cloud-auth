@@ -26,7 +26,7 @@ export function LoginPage() {
     <div className="cloud-auth-canvas">
       <section className="cloud-auth-card" aria-labelledby="login-title">
         <div className="cloud-auth-card-head">
-          <h1 id="login-title">登录 Mira Cloud</h1>
+          <h1 id="login-title">登录 Mira 账号</h1>
           <p className="cloud-auth-caption">登录后继续管理你的设备和访问权限。</p>
         </div>
 
@@ -37,7 +37,7 @@ export function LoginPage() {
               id="username"
               name="username"
               autoComplete="username"
-              placeholder="Mira Cloud 账号"
+              placeholder="Mira 账号"
               required
               value={username}
               onChange={(event) => {

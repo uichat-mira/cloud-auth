@@ -30,6 +30,9 @@
   --mc-surface-4: #dbdbdb;
   /* Brand — the logo artwork's own canvas colour; part of the mark, never keyed out. */
   --mc-brand-canvas: #fcecd7;
+  /* Mira ID brand tokens (official asset pack). Used only for the mark's own surfaces. */
+  --mc-brand-navy: #151a2c;
+  --mc-brand-ivory: #fff6ed;
 
   /* text */
   --mc-text: #161616;

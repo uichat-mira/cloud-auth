@@ -13,7 +13,7 @@ const services: readonly AssociatedService[] = [
   {
     name: "Cloud Agent · 烤派",
     description: "飞书、企业微信、定时研究与云端观澜",
-    detail: "由 Mira Cloud Account 统一管理服务状态、研究计划和运行记录。",
+    detail: "由 Mira 账号统一管理服务状态、研究计划和运行记录。",
     href: "/account/services/cloud-agent",
   },
   {
@@ -32,7 +32,7 @@ const services: readonly AssociatedService[] = [
   {
     name: "Cloud Shiyan",
     description: "云端服务授权尚未接入。",
-    detail: "登录 Mira Cloud Account 不会授予 Shiyan 业务权限。",
+    detail: "登录 Mira 账号不会授予 Shiyan 业务权限。",
   },
   {
     name: "Hosted Relay",

@@ -1,0 +1,28 @@
+/* ------------------------------------------------------------------ */
+/* Responsive: row actions wrap right when space is limited        */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  .cloud-grant-actions {
+    justify-content: flex-end;
+  }
+
+  .cloud-grant-scope-option {
+    min-height: 40px;
+  }
+
+  .cloud-grants-empty {
+    padding: 32px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud-grants-skeleton {
+    animation: none;
+  }
+
+  .cloud-grant-row,
+  .cloud-grant-checkbox::after {
+    transition: none;
+  }
+}

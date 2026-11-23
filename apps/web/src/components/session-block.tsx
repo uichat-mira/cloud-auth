@@ -13,7 +13,7 @@ export function SessionBlock() {
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
-  const username = account?.username ?? "Mira Cloud";
+  const username = account?.username ?? "Mira 账号";
 
   useEffect(() => {
     if (!open) return;

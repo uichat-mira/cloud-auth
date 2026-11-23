@@ -72,7 +72,7 @@ async function agentRequest<T>(
   if (!response.ok || value.ok !== true || value.data === undefined) {
     throw new AgentError(
       response.status === 403
-        ? "当前云账号没有烤派管理权限。"
+        ? "当前 Mira 账号没有 Cloud Agent · 烤派管理权限。"
         : response.status === 401
           ? "登录凭证已失效，请重新登录。"
           : (value.error?.message ?? "Cloud Agent 暂不可用。"),

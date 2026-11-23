@@ -55,7 +55,7 @@ function publicNavLinks(): HTMLAnchorElement[] {
   return Array.from(nav.querySelectorAll("a"));
 }
 
-describe("Mira Cloud single entry navigation", () => {
+describe("Mira account single entry navigation", () => {
   it("offers exactly one 登录 entry while signed out", async () => {
     mountPublicShell("unauthenticated");
 
@@ -134,7 +134,7 @@ describe("Mira Cloud single entry navigation", () => {
 
       const main = screen.getByRole("main");
       expect(
-        await within(main).findByRole("heading", { level: 1, name: "Mira Cloud 账户" }),
+        await within(main).findByRole("heading", { level: 1, name: "Mira 账号" }),
       ).toBeInTheDocument();
       await waitFor(() => {
         expect(
@@ -144,12 +144,12 @@ describe("Mira Cloud single entry navigation", () => {
                 ? "进入账户中心"
                 : status === "unavailable"
                   ? "检查登录状态"
-                  : "登录 Mira Cloud",
+                  : "登录 Mira 账号",
           }),
         ).toHaveAttribute("href", destination);
       });
       expect(router.state.location.pathname).toBe("/");
-      expect(screen.getByRole("link", { name: "Mira Cloud" })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: "Mira ID" })).toHaveAttribute("href", "/");
       expect(screen.queryByLabelText("密码")).not.toBeInTheDocument();
       // The route tree must mount cleanly: a missing provider used to throw into
       // the route errorElement while the redirect assertion still passed.
@@ -164,12 +164,10 @@ describe("Mira Cloud single entry navigation", () => {
       client: createFakeAuthClient({ getSession: () => new Promise<never>(() => undefined) }),
     });
     const main = screen.getByRole("main");
-    expect(
-      within(main).getByRole("heading", { level: 1, name: "Mira Cloud 账户" }),
-    ).toBeInTheDocument();
+    expect(within(main).getByRole("heading", { level: 1, name: "Mira 账号" })).toBeInTheDocument();
     expect(within(main).getByRole("status")).toHaveTextContent("正在检查登录状态");
     expect(
-      within(main).queryByRole("link", { name: /登录 Mira Cloud|进入账户中心|检查登录状态/ }),
+      within(main).queryByRole("link", { name: /登录 Mira 账号|进入账户中心|检查登录状态/ }),
     ).toBeNull();
     expect(router.state.location.pathname).toBe("/");
   });

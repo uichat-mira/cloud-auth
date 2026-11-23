@@ -1,0 +1,300 @@
+/*
+ * Device & host grants — Mira Console.
+ *
+ * A calm list of hosts: each host is an inset panel with an icon tile, a
+ * title/meta/status line and hairline-separated device rows. Depth comes from
+ * translucent hairlines and overlays, never from 1px borders. Every color and
+ * shadow is a --mc-* token.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Section frame                                                       */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Counts below the caption; refresh sits beside the page title. */
+.cloud-grants-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  min-height: 28px;
+}
+
+.cloud-grants-summary {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cloud-grants-skeleton-summary {
+  width: 240px;
+  height: 20px;
+}
+
+.cloud-grants-refresh {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.cloud-grants-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cloud-host-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cloud-grants-footnote {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Inline notices (success / warning / error)                          */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--mc-r-sm);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grants-notice-icon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 3px;
+}
+
+.cloud-grants-notice-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cloud-grants-notice--success {
+  background: var(--mc-success-bg);
+  color: var(--mc-success-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-success-border);
+}
+
+.cloud-grants-notice--warning {
+  background: var(--mc-warning-bg);
+  color: var(--mc-warning-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-warning-border);
+}
+
+.cloud-grants-notice--danger {
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+}
+
+/* ------------------------------------------------------------------ */
+/* Load failure                                                        */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-failure {
+  padding: 0;
+}
+
+.cloud-grants-failure-body {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+}
+
+.cloud-grants-failure-message {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grants-failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Loading skeletons                                                   */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-loading {
+  gap: 14px;
+  padding: 16px;
+}
+
+.cloud-grants-loading-host {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cloud-grants-loading-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cloud-grants-skeleton {
+  display: block;
+  background: var(--mc-surface-2);
+  border-radius: var(--mc-r-xs);
+  animation: mc-pulse 1.6s ease-in-out infinite;
+}
+
+.cloud-grants-skeleton-tile {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--mc-r-sm);
+}
+
+.cloud-grants-skeleton-title {
+  width: 132px;
+  height: 8px;
+}
+
+.cloud-grants-skeleton-meta {
+  width: 84px;
+  height: 6px;
+}
+
+.cloud-grants-loading-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.cloud-grants-loading-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-inline: -8px;
+  padding: 12px 8px;
+}
+
+.cloud-grants-loading-row + .cloud-grants-loading-row::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.5px;
+  background: var(--mc-border-muted);
+  content: "";
+}
+
+.cloud-grants-skeleton-name {
+  width: 42%;
+  height: 8px;
+}
+
+.cloud-grants-loading-chips {
+  display: flex;
+  gap: 4px;
+}
+
+.cloud-grants-skeleton-chip {
+  width: 48px;
+  height: 18px;
+}
+
+.cloud-grants-loading-label {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state                                                         */
+/* ------------------------------------------------------------------ */
+
+.cloud-grants-empty {
+  align-items: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.cloud-grants-empty-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  margin-bottom: 2px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-2);
+  color: var(--mc-text-secondary);
+}
+
+.cloud-grants-empty-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cloud-grants-empty-title {
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+.cloud-grants-empty-copy {
+  max-width: 320px;
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grants-empty-note {
+  max-width: 320px;
+  margin: 4px 0 0;
+  padding-top: 12px;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}

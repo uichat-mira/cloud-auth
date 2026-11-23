@@ -42,10 +42,10 @@ function AccountConsole() {
         <div className="console-container console-header-inner">
           <Link to={authenticated ? "/account" : loginHref} className="console-brand">
             <span aria-hidden="true" className="console-brand-mark">
-              <img src="/brand/mira-logo-mark.png" alt="" width={96} height={96} />
+              <img src="/brand/mira-id/svg/mira-id-app.svg" alt="" width={96} height={96} />
             </span>
             <span className="console-brand-copy">
-              <strong>Mira Cloud</strong>
+              <strong>Mira ID</strong>
             </span>
           </Link>
 
@@ -68,6 +68,11 @@ function AccountConsole() {
           <div className="console-notices">
             {authenticated ? <SessionExpiryNotice /> : null}
             <AuthFailureAlert failure={modalOpen ? null : failure} />
+            {authenticated && notice === "login_succeeded" ? (
+              <p role="status" className="cloud-notice cloud-notice-success">
+                登录成功，已进入 Mira 账号。
+              </p>
+            ) : null}
             {notice === "session_renewed" ? (
               <p role="status" className="cloud-notice cloud-notice-success">
                 Cloud Session 已续期，当前登录状态保持不变。
@@ -90,7 +95,7 @@ function AccountConsole() {
                     我的账户
                   </h1>
                   <p className="console-page-caption">
-                    登录 Mira Cloud 后即可管理设备授权与账户安全。
+                    登录 Mira 账号后即可管理设备授权与账户安全。
                   </p>
                 </header>
               )}
@@ -98,7 +103,7 @@ function AccountConsole() {
             </>
           )}
 
-          <p className="console-note">Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用</p>
+          <p className="console-note">Mira ID · 独立身份服务 · 本地 Mira 依然可用</p>
         </main>
       </div>
     </div>

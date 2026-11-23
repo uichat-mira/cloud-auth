@@ -40,7 +40,7 @@ docker rm "$CONTAINER_ID" >/dev/null
 CONTAINER_ID=""
 
 test -s "$TMP_DIR/index.html"
-grep -Fq "Mira Cloud Account" "$TMP_DIR/index.html"
+grep -Fq "Mira ID" "$TMP_DIR/index.html"
 find "$TMP_DIR" -type d -exec chmod 0755 {} \;
 find "$TMP_DIR" -type f -exec chmod 0644 {} \;
 
