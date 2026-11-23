@@ -132,6 +132,25 @@ afterAll(async () => {
   await server?.close();
 });
 
+describe("Mira ID install assets", () => {
+  it("serves every declared PWA icon as a PNG", async () => {
+    const manifestResponse = await fetch(`${baseUrl}/brand/mira-id/site.webmanifest`);
+    expect(manifestResponse.status).toBe(200);
+
+    const manifest = (await manifestResponse.json()) as {
+      icons: { src: string; type: string }[];
+    };
+    expect(manifest.icons).toHaveLength(4);
+
+    for (const icon of manifest.icons) {
+      expect(icon.type).toBe("image/png");
+      const response = await fetch(new URL(icon.src, baseUrl));
+      expect(response.status, icon.src).toBe(200);
+      expect(response.headers.get("content-type"), icon.src).toContain("image/png");
+    }
+  });
+});
+
 for (const viewport of viewports) {
   describe(`${viewport.name} viewport`, () => {
     for (const routeCase of routeCases) {
