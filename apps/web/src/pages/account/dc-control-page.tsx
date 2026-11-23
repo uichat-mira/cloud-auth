@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { DcPolicyDialog } from "@/components/dc/dc-policy-dialog";
+import { DcStopDialog } from "@/components/dc/dc-stop-dialog";
+import { errorMessage, remainingLabel } from "@/components/dc/dc-format";
 import { useAuthSession } from "@/lib/auth/context";
 import { revokeFailedSession } from "@/lib/auth/reauth";
 import {
   createDcControlClient,
   DcControlError,
-  dcCpuLimits,
-  dcDurations,
-  dcMemoryLimits,
-  dcMinimumAvailable,
   sameDcPolicy,
   type DcPolicy,
   type DcStatus,
@@ -17,25 +16,6 @@ import {
 } from "@/lib/dc-control";
 
 type Action = "start" | "stop" | "save";
-
-function durationLabel(minutes: number): string {
-  return minutes < 60 ? minutes + " 分钟" : minutes / 60 + " 小时";
-}
-
-function remainingLabel(seconds: number | null): string {
-  if (seconds === null) return "—";
-  const value = Math.max(0, Math.floor(seconds));
-  const hours = Math.floor(value / 3600);
-  const minutes = Math.floor((value % 3600) / 60);
-  const secs = String(value % 60).padStart(2, "0");
-  return hours > 0
-    ? hours + " 小时 " + minutes + " 分 " + secs + " 秒"
-    : minutes + " 分 " + secs + " 秒";
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "DC 控制服务暂不可用。";
-}
 
 /** An account-owned view; the privileged HTTP service remains on the host. */
 export function DcControlPage() {
@@ -75,8 +55,6 @@ function DcNodeCard({ node }: { node: DcNode }) {
   const [clock, setClock] = useState(Date.now());
   const lastPolicy = useRef<DcPolicy | null>(null);
   const busyRef = useRef(false);
-  const stopDialog = useRef<HTMLDialogElement>(null);
-  const policyDialog = useRef<HTMLDialogElement>(null);
 
   const applySnapshot = useCallback((data: DcStatus) => {
     setDraft((previous) =>
@@ -98,7 +76,7 @@ function DcNodeCard({ node }: { node: DcNode }) {
       try {
         const token = getSessionToken();
         requestToken = token;
-        if (!token) throw new Error("请先登录 Mira Cloud Account。");
+        if (!token) throw new Error("请先登录 Mira 账号。");
         const result = await client.status(token, signal, node);
         if (signal?.aborted) return;
         applySnapshot(result);
@@ -134,36 +112,12 @@ function DcNodeCard({ node }: { node: DcNode }) {
     };
   }, [refresh]);
 
-  useEffect(() => {
-    if (!policyOpen) return;
-    const dialog = policyDialog.current;
-    if (!dialog) return;
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
-    return () => {
-      if (typeof dialog.close === "function" && dialog.open) dialog.close();
-      else dialog.removeAttribute("open");
-    };
-  }, [policyOpen]);
-
-  useEffect(() => {
-    if (!stopOpen) return;
-    const dialog = stopDialog.current;
-    if (!dialog) return;
-    if (typeof dialog.showModal === "function") dialog.showModal();
-    else dialog.setAttribute("open", "");
-    return () => {
-      if (typeof dialog.close === "function" && dialog.open) dialog.close();
-      else dialog.removeAttribute("open");
-    };
-  }, [stopOpen]);
-
   async function perform(action: Action): Promise<boolean> {
     if (busyRef.current || !snapshot || !draft) return false;
     const token = getSessionToken();
     if (!token) {
-      if (action === "save") setPolicyError("请重新登录 Mira Cloud Account。");
-      else setError("请重新登录 Mira Cloud Account。");
+      if (action === "save") setPolicyError("请重新登录 Mira 账号。");
+      else setError("请重新登录 Mira 账号。");
       return false;
     }
     busyRef.current = true;
@@ -334,169 +288,35 @@ function DcNodeCard({ node }: { node: DcNode }) {
       </p>
 
       {policyOpen ? (
-        <dialog
-          ref={policyDialog}
-          className="cloud-dialog dc-policy-dialog"
-          aria-labelledby={`dc-run-policy-${node}`}
-          aria-describedby={`dc-policy-caption-${node}`}
-          onCancel={(event) => {
-            if (busy !== null) event.preventDefault();
-            else closePolicy();
+        <DcPolicyDialog
+          node={node}
+          draft={draft}
+          busy={busy !== null}
+          saving={busy === "save"}
+          inactive={inactive}
+          dirty={dirty}
+          policyError={policyError}
+          onUpdate={updatePolicy}
+          onClose={closePolicy}
+          onSubmit={() => {
+            void perform("save").then((saved) => {
+              if (saved) setPolicyOpen(false);
+            });
           }}
-        >
-          <div className="cloud-dialog-head">
-            <div>
-              <h2 id={`dc-run-policy-${node}`}>运行策略</h2>
-              <p id={`dc-policy-caption-${node}`} className="cloud-dialog-caption">
-                配置将在下次启动 DC 时生效。
-              </p>
-            </div>
-            <button
-              type="button"
-              className="cloud-dialog-close"
-              aria-label="关闭运行策略"
-              disabled={busy !== null}
-              onClick={closePolicy}
-            >
-              ×
-            </button>
-          </div>
-          <form
-            className="cloud-dialog-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (inactive || !dirty) return;
-              void perform("save").then((saved) => {
-                if (saved) setPolicyOpen(false);
-              });
-            }}
-          >
-            <fieldset className="dc-field" disabled={inactive}>
-              <legend>单次运行时长</legend>
-              <div className="dc-duration-group" aria-label="运行时长">
-                {dcDurations.map((minutes) => (
-                  <button
-                    type="button"
-                    key={minutes}
-                    aria-pressed={draft?.durationMinutes === minutes}
-                    className={
-                      draft?.durationMinutes === minutes
-                        ? "dc-duration dc-duration-active"
-                        : "dc-duration"
-                    }
-                    onClick={() => updatePolicy("durationMinutes", minutes)}
-                  >
-                    {durationLabel(minutes)}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <div className="dc-select-grid">
-              <label className="dc-field">
-                内存上限
-                <select
-                  value={draft?.memoryMiB ?? 384}
-                  disabled={inactive}
-                  onChange={(event) => updatePolicy("memoryMiB", Number(event.target.value))}
-                >
-                  {dcMemoryLimits.map((value) => (
-                    <option value={value} key={value}>
-                      {value} MiB
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="dc-field">
-                CPU 限额
-                <select
-                  value={draft?.cpuPercent ?? 50}
-                  disabled={inactive}
-                  onChange={(event) => updatePolicy("cpuPercent", Number(event.target.value))}
-                >
-                  {dcCpuLimits.map((value) => (
-                    <option value={value} key={value}>
-                      {value}% 单核
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="dc-field dc-field-full">
-              启动前最少可用内存
-              <select
-                value={draft?.minAvailableMiB ?? 512}
-                disabled={inactive}
-                onChange={(event) => updatePolicy("minAvailableMiB", Number(event.target.value))}
-              >
-                {dcMinimumAvailable.map((value) => (
-                  <option value={value} key={value}>
-                    {value} MiB
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="dc-policy-fact">
-              <span>到期自动停止</span>
-              <strong>始终开启</strong>
-            </div>
-            <div className="dc-policy-fact">
-              <span>开机自动启动</span>
-              <span>未启用</span>
-            </div>
-            {policyError ? (
-              <p role="alert" className="cloud-notice cloud-notice-danger">
-                {policyError}
-              </p>
-            ) : null}
-            <div className="cloud-dialog-footer">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy !== null}
-                onClick={closePolicy}
-              >
-                取消
-              </Button>
-              <Button type="submit" disabled={inactive || !dirty}>
-                {busy === "save" ? "保存中…" : "确认保存"}
-              </Button>
-            </div>
-          </form>
-        </dialog>
+        />
       ) : null}
 
       {stopOpen ? (
-        <dialog
-          ref={stopDialog}
-          className="cloud-dialog"
-          aria-labelledby={`dc-stop-title-${node}`}
-          onCancel={(event) => {
-            if (busy !== null) event.preventDefault();
-            else setStopOpen(false);
+        <DcStopDialog
+          nodeName={nodeName}
+          node={node}
+          busy={busy !== null}
+          onCancel={() => setStopOpen(false)}
+          onConfirm={() => {
+            setStopOpen(false);
+            void perform("stop");
           }}
-        >
-          <div className="cloud-dialog-head">
-            <div>
-              <h2 id={`dc-stop-title-${node}`}>停止 {nodeName} DC 服务？</h2>
-              <p className="cloud-dialog-caption">正在执行的远程操作将中断。其他服务不受影响。</p>
-            </div>
-          </div>
-          <div className="cloud-dialog-footer">
-            <Button variant="outline" disabled={busy !== null} onClick={() => setStopOpen(false)}>
-              取消
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={busy !== null}
-              onClick={() => {
-                setStopOpen(false);
-                void perform("stop");
-              }}
-            >
-              确认停止
-            </Button>
-          </div>
-        </dialog>
+        />
       ) : null}
     </section>
   );

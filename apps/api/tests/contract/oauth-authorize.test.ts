@@ -188,9 +188,10 @@ describe("OAuth authorization/callback HTTP contract", () => {
       });
       const page = await testContext.app.inject({ method: "GET", url });
       expect(page.statusCode).toBe(200);
-      expect(page.body).toContain("<title>授权 " + client.label + " — Mira Cloud</title>");
-      expect(page.body).toContain("使用 Mira Cloud 账号，授权 <strong>" + client.label + "</strong>。");
+      expect(page.body).toContain("<title>授权 " + client.label + " — Mira ID</title>");
+      expect(page.body).toContain("使用 Mira 账号，授权 <strong>" + client.label + "</strong>。");
       expect(page.body).toContain('<button type="submit">授权 ' + client.label + "</button>");
+      expect(page.body).toContain("登录成功状态以客户端完成会话兑换后的结果为准");
     }
 
     const { response } = await browserAuthorize(testContext, authorizeUrl({

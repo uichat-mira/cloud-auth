@@ -40,7 +40,7 @@ export function OverviewPage() {
           我的账户
         </h1>
         <p className="console-page-caption">
-          {account?.username ?? "—"} · Mira Cloud Account · {sessionLabels[status]}
+          {account?.username ?? "—"} · Mira ID · {sessionLabels[status]}
         </p>
       </header>
 
@@ -116,7 +116,7 @@ export function OverviewPage() {
         <div className="console-section-head">
           <div>
             <h2 id="overview-services">关联服务</h2>
-            <p className="console-section-caption">Mira Cloud 的服务与子系统。</p>
+            <p className="console-section-caption">Mira 账号关联的服务与子系统。</p>
           </div>
           <Link className="console-section-link" to="/account/services">
             查看

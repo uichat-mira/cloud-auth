@@ -404,7 +404,7 @@ describe("Device and Host grants card", () => {
 
     expect(await screen.findByText("没有可管理的 Desktop Host")).toBeInTheDocument();
     expect(
-      screen.getByText(/设备退出云账号或 Session 过期时也可管理已保存的权限/),
+      screen.getByText(/设备退出 Mira 账号或 Session 过期时也可管理已保存的权限/),
     ).toBeInTheDocument();
   });
 

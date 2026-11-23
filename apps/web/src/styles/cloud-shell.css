@@ -51,8 +51,8 @@
   flex: none;
   overflow: hidden;
   border-radius: 7px;
-  /* The artwork ships on its own cream canvas; the chip keeps that canvas instead of keying it out. */
-  background: var(--mc-brand-canvas);
+  /* Mira ID mark: the official asset is a navy tile, so the chip uses the navy brand token. */
+  background: var(--mc-brand-navy);
   box-shadow: var(--mc-hairline-muted);
 }
 

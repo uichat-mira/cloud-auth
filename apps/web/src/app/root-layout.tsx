@@ -22,10 +22,10 @@ export function PortalShell({ children }: { children: ReactNode }) {
             className="cloud-brand focus-visible:outline-2 focus-visible:outline-offset-4"
           >
             <span aria-hidden="true" className="cloud-brand-mark">
-              <img src="/brand/mira-logo-mark.png" alt="" width={96} height={96} />
+              <img src="/brand/mira-id/svg/mira-id-app.svg" alt="" width={96} height={96} />
             </span>
             <span className="cloud-brand-copy">
-              <strong>Mira Cloud</strong>
+              <strong>Mira ID</strong>
             </span>
           </Link>
           <nav aria-label="主导航" className="cloud-navigation">
@@ -46,7 +46,7 @@ export function PortalShell({ children }: { children: ReactNode }) {
       </header>
       <main className="cloud-container w-full flex-1">{children}</main>
       <footer className="cloud-container cloud-footer">
-        <span>Mira Cloud Account · 让身份归你掌控</span>
+        <span>Mira ID · 让身份归你掌控</span>
         <span>独立云身份 · 本地 Mira 依然可用</span>
       </footer>
     </div>

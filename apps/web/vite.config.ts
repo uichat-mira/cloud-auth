@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => {
     rootEnv.MIRA_AUTH_DEV_API_ORIGIN ??
     "http://127.0.0.1:8788";
   const apiProxy = { target: apiOrigin, changeOrigin: true };
+  // Dev-server port. Override per machine via MIRA_AUTH_WEB_PORT in the root `.env`.
+  const webPort = Number(rootEnv.MIRA_AUTH_WEB_PORT || 5173);
 
   return {
     plugins: [react(), tailwindcss()],
@@ -39,7 +41,8 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: "127.0.0.1",
-      port: 5173,
+      port: webPort,
+      strictPort: true,
       proxy: {
         "/v1": apiProxy,
         "/dc/api": dcProxy,
