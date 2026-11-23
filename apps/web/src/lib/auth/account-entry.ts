@@ -24,5 +24,5 @@ export function getAccountEntry(status: AuthStatus) {
     };
   }
 
-  return { checking, destination, label: "登录", homeLabel: "登录 Mira Cloud" };
+  return { checking, destination, label: "登录", homeLabel: "登录 Mira 账号" };
 }

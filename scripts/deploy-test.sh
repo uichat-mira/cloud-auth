@@ -32,6 +32,6 @@ sh /opt/cloud-auth-test/scripts/install-caddy-test-route.sh
 curl -fsS http://127.0.0.1:8788/health
 printf '\n'
 test -s /opt/cloud-auth-test/web/index.html
-grep -Fq "Mira Cloud Account" /opt/cloud-auth-test/web/index.html
+grep -Fq "Mira ID" /opt/cloud-auth-test/web/index.html
 docker compose -f docker-compose.test.yml exec -T cloud-auth node scripts/benchmark-argon2.mjs 5
 printf '%s\n' "${DEPLOY_SHA:-unknown}" > /opt/cloud-auth-test/.deployed-sha

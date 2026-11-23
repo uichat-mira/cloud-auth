@@ -52,7 +52,7 @@ describe("host DC client boundary", () => {
       createDcControlClient(forbidden as typeof fetch).status("token"),
     ).rejects.toMatchObject({
       httpStatus: 403,
-      message: "当前云账号没有这台服务器的管理权限。",
+      message: "当前 Mira 账号没有这台服务器的管理权限。",
     });
 
     const malformed = vi.fn(async (..._args: Parameters<typeof fetch>) =>

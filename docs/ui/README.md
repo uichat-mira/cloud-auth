@@ -55,7 +55,9 @@ Load order matters: `globals → cloud-shell → console → cloud-pages → clo
 token layer wins over stray component utilities, and it is also why the focus ring lives
 outside `@layer base` (a ring declared in `base` is erased by `outline-none`).
 
-**Brand assets.** Everything is generated from the project logo
+**Brand assets (Mira ID 2026 refresh).** The shipped brand is now the Mira ID mark, delivered as `apps/web/public/brand/mira-id/` (SVG, PNG, WebP, favicon, PWA icons, manifest). The header logo is `/brand/mira-id/svg/mira-id-app.svg` and the favicon is `/brand/mira-id/svg/mira-id-favicon.svg` with `favicon.ico` / `apple-touch-icon.png` fallbacks. The brand colours are navy `#151A2C` and ivory `#FFF6ED`. The engineering name `cloud-auth` is unchanged. The paragraph below describes the retired legacy logo and is kept only for history.
+
+Legacy (retired) generation notes:
 (`https://assets.tomz.io/images/mira-logo.png`, 940×760 PNG, sha256 `bce330d7b0003beb2e372bb2881943e311d6b1629bba2d903d24e03e52c1ff46`):
 `apps/web/public/brand/mira-logo-mark.png` (96×96) is the 28px square chip in both shells,
 `apps/web/public/brand/favicon.png` (64×64) is the favicon, and `docs/assets/mira-logo.png`

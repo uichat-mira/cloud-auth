@@ -24,7 +24,7 @@ describe("web route shell", () => {
   it("renders the login form ready for auth operations", () => {
     renderAt("/login");
 
-    expect(screen.getByRole("heading", { level: 1, name: "登录 Mira Cloud" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "登录 Mira 账号" })).toBeInTheDocument();
     expect(screen.getByLabelText("账号")).toBeEnabled();
     expect(screen.getByLabelText("密码")).toBeEnabled();
     expect(screen.getByRole("button", { name: "登录" })).toBeEnabled();
@@ -39,7 +39,7 @@ describe("web route shell", () => {
     expect(
       await screen.findByRole("heading", {
         level: 1,
-        name: "Mira Cloud 账户",
+        name: "Mira 账号",
       }),
     ).toBeInTheDocument();
   });

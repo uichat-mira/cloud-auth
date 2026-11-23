@@ -23,7 +23,7 @@ const viewports = [
  * way the real service does (empty ledger for this fresh account).
  */
 const routeCases = [
-  { path: "/login", heading: "登录 Mira Cloud", screenshot: "login", authenticated: false },
+  { path: "/login", heading: "登录 Mira 账号", screenshot: "login", authenticated: false },
   { path: "/account", heading: "我的账户", screenshot: "account", authenticated: true },
   {
     path: "/account/devices",
@@ -132,6 +132,25 @@ afterAll(async () => {
   await server?.close();
 });
 
+describe("Mira ID install assets", () => {
+  it("serves every declared PWA icon as a PNG", async () => {
+    const manifestResponse = await fetch(`${baseUrl}/brand/mira-id/site.webmanifest`);
+    expect(manifestResponse.status).toBe(200);
+
+    const manifest = (await manifestResponse.json()) as {
+      icons: { src: string; type: string }[];
+    };
+    expect(manifest.icons).toHaveLength(4);
+
+    for (const icon of manifest.icons) {
+      expect(icon.type).toBe("image/png");
+      const response = await fetch(new URL(icon.src, baseUrl));
+      expect(response.status, icon.src).toBe(200);
+      expect(response.headers.get("content-type"), icon.src).toContain("image/png");
+    }
+  });
+});
+
 for (const viewport of viewports) {
   describe(`${viewport.name} viewport`, () => {
     for (const routeCase of routeCases) {
@@ -186,9 +205,9 @@ describe("browser navigation", () => {
 
     try {
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-      await page.getByRole("heading", { level: 1, name: "Mira Cloud 账户" }).waitFor();
+      await page.getByRole("heading", { level: 1, name: "Mira 账号" }).waitFor();
       expect(new URL(page.url()).pathname).toBe("/");
-      await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
+      await page.getByRole("main").getByRole("link", { name: "登录 Mira 账号" }).click();
       await page.waitForURL("**/login");
       await page.getByLabel("密码").waitFor();
     } finally {

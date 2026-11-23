@@ -1,0 +1,35 @@
+{
+  "name": "Mira ID",
+  "short_name": "Mira ID",
+  "description": "Mira 账号与身份服务",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#151A2C",
+  "theme_color": "#151A2C",
+  "icons": [
+    {
+      "src": "/brand/mira-id/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/mira-id/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/mira-id/pwa/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/mira-id/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

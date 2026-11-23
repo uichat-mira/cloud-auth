@@ -261,10 +261,10 @@ devices, actions on security, status-only information on services.
 Used by `/`, `/login` and the public 404.
 - Header: 56px, `background:rgba(255,255,255,.85)`, `backdrop-filter: blur(8px)`, sticky top 0,
   hairline bottom (`box-shadow: inset 0 -0.5px 0 var(--mc-border-muted)`).
-  Brand: 28px square logo chip — `/brand/mira-logo-mark.png` (96×96 artwork, `alt=""`,
+  Brand: 28px square logo chip — `/brand/mira-id/svg/mira-id-app.svg` (Mira ID refresh; the legacy `/brand/mira-logo-mark.png` is retired, `alt=""`,
   `aria-hidden` wrapper) in a 7px-radius `--mc-brand-canvas` box with `--mc-hairline-muted`;
   no text glyph, no recolor and no keyed-out background. Copy: a single `strong`
-  `Mira Cloud` at 13/18 600 — no secondary line under the brand.
+  `Mira ID` at 13/18 600 — no secondary line under the brand.
   Nav (`主导航`): a single contextual entry — `登录` when signed out, `账户中心` when signed in
   (only reachable on the public 404), 28px tall items, 13px 550, radius 6, `padding:0 10px`;
   idle secondary, hover overlay, active `background:var(--mc-surface-2)`.

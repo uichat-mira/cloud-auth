@@ -11,3 +11,6 @@ data/
 !.env.example
 .pnpm-store/
 .DS_Store
+
+# Local visual-verification scratch (screenshots, throwaway scripts). Never committed.
+.local-shots/
