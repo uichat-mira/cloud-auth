@@ -68,6 +68,11 @@ function AccountConsole() {
           <div className="console-notices">
             {authenticated ? <SessionExpiryNotice /> : null}
             <AuthFailureAlert failure={modalOpen ? null : failure} />
+            {authenticated && notice === "login_succeeded" ? (
+              <p role="status" className="cloud-notice cloud-notice-success">
+                登录成功，已进入 Mira 账号。
+              </p>
+            ) : null}
             {notice === "session_renewed" ? (
               <p role="status" className="cloud-notice cloud-notice-success">
                 Cloud Session 已续期，当前登录状态保持不变。

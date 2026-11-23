@@ -98,6 +98,7 @@ for (const viewport of viewports) {
         await page.waitForURL("**/account");
         await page.getByText("pilot").first().waitFor();
         await page.getByRole("heading", { name: "我的账户" }).waitFor();
+        await page.getByRole("status").getByText("登录成功，已进入 Mira 账号。").waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-in", viewport.name);
         if (viewport.name === "mobile") {
@@ -113,6 +114,7 @@ for (const viewport of viewports) {
         await page.reload({ waitUntil: "load" });
         await page.getByRole("heading", { level: 1, name: "我的账户" }).waitFor();
         await page.getByText("pilot").first().waitFor();
+        expect(await page.getByText("登录成功，已进入 Mira 账号。").count()).toBe(0);
 
         // The console shell keeps one rail for all four sections.
         const rail = page.getByRole("navigation", { name: "账户分区" });

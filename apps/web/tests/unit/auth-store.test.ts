@@ -74,6 +74,7 @@ describe("auth store", () => {
       account,
       expiresAt,
       failure: null,
+      notice: "login_succeeded",
       pending: null,
     });
     expect(storage.load()).toEqual({ sessionToken: "token-1", expiresAt });
@@ -228,7 +229,7 @@ describe("auth store", () => {
     expect(storage.load()?.sessionToken).toBe("new-login");
     expect(store.getState()).toMatchObject({
       status: "authenticated",
-      notice: null,
+      notice: "login_succeeded",
       pending: null,
     });
   });
