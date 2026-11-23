@@ -155,8 +155,8 @@ jobs:
             if curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location --max-time 10 https://cloud-auth.tomzlab.cn/health >/tmp/cloud-auth-health \
               && curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location --max-time 10 https://cloud-auth.tomzlab.cn/ >/tmp/cloud-auth-root \
               && curl --proto '=https' --proto-redir '=https' --fail --silent --show-error --location --max-time 10 https://cloud-auth.tomzlab.cn/account >/tmp/cloud-auth-account \
-              && grep -Fq "Mira Cloud Account" /tmp/cloud-auth-root \
-              && grep -Fq "Mira Cloud Account" /tmp/cloud-auth-account; then
+              && grep -Fq "Mira ID" /tmp/cloud-auth-root \
+              && grep -Fq "Mira ID" /tmp/cloud-auth-account; then
               cat /tmp/cloud-auth-health
               exit 0
             fi
