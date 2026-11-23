@@ -1,88 +1,9 @@
-import {
-  canonicalRemoteDeviceScopes,
-  type HostGrantManagementEntry,
-  type HostMobileGrantMutationResponse,
-  type MiraDevice,
-  type RemoteDeviceScope,
-} from "@uichat-mira/cloud-auth-contracts";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
-import {
-  createHostGrantsFailure,
-  toHostGrantsFailure,
-  type HostGrantsClient,
-  type HostGrantsFailure,
-} from "./client";
+import { canonicalRemoteDeviceScopes } from "@uichat-mira/cloud-auth-contracts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createHostGrantsFailure, toHostGrantsFailure } from "./client";
 import { revokeFailedSession } from "@/lib/auth/reauth";
-
-export interface HostGrantItem {
-  mobileDeviceId: string;
-  scopes: RemoteDeviceScope[];
-  status: "active" | "revoked";
-}
-
-/**
- * One Host record as the Portal may manage it. Every field here is rendered;
- * the ledger's execution-proof fields (validUntil, policyScopes) belong to the
- * Desktop Host, not to this account-owned view.
- */
-export interface HostGrantView {
-  host: HostGrantManagementEntry["host"];
-  revision: number;
-  policyConfigured: boolean;
-  grants: HostGrantItem[];
-}
-
-export interface HostGrantsNotice {
-  tone: "success" | "warning" | "error";
-  message: string;
-}
-
-export interface GrantMutationTarget {
-  hostId: string;
-  mobileDeviceId: string;
-  action: "narrow" | "revoke";
-}
-
-export interface DeviceGrantsState {
-  status: "loading" | "ready";
-  refreshing: boolean;
-  hosts: HostGrantView[];
-  mobiles: MiraDevice[];
-  revokedMobiles: MiraDevice[];
-  loadFailure: HostGrantsFailure | null;
-  pending: GrantMutationTarget | null;
-  notice: HostGrantsNotice | null;
-}
-
-export interface UseDeviceGrantsOptions {
-  client: HostGrantsClient;
-  getSessionToken: () => string | null;
-  onSessionExpired?: (token: string) => void;
-  accountId: string | null;
-  enabled: boolean;
-}
-
-export interface DeviceGrantsController extends DeviceGrantsState {
-  refresh(options?: { announce?: boolean }): Promise<void>;
-  narrow(input: {
-    hostId: string;
-    mobileDeviceId: string;
-    expectedRevision: number;
-    scopes: RemoteDeviceScope[];
-  }): Promise<boolean>;
-  revoke(input: {
-    hostId: string;
-    mobileDeviceId: string;
-    expectedRevision: number;
-  }): Promise<boolean>;
-}
+import { applyMutation, handleMutationFailure, toHostView } from "./grant-state";
+import type { DeviceGrantsController, DeviceGrantsState, UseDeviceGrantsOptions } from "./types";
 
 const initialState: DeviceGrantsState = {
   status: "loading",
@@ -335,90 +256,12 @@ export function useDeviceGrants({
   return { ...state, refresh, narrow, revoke };
 }
 
-async function handleMutationFailure(
-  error: unknown,
-  refresh: () => Promise<void>,
-  setState: Dispatch<SetStateAction<DeviceGrantsState>>,
-  sessionToken: string,
-  getSessionToken: () => string | null,
-  onSessionExpired?: (token: string) => void,
-): Promise<boolean> {
-  const failure = toHostGrantsFailure(error);
-  if (failure.kind === "reauth_required") {
-    // A privileged mutation is never replayed; only its read-only state is
-    // refreshed, and only when the failed token had already been renewed.
-    setState((current) => ({ ...current, pending: null }));
-    const { currentToken, rotated } = revokeFailedSession(
-      sessionToken,
-      getSessionToken,
-      onSessionExpired ?? (() => undefined),
-    );
-    if (rotated) {
-      await refresh();
-      // Refresh clears its own notice. Keep the failed write visible after it.
-      setState((current) => ({
-        ...current,
-        notice: {
-          tone: "error",
-          message: "Cloud Session 已更新，本次授权变更未执行，请重新确认后重试。",
-        },
-      }));
-    } else if (currentToken === sessionToken) {
-      setState((current) => ({ ...current, notice: { tone: "error", message: failure.message } }));
-    }
-    return false;
-  }
-
-  if (
-    failure.kind === "stale_revision" ||
-    failure.kind === "not_found" ||
-    failure.kind === "forbidden"
-  ) {
-    await refresh();
-  }
-
-  setState((current) => ({
-    ...current,
-    pending: null,
-    notice: { tone: "error", message: failure.message },
-  }));
-  return false;
-}
-
-function applyMutation(
-  hosts: HostGrantView[],
-  result: HostMobileGrantMutationResponse,
-): HostGrantView[] {
-  return hosts.map((view) => {
-    if (view.host.id !== result.hostId) return view;
-
-    const grants = view.grants.map((grant) =>
-      grant.mobileDeviceId === result.mobileDeviceId
-        ? {
-            mobileDeviceId: grant.mobileDeviceId,
-            scopes: result.scopes,
-            status: result.status,
-          }
-        : grant,
-    );
-
-    return {
-      ...view,
-      revision: result.revision,
-      grants,
-    };
-  });
-}
-
-function toHostView(entry: HostGrantManagementEntry): HostGrantView {
-  return {
-    host: entry.host,
-    revision: entry.revision,
-    policyConfigured: entry.policyConfigured,
-    grants: entry.grants.map((grant) => ({
-      mobileDeviceId: grant.mobileDeviceId,
-      scopes: grant.scopes,
-      status: grant.status,
-    })),
-  };
-}
+export type {
+  DeviceGrantsController,
+  DeviceGrantsState,
+  GrantMutationTarget,
+  HostGrantItem,
+  HostGrantsNotice,
+  HostGrantView,
+  UseDeviceGrantsOptions,
+} from "./types";

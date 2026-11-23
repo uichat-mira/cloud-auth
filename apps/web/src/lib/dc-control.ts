@@ -64,7 +64,7 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
     signal?: AbortSignal,
     node: DcNode = "aliyun",
   ): Promise<DcStatus> {
-    if (!sessionToken) throw new DcControlError("请先登录 Mira Cloud Account", 401);
+    if (!sessionToken) throw new DcControlError("请先登录 Mira 账号", 401);
 
     let response: Response;
     try {
@@ -103,9 +103,9 @@ export function createDcControlClient(fetchImpl: typeof fetch = globalThis.fetch
           : null;
       const message =
         response.status === 401
-          ? "云账号会话已失效，请重新登录。"
+          ? "Mira 账号会话已失效，请重新登录。"
           : response.status === 403
-            ? "当前云账号没有这台服务器的管理权限。"
+            ? "当前 Mira 账号没有这台服务器的管理权限。"
             : (serverMessage ?? "DC 控制请求失败（HTTP " + response.status + "）");
       throw new DcControlError(message, response.status);
     }

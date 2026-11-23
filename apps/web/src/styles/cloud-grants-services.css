@@ -1,0 +1,61 @@
+/* ------------------------------------------------------------------ */
+/* Associated services                                                 */
+/* ------------------------------------------------------------------ */
+
+.cloud-service-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+  list-style: none;
+}
+
+.cloud-service-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+}
+
+.cloud-service-row + .cloud-service-row {
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+}
+
+.cloud-service-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cloud-service-name {
+  color: var(--mc-text);
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.cloud-service-pill {
+  display: inline-flex;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cloud-service-description,
+.cloud-service-detail {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}

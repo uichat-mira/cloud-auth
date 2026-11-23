@@ -23,7 +23,7 @@ const viewports = [
  * way the real service does (empty ledger for this fresh account).
  */
 const routeCases = [
-  { path: "/login", heading: "登录 Mira Cloud", screenshot: "login", authenticated: false },
+  { path: "/login", heading: "登录 Mira 账号", screenshot: "login", authenticated: false },
   { path: "/account", heading: "我的账户", screenshot: "account", authenticated: true },
   {
     path: "/account/devices",
@@ -186,9 +186,9 @@ describe("browser navigation", () => {
 
     try {
       await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-      await page.getByRole("heading", { level: 1, name: "Mira Cloud 账户" }).waitFor();
+      await page.getByRole("heading", { level: 1, name: "Mira 账号" }).waitFor();
       expect(new URL(page.url()).pathname).toBe("/");
-      await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
+      await page.getByRole("main").getByRole("link", { name: "登录 Mira 账号" }).click();
       await page.waitForURL("**/login");
       await page.getByLabel("密码").waitFor();
     } finally {

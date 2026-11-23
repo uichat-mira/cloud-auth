@@ -1,0 +1,170 @@
+/* ------------------------------------------------------------------ */
+/* Host panel                                                          */
+/* ------------------------------------------------------------------ */
+
+.cloud-host {
+  padding: 0;
+}
+
+.cloud-host-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 12px;
+}
+
+.cloud-host-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.cloud-host-title {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.cloud-host-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text-secondary);
+}
+
+.cloud-host-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cloud-host-title-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cloud-host-name {
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.cloud-host-meta {
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.cloud-host-status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.cloud-host-status[data-state="online"] {
+  color: var(--mc-success-fg);
+}
+
+.cloud-host-status[data-state="offline"] {
+  color: var(--mc-text-secondary);
+}
+
+.cloud-host-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Trailing header metadata: availability chip + the revision the cloud holds. */
+.cloud-host-trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.cloud-host-version {
+  color: var(--mc-text-faint);
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The single facts line: availability observation + client version. */
+.cloud-host-facts {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.cloud-host-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+/* Host-level explanatory blocks. */
+.cloud-host-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-hairline-muted);
+}
+
+.cloud-host-block-title {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 20px;
+}
+
+.cloud-host-block-copy {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-host-empty-row {
+  margin: 0;
+  padding: 20px 8px;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}

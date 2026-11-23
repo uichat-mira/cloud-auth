@@ -1,0 +1,290 @@
+/* ------------------------------------------------------------------ */
+/* Device rows                                                         */
+/* ------------------------------------------------------------------ */
+
+.cloud-grant-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-grant-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-inline: -8px;
+  padding: 12px 8px;
+  border-radius: var(--mc-r-sm);
+  transition: background-color 85ms var(--mc-ease);
+}
+
+.cloud-grant-row:hover {
+  background: var(--mc-overlay-hover);
+}
+
+.cloud-grant-row + .cloud-grant-row::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.5px;
+  background: var(--mc-border-muted);
+  content: "";
+  pointer-events: none;
+}
+
+.cloud-grant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.cloud-grant-identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cloud-grant-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cloud-grant-name {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 13.5px;
+  font-weight: 550;
+  line-height: 20px;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.cloud-grant-row[data-state="revoked"] .cloud-grant-name {
+  color: var(--mc-text-secondary);
+}
+
+.cloud-grant-meta {
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.cloud-grant-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cloud-grant-scope {
+  display: inline-flex;
+  height: 18px;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cloud-grant-no-scopes {
+  margin: 6px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.cloud-grant-note {
+  margin: 6px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grant-pill {
+  display: inline-flex;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-3);
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 550;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cloud-grant-pill[data-tone="success"] {
+  background: var(--mc-success-bg);
+  color: var(--mc-success-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-success-border);
+}
+
+.cloud-grant-pill[data-tone="muted"] {
+  background: var(--mc-surface-2);
+  color: var(--mc-text-secondary);
+  box-shadow: var(--mc-hairline-muted);
+}
+
+.cloud-grant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Scope dialog + revocation confirmation                             */
+/* ------------------------------------------------------------------ */
+
+.cloud-grant-dialog {
+  width: min(440px, calc(100vw - 32px));
+}
+
+.cloud-grant-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--mc-r-sm);
+  background: var(--mc-danger-bg);
+  color: var(--mc-danger-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-danger-border);
+}
+
+.cloud-grant-editor-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cloud-grant-editor-legend {
+  margin: 0 0 4px;
+  padding: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 20px;
+}
+
+.cloud-grant-scope-options {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+}
+
+.cloud-grant-scope-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline: -6px;
+  padding: 6px;
+  border-radius: var(--mc-r-xs);
+  color: var(--mc-text);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+
+.cloud-grant-scope-option + .cloud-grant-scope-option::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.5px;
+  background: var(--mc-border-muted);
+  content: "";
+  pointer-events: none;
+}
+
+.cloud-grant-scope-option:hover {
+  background: var(--mc-overlay-hover);
+}
+
+.cloud-grant-scope-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.cloud-grant-checkbox {
+  display: inline-grid;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  place-items: center;
+  margin: 0;
+  border: 0;
+  border-radius: var(--mc-r-xs);
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-el-control);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cloud-grant-checkbox::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: var(--mc-text-inverse);
+  clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 16%, 84% 0%, 38% 66%);
+  opacity: 0;
+  transition: opacity 85ms var(--mc-ease);
+}
+
+.cloud-grant-checkbox:checked {
+  background: var(--mc-text);
+  box-shadow: var(--mc-el-control);
+}
+
+.cloud-grant-checkbox:checked::after {
+  opacity: 1;
+}
+
+.cloud-grant-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.cloud-grant-editor-warning {
+  margin: 0;
+  color: var(--mc-danger-fg);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.cloud-grant-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cloud-grant-confirm-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+}

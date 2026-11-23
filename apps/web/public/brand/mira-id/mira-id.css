@@ -1,0 +1,10 @@
+/* Mira ID identity visual tokens — namespace avoids conflicts with existing design systems. */
+:root {
+  --mira-id-navy: #151A2C;
+  --mira-id-navy-strong: #101426;
+  --mira-id-ivory: #FFF6ED;
+  --mira-id-radius-icon: 27.5%;
+}
+.mira-id-brand { display: inline-flex; align-items: center; gap: .75rem; }
+.mira-id-brand img { display: block; width: 2.5rem; height: 2.5rem; }
+.mira-id-brand strong { font: 600 1.125rem/1.2 system-ui, sans-serif; letter-spacing: -.02em; }

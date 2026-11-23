@@ -58,7 +58,7 @@ describe("shared Cloud Session recovery", () => {
       client: authClient(),
       session: null,
     });
-    await screen.findByRole("heading", { name: "登录 Mira Cloud" });
+    await screen.findByRole("heading", { name: "登录 Mira 账号" });
     fireEvent.change(screen.getByLabelText("账号"), { target: { value: "pilot" } });
     fireEvent.change(screen.getByLabelText("密码"), {
       target: { value: "a test password for login" },

@@ -78,21 +78,21 @@ for (const viewport of viewports) {
       try {
         authServer.reset();
         await page.goto(`${baseUrl}/`, { waitUntil: "load" });
-        await page.getByRole("heading", { level: 1, name: "Mira Cloud 账户" }).waitFor();
+        await page.getByRole("heading", { level: 1, name: "Mira 账号" }).waitFor();
         await expectNoHorizontalOverflow(page);
         expect(new URL(page.url()).pathname).toBe("/");
         expect(await page.getByLabel("密码").count()).toBe(0);
         await screenshot(page, "home", viewport.name);
-        await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
+        await page.getByRole("main").getByRole("link", { name: "登录 Mira 账号" }).click();
         await page.waitForURL("**/login");
         await page.locator(".cloud-brand").click();
         await page.waitForURL(`${baseUrl}/`);
-        await page.getByRole("main").getByRole("link", { name: "登录 Mira Cloud" }).click();
-        await page.getByRole("heading", { level: 1, name: "登录 Mira Cloud" }).waitFor();
+        await page.getByRole("main").getByRole("link", { name: "登录 Mira 账号" }).click();
+        await page.getByRole("heading", { level: 1, name: "登录 Mira 账号" }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-out", viewport.name);
 
-        await page.getByLabel("账号").fill("pilot");
+        await page.getByLabel("账号", { exact: true }).fill("pilot");
         await page.getByLabel("密码").fill(password);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
@@ -167,7 +167,7 @@ for (const viewport of viewports) {
         await screenshot(page, "password-changed", viewport.name);
 
         await page.getByRole("link", { name: "前往登录" }).click();
-        await page.getByLabel("账号").fill("pilot");
+        await page.getByLabel("账号", { exact: true }).fill("pilot");
         await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
         // Re-authentication returns to the protected page from which it began.
@@ -180,11 +180,11 @@ for (const viewport of viewports) {
         const accountActions = page.getByRole("group", { name: "账户操作" });
         await accountActions.getByRole("button", { name: "退出登录" }).click();
         await page.waitForURL("**/login");
-        await page.getByLabel("账号").waitFor();
+        await page.getByLabel("账号", { exact: true }).waitFor();
         await expectNoHorizontalOverflow(page);
         await screenshot(page, "logged-out-after-logout", viewport.name);
 
-        await page.getByLabel("账号").fill("pilot");
+        await page.getByLabel("账号", { exact: true }).fill("pilot");
         await page.getByLabel("密码").fill(newPassword);
         await page.getByRole("button", { name: "登录" }).click();
         await page.waitForURL("**/account");
