@@ -112,3 +112,5 @@ See docs/oauth-authorization-v0.md for the OPS-016 first-party client and callba
 See docs/hosts-v0.md for the OPS-018 Desktop Host caller contract, presence lease, account-scoped discovery, server-controlled Relay room, room-ownership input for OPS-019, and its explicit trust limitations.
 
 See docs/host-grants-v0.md for the OPS-020 Host -> Mobile Remote V1 scope ledger, revision/TTL snapshot contract, Portal narrowing/revocation, and DSK-005/DSK-007/OPS-021 consumer fixtures.
+
+Service registration and protocol discovery: [OPS-047 contract](docs/service-registry-v0.md).

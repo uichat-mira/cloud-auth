@@ -513,3 +513,7 @@ The unit rotation test constructs a cached pre-switch JWKS, signs tokens with bo
 - Public registration, OAuth, Passkeys, self-service recovery, Redis, PostgreSQL, hardware identifiers, or device proof-of-possession.
 
 Cross-repository consumer implementation and evidence from SHY-001 and REL-001 remain required before production promotion.
+
+## Account-registered services (OPS-047)
+
+See [service registry V0](service-registry-v0.md) for the registry-mediated credential endpoint, derived generic audiences, existing canonical audience reuse and bounded offline revocation. The original canonical issuance request contracts remain unchanged.
