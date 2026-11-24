@@ -13,6 +13,11 @@ import {
   type ServiceCredentialJwks,
   type ServiceCredentialRequest,
   type ServiceCredentialScope,
+  type RegisteredServiceCredential,
+  type RegisteredServiceAudience,
+  type RegisteredServiceScope,
+  registeredServiceScopeSchema,
+  registeredServiceCredentialSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 import type { AuthRepository } from "../auth/auth-repository.js";
 import { hashSessionSecret, parseSessionToken } from "../security/session-token.js";
@@ -24,6 +29,12 @@ import {
   type RelayRoomOwnership,
 } from "./relay-admission.js";
 import { issueServiceCredential } from "./signer.js";
+import type { ServiceRegistryRepository } from "../service-registry/repository.js";
+
+type ResolvedRequest = ServiceCredentialRequest | {
+  audience: RegisteredServiceAudience;
+  registeredScopes: RegisteredServiceScope[];
+};
 
 export interface RelayRoomOwnershipResolver {
   resolveRoomOwnership(relayRoom: string): RelayRoomOwnership | null;
@@ -34,7 +45,8 @@ export interface RelayRoomOwnershipResolver {
  * the request: Guanlan read-only stays read-only and write is only added when
  * the caller asked for it explicitly.
  */
-function scopeForRequest(request: ServiceCredentialRequest): ServiceCredentialScope[] {
+function scopeForRequest(request: ResolvedRequest): ServiceCredentialScope[] {
+  if ("registeredScopes" in request) return request.registeredScopes;
   if (request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE) return [RELAY_TRANSPORT_SCOPE];
   if (request.audience === CLOUD_GUANLAN_AUDIENCE) {
     const requested = request.scopes ?? [GUANLAN_READ_SCOPE];
@@ -68,6 +80,27 @@ export class ServiceCredentialService {
   ) {}
 
   issue(token: string, request: ServiceCredentialRequest): IssuedServiceCredential {
+    return this.issueResolved(token, () => request);
+  }
+
+  issueRegistered(token: string, registry: ServiceRegistryRepository, serviceId: string, revision: number): RegisteredServiceCredential {
+    const credential = this.issueResolved(token, accountId => {
+      const definition = registry.require(accountId, serviceId, revision).definition;
+      switch (definition.audience) {
+        case CLOUD_WHO_YOU_AUDIENCE:
+          return { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: [WHOYOU_READ_SCOPE] };
+        case CLOUD_GUANLAN_AUDIENCE:
+          return { audience: CLOUD_GUANLAN_AUDIENCE, scopes: [GUANLAN_READ_SCOPE] };
+        case "mira:cloud-shiyan":
+          return { audience: "mira:cloud-shiyan" };
+        default:
+          return { audience: definition.audience, registeredScopes: definition.scopes.map(scope => registeredServiceScopeSchema.parse(scope)) };
+      }
+    });
+    return registeredServiceCredentialSchema.parse({ ...credential, serviceId, revision });
+  }
+
+  private issueResolved(token: string, resolve: (accountId: string) => ResolvedRequest): IssuedServiceCredential {
     const keyRing = this.keyRing;
     if (!keyRing) {
       throw new ServiceCredentialRequestError(
@@ -87,17 +120,16 @@ export class ServiceCredentialService {
     }
 
     const now = new Date();
-    const relay =
-      request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE ? request.relay : null;
-    const guanlan = request.audience === CLOUD_GUANLAN_AUDIENCE;
-    const whoYou = request.audience === CLOUD_WHO_YOU_AUDIENCE;
-    const confirmation =
-      request.audience === CLOUD_WHO_YOU_AUDIENCE ? request.confirmation : undefined;
     const issued = this.repository.issueWithinActiveDeviceSession(
       parsed.id,
       hashSessionSecret(parsed.secret),
       now.toISOString(),
       ({ accountId, deviceId, devicePlatform }) => {
+        const request = resolve(accountId);
+        const relay = request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE ? request.relay : null;
+        const guanlan = request.audience === CLOUD_GUANLAN_AUDIENCE;
+        const whoYou = request.audience === CLOUD_WHO_YOU_AUDIENCE;
+        const confirmation = request.audience === CLOUD_WHO_YOU_AUDIENCE ? request.confirmation : undefined;
         if (relay) {
           // This query shares the issuance BEGIN IMMEDIATE transaction, so a
           // Host lease, room binding, or device revoke cannot interleave.
@@ -147,6 +179,7 @@ export class ServiceCredentialService {
         );
         return {
           token: credential,
+          audience: request.audience,
           expiresAt: new Date(
             (Math.floor(now.getTime() / 1000) + keyRing.ttlSeconds) * 1000,
           ).toISOString(),
@@ -172,7 +205,7 @@ export class ServiceCredentialService {
     return {
       token: issued.value.token,
       tokenType: "Bearer",
-      audience: request.audience,
+      audience: issued.value.audience,
       expiresAt: issued.value.expiresAt,
     };
   }
