@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { serviceDefinitionSchema } from "@uichat-mira/cloud-auth-contracts";
+import { ServiceRegistryRepository, ServiceRegistryError } from "./service-registry/repository.js";
 import { loadConfig } from "./config.js";
 import { openDatabase } from "./storage/database.js";
 import { AuthRepository } from "./auth/auth-repository.js";
@@ -62,6 +64,20 @@ try {
       service.setDisabled(username, true);
       console.log(JSON.stringify({ username, disabled: true, sessionsRevoked: true }));
       break;
+    case "service-register": {
+      const definition = serviceDefinitionSchema.parse(JSON.parse(readFileSync(0, "utf8")));
+      const expected = process.argv[4] === undefined ? undefined : Number(process.argv[4]);
+      if (expected !== undefined && (!Number.isSafeInteger(expected) || expected < 0)) throw new Error("Invalid revision");
+      console.log(JSON.stringify(new ServiceRegistryRepository(db).register(username, definition, expected)));
+      break;
+    }
+    case "service-revoke": {
+      const serviceId = process.argv[4] ?? "";
+      const expected = Number(process.argv[5]);
+      if (!Number.isSafeInteger(expected) || expected < 1) throw new Error("Invalid revision");
+      console.log(JSON.stringify({ revision: new ServiceRegistryRepository(db).revoke(username, serviceId, expected) }));
+      break;
+    }
     case "guanlan-backfill": {
       const enqueued = backfillGuanlanRegistrations(db, new Date().toISOString());
       console.log(JSON.stringify({ enqueued, registrations: listGuanlanRegistrations(db).length }));
@@ -91,7 +107,7 @@ try {
       printUsageAndExit();
   }
 } catch (error) {
-  if (error instanceof AuthError) {
+  if (error instanceof AuthError || error instanceof ServiceRegistryError) {
     console.error(`${error.code}: ${error.message}`);
     process.exitCode = 2;
   } else {
@@ -112,8 +128,9 @@ function readPasswordFromStdin(): string {
 
 function printUsageAndExit(): never {
   console.error(
-    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver> [username]\n" +
-      "provision/reset-password read the password from stdin.",
+    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver|service-register|service-revoke> [username or accountId]\n" +
+      "provision/reset-password read the password from stdin.\n" +
+      "service-register <accountId> [expectedRevision] reads a service definition from stdin; service-revoke <accountId> <serviceId> <expectedRevision>.",
   );
   process.exit(2);
 }

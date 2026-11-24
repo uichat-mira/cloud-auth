@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { registeredServiceAudienceSchema, registeredServiceScopeSchema } from "./service-registry.js";
 
 /**
  * Canonical, deployment-neutral issuer identity for Cloud Auth service
@@ -21,12 +22,13 @@ export const CLOUD_GUANLAN_AUDIENCE = "mira:cloud-guanlan" as const;
  */
 export const CLOUD_WHO_YOU_AUDIENCE = "mira:who-you" as const;
 
-export const serviceCredentialAudienceSchema = z.enum([
+const canonicalServiceCredentialAudienceSchema = z.enum([
   CLOUD_SHIYAN_AUDIENCE,
   CLOUD_RELAY_TRANSPORT_AUDIENCE,
   CLOUD_GUANLAN_AUDIENCE,
   CLOUD_WHO_YOU_AUDIENCE,
 ]);
+export const serviceCredentialAudienceSchema = z.union([canonicalServiceCredentialAudienceSchema, registeredServiceAudienceSchema]);
 
 export const SHIYAN_AUTHENTICATE_SCOPE = "shiyan:authenticate" as const;
 export const RELAY_TRANSPORT_SCOPE = "relay:transport" as const;
@@ -45,7 +47,7 @@ export const WHOYOU_MAIL_WRITE_SCOPE = "whoyou.mail.write" as const;
  */
 export const WHOYOU_MAIL_SEND_SCOPE = "whoyou.mail.send" as const;
 
-export const serviceCredentialScopeSchema = z.enum([
+const canonicalServiceCredentialScopeSchema = z.enum([
   SHIYAN_AUTHENTICATE_SCOPE,
   RELAY_TRANSPORT_SCOPE,
   GUANLAN_READ_SCOPE,
@@ -54,6 +56,7 @@ export const serviceCredentialScopeSchema = z.enum([
   WHOYOU_MAIL_WRITE_SCOPE,
   WHOYOU_MAIL_SEND_SCOPE,
 ]);
+export const serviceCredentialScopeSchema = z.union([canonicalServiceCredentialScopeSchema, registeredServiceScopeSchema]);
 
 export const serviceCredentialKeyIdSchema = z
   .string()
@@ -340,11 +343,26 @@ export const whoYouServiceCredentialClaimsSchema = z
   })
   .superRefine(refineTemporalClaims);
 
-export const serviceCredentialClaimsSchema = z.discriminatedUnion("aud", [
-  shiyanServiceCredentialClaimsSchema,
-  relayServiceCredentialClaimsSchema,
-  guanlanServiceCredentialClaimsSchema,
-  whoYouServiceCredentialClaimsSchema,
+export const registeredServiceClaimsSchema = z.object({
+  ...commonClaimsShape,
+  aud: registeredServiceAudienceSchema,
+  scope: z.array(registeredServiceScopeSchema).min(1).max(32),
+}).strict().superRefine((claims, context) => {
+  const serviceId = claims.aud.slice("mira:service:".length);
+  if (new Set(claims.scope).size !== claims.scope.length ||
+      !claims.scope.every(scope => scope.startsWith(`service:${serviceId}:`))) {
+    context.addIssue({ code: "custom", message: "Invalid registered-service scope", path: ["scope"] });
+  }
+  refineTemporalClaims(claims, context);
+});
+export const serviceCredentialClaimsSchema = z.union([
+  z.discriminatedUnion("aud", [
+    shiyanServiceCredentialClaimsSchema,
+    relayServiceCredentialClaimsSchema,
+    guanlanServiceCredentialClaimsSchema,
+    whoYouServiceCredentialClaimsSchema,
+  ]),
+  registeredServiceClaimsSchema,
 ]);
 
 /**

@@ -353,3 +353,6 @@ export type DeviceErrorCode = z.infer<typeof deviceErrorCodeSchema>;
 export type DeviceErrorEnvelope = z.infer<typeof deviceErrorEnvelopeSchema>;
 export type PublicAuthErrorCode = z.infer<typeof publicAuthErrorCodeSchema>;
 export type AuthErrorEnvelope = z.infer<typeof authErrorEnvelopeSchema>;
+
+export * from "./service-registry.js";
+export { registeredServiceClaimsSchema } from "./service-credential.js";
