@@ -31,7 +31,7 @@ export const applicationRegistrationRequestSchema = z.object({
   appSecret: z.string().min(16).max(512),
 }).strict();
 
-export const applicationRiskHintSchema = z.enum([
+export const knownApplicationRiskHintSchema = z.enum([
   "sensitive-data-read",
   "external-side-effect",
   "irreversible",
@@ -39,6 +39,10 @@ export const applicationRiskHintSchema = z.enum([
   "code-execution",
   "financial-action",
 ]);
+
+// Unknown future hints stay available to clients for diagnostics. They do not
+// gain semantics or lower any local safety policy merely by being present.
+export const applicationRiskHintSchema = z.string().regex(/^[a-z][a-z0-9-]{0,79}$/);
 
 const toolNameSchema = z.string().min(1).max(200);
 
@@ -91,7 +95,10 @@ export const applicationManifestSchema = z.object({
   registrationVerification: z.object({
     endpoint: safeHttpsUrl,
   }).strict(),
-  services: z.array(applicationDeclaredServiceSchema).max(64),
+  services: z.array(applicationDeclaredServiceSchema).max(64).refine(
+    (services) => new Set(services.map((service) => service.serviceId)).size === services.length,
+    "Duplicate serviceId",
+  ),
 }).strict();
 
 export const applicationRegistrationVerificationResponseSchema = z.object({
