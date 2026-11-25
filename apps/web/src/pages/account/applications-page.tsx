@@ -9,18 +9,24 @@ import {
 } from "@/lib/applications/client";
 
 const errorMessage = (error: unknown) => {
-  if (!(error instanceof ApplicationRequestError)) return "操作未完成，请刷新确认状态后重试。";
-  if (error.code === "APPLICATION_SECRET_REJECTED") return "AppSecret 验证失败。";
-  if (error.code === "APPLICATION_ALREADY_OWNED") return "这个应用实例已归属于其他 Mira 账号。";
-  if (error.code === "APPLICATION_ID_MISMATCH") return "APP_ID 与应用声明不一致。";
+  if (!(error instanceof ApplicationRequestError))
+    return "操作未完成，请刷新确认状态后重试。";
+  if (error.code === "APPLICATION_SECRET_REJECTED")
+    return "AppSecret 验证失败。";
+  if (error.code === "APPLICATION_ALREADY_OWNED")
+    return "这个应用实例已归属于其他 Mira 账号。";
+  if (error.code === "APPLICATION_ID_MISMATCH")
+    return "APP_ID 与应用声明不一致。";
   if (error.code === "APPLICATION_UNSAFE_ORIGIN")
     return "应用地址不是可安全访问的公网 HTTPS Origin。";
-  if (error.code === "APPLICATION_INVALID_MANIFEST") return "应用元信息格式不符合 Mira ID V1。";
+  if (error.code === "APPLICATION_INVALID_MANIFEST")
+    return "应用元信息格式不符合 Mira ID V1。";
   if (error.code.startsWith("APPLICATION_METADATA_ORIGIN_MISMATCH"))
     return "应用声明包含尚未验证的跨域地址。";
   if (error.status === 401) return "登录已失效，请重新登录。";
   if (error.status === 400) return "请检查应用地址、APP_ID 与 AppSecret。";
-  if (error.status === 502) return "无法读取或验证应用，请确认应用服务已上线。";
+  if (error.status === 502)
+    return "无法读取或验证应用，请确认应用服务已上线。";
   return "请求未完成，请刷新应用列表确认状态后重试。";
 };
 
@@ -51,7 +57,11 @@ function ApplicationsForAccount() {
       void client
         .list(token)
         .then((result) => {
-          if (mounted.current && request === generation.current && getSessionToken() === token) {
+          if (
+            mounted.current &&
+            request === generation.current &&
+            getSessionToken() === token
+          ) {
             setCatalog(result);
           }
         })
@@ -63,7 +73,10 @@ function ApplicationsForAccount() {
           ) {
             return;
           }
-          if (failure instanceof ApplicationRequestError && failure.status === 401) {
+          if (
+            failure instanceof ApplicationRequestError &&
+            failure.status === 401
+          ) {
             invalidateSession(token);
           }
           setError(errorMessage(failure));
@@ -82,12 +95,25 @@ function ApplicationsForAccount() {
     setError("");
     try {
       const result = await client.list(token);
-      if (mounted.current && request === generation.current && token === getSessionToken()) {
+      if (
+        mounted.current &&
+        request === generation.current &&
+        token === getSessionToken()
+      ) {
         setCatalog(result);
       }
     } catch (failure) {
-      if (!mounted.current || request !== generation.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401) {
+      if (
+        !mounted.current ||
+        request !== generation.current ||
+        token !== getSessionToken()
+      ) {
+        return;
+      }
+      if (
+        failure instanceof ApplicationRequestError &&
+        failure.status === 401
+      ) {
         invalidateSession(token);
       }
       setError(errorMessage(failure));
@@ -136,7 +162,10 @@ function ApplicationsForAccount() {
       await refresh();
     } catch (failure) {
       if (!mounted.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401) {
+      if (
+        failure instanceof ApplicationRequestError &&
+        failure.status === 401
+      ) {
         invalidateSession(token);
       }
       setError(errorMessage(failure));
@@ -148,7 +177,11 @@ function ApplicationsForAccount() {
   async function remove(appIdToRemove: string, name: string) {
     if (
       busy ||
-      !window.confirm("从“我的应用”移除“" + name + "”？这不会自动撤销你对该服务的使用授权。")
+      !window.confirm(
+        "从“我的应用”移除“" +
+          name +
+          "”？这不会自动撤销你对该服务的使用授权。",
+      )
     ) {
       return;
     }
@@ -164,7 +197,10 @@ function ApplicationsForAccount() {
       await refresh();
     } catch (failure) {
       if (!mounted.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401) {
+      if (
+        failure instanceof ApplicationRequestError &&
+        failure.status === 401
+      ) {
         invalidateSession(token);
       }
       setError(errorMessage(failure));
@@ -187,7 +223,8 @@ function ApplicationsForAccount() {
       <header className="console-page-head">
         <h1 tabIndex={-1}>我的应用</h1>
         <p className="console-page-caption">
-          登记你控制的应用实例。只需要应用地址、APP_ID 和 AppSecret，其余信息由 Mira ID 自动读取。
+          登记你控制的应用实例。只需要应用地址、APP_ID 和 AppSecret，其余信息由 Mira
+          ID 自动读取。
         </p>
       </header>
 
@@ -211,7 +248,12 @@ function ApplicationsForAccount() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => void refresh()}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void refresh()}
+            >
               刷新
             </Button>
             <Button type="button" disabled={busy} onClick={openRegister}>
@@ -221,7 +263,9 @@ function ApplicationsForAccount() {
         </div>
 
         {!catalog ? (
-          <p className="console-section-caption">{error ? "无法加载应用。" : "正在加载应用…"}</p>
+          <p className="console-section-caption">
+            {error ? "无法加载应用。" : "正在加载应用…"}
+          </p>
         ) : !catalog.applications.length ? (
           <p className="console-section-caption">尚未登记应用。</p>
         ) : null}
@@ -230,7 +274,9 @@ function ApplicationsForAccount() {
           <section key={application.appId} className="console-section">
             <div className="console-section-head">
               <div>
-                <h3 className="font-semibold">{application.manifest.name}</h3>
+                <h3 className="font-semibold">
+                  {application.manifest.name}
+                </h3>
                 <p className="console-section-caption">
                   {application.manifest.projectId} · revision{" "}
                   {application.manifest.manifestRevision}
@@ -240,7 +286,9 @@ function ApplicationsForAccount() {
                 type="button"
                 variant="outline"
                 disabled={busy}
-                onClick={() => void remove(application.appId, application.manifest.name)}
+                onClick={() =>
+                  void remove(application.appId, application.manifest.name)
+                }
               >
                 移除
               </Button>
@@ -257,7 +305,9 @@ function ApplicationsForAccount() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => void copy(application.appId, "APP_ID")}
+                    onClick={() =>
+                      void copy(application.appId, "APP_ID")
+                    }
                   >
                     复制
                   </Button>
@@ -272,7 +322,9 @@ function ApplicationsForAccount() {
             </dl>
             <h4 className="font-medium text-sm mt-3">自动发现的服务</h4>
             {!application.manifest.services.length ? (
-              <p className="console-section-caption">这个实例当前没有声明服务。</p>
+              <p className="console-section-caption">
+                这个实例当前没有声明服务。
+              </p>
             ) : (
               application.manifest.services.map((service) => (
                 <div className="cloud-row" key={service.serviceId}>
@@ -305,11 +357,15 @@ function ApplicationsForAccount() {
           <div>
             <h2 id="register-application">登记应用</h2>
             <p className="cloud-dialog-caption">
-              Mira ID 会从应用地址读取元信息，并用 APP_ID + AppSecret 验证你对这个实例的控制。
+              Mira ID 会从应用地址读取元信息，并用 APP_ID + AppSecret
+              验证你对这个实例的控制。
             </p>
           </div>
         </div>
-        <form onSubmit={(event) => void submit(event)} className="cloud-dialog-form">
+        <form
+          onSubmit={(event) => void submit(event)}
+          className="cloud-dialog-form"
+        >
           <div className="cloud-field">
             <label htmlFor="application-origin">应用地址</label>
             <Input
@@ -349,7 +405,9 @@ function ApplicationsForAccount() {
             />
           </div>
           <p className="console-section-caption">
-            AppSecret 仅用于本次服务端登记验证，不会显示在应用列表，也不会下发给 Mira 终端。
+            AppSecret
+            仅用于本次服务端登记验证，不会显示在应用列表，也不会下发给 Mira
+            终端。
           </p>
           <div className="flex gap-2 justify-end">
             <Button
@@ -360,7 +418,10 @@ function ApplicationsForAccount() {
             >
               取消
             </Button>
-            <Button type="submit" disabled={busy || !origin || !appId || !appSecret}>
+            <Button
+              type="submit"
+              disabled={busy || !origin || !appId || !appSecret}
+            >
               {busy ? "验证中…" : "验证并登记"}
             </Button>
           </div>
