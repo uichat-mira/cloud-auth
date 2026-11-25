@@ -135,6 +135,9 @@ export class ApplicationInstanceService {
       if (byId && manifest.manifestRevision < byId.manifest_revision) {
         throw failure("APPLICATION_MANIFEST_ROLLBACK", 409);
       }
+      if (byId && manifest.manifestRevision === byId.manifest_revision && encoded !== byId.manifest_json) {
+        throw failure("APPLICATION_MANIFEST_REVISION_REQUIRED", 409);
+      }
 
       if (byId) {
         this.db.prepare(
