@@ -110,13 +110,17 @@ async function setup(registrationTransport: ApplicationRegistrationTransport = n
     auth.db.close();
     rmSync(dir, { recursive: true, force: true });
   };
-  const call = (token: string, method: "GET" | "POST" | "DELETE", url: string, payload?: unknown) =>
-    app.inject({
-      method,
-      url,
-      headers: { authorization: "Bearer " + token },
-      ...(payload === undefined ? {} : { payload }),
-    });
+  const call = async (
+    token: string,
+    method: "GET" | "POST" | "DELETE",
+    url: string,
+    payload?: Record<string, unknown>,
+  ) => await app.inject({
+    method,
+    url,
+    headers: { authorization: "Bearer " + token },
+    ...(payload === undefined ? {} : { payload }),
+  });
   return { auth, app, owner, other, ownerSession, otherSession, call };
 }
 
