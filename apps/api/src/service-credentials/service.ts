@@ -1,23 +1,17 @@
 import {
   CLOUD_GUANLAN_AUDIENCE,
   CLOUD_RELAY_TRANSPORT_AUDIENCE,
-  CLOUD_WHO_YOU_AUDIENCE,
   GUANLAN_READ_SCOPE,
   GUANLAN_WRITE_SCOPE,
   RELAY_TRANSPORT_SCOPE,
   SHIYAN_AUTHENTICATE_SCOPE,
-  WHOYOU_MAIL_SEND_SCOPE,
-  WHOYOU_MAIL_WRITE_SCOPE,
-  WHOYOU_READ_SCOPE,
+  type ApplicationServiceCredential,
+  type ApplicationServiceResource,
+  type ApplicationServiceScope,
   type IssuedServiceCredential,
   type ServiceCredentialJwks,
   type ServiceCredentialRequest,
   type ServiceCredentialScope,
-  type RegisteredServiceCredential,
-  type RegisteredServiceAudience,
-  type RegisteredServiceScope,
-  registeredServiceScopeSchema,
-  registeredServiceCredentialSchema,
 } from "@uichat-mira/cloud-auth-contracts";
 import type { AuthRepository } from "../auth/auth-repository.js";
 import { hashSessionSecret, parseSessionToken } from "../security/session-token.js";
@@ -29,12 +23,14 @@ import {
   type RelayRoomOwnership,
 } from "./relay-admission.js";
 import { issueServiceCredential } from "./signer.js";
-import type { ServiceRegistryRepository } from "../service-registry/repository.js";
 
-type ResolvedRequest = ServiceCredentialRequest | {
-  audience: RegisteredServiceAudience;
-  registeredScopes: RegisteredServiceScope[];
+type ApplicationResolvedRequest = {
+  audience: ApplicationServiceResource;
+  application: { appId: string; serviceId: string; resource: string };
+  applicationScopes: ApplicationServiceScope[];
 };
+
+type ResolvedRequest = ServiceCredentialRequest | ApplicationResolvedRequest;
 
 export interface RelayRoomOwnershipResolver {
   resolveRoomOwnership(relayRoom: string): RelayRoomOwnership | null;
@@ -45,28 +41,16 @@ export interface RelayRoomOwnershipResolver {
  * the request: Guanlan read-only stays read-only and write is only added when
  * the caller asked for it explicitly.
  */
-function scopeForRequest(request: ResolvedRequest): ServiceCredentialScope[] {
-  if ("registeredScopes" in request) return request.registeredScopes;
+function scopeForRequest(
+  request: ResolvedRequest,
+): (ServiceCredentialScope | ApplicationServiceScope)[] {
+  if ("application" in request) return request.applicationScopes;
   if (request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE) return [RELAY_TRANSPORT_SCOPE];
   if (request.audience === CLOUD_GUANLAN_AUDIENCE) {
     const requested = request.scopes ?? [GUANLAN_READ_SCOPE];
     return requested.includes(GUANLAN_WRITE_SCOPE)
       ? [GUANLAN_READ_SCOPE, GUANLAN_WRITE_SCOPE]
       : [GUANLAN_READ_SCOPE];
-  }
-  if (request.audience === CLOUD_WHO_YOU_AUDIENCE) {
-    // Confirmations are standalone authorities, never general MCP bearers.
-    // Draft-bound send gets mail.send; identity link/unlink gets write-only,
-    // which cannot satisfy Who You's global whoyou.read MCP gate.
-    if (request.confirmation !== undefined) {
-      return "action" in request.confirmation
-        ? [WHOYOU_MAIL_WRITE_SCOPE]
-        : [WHOYOU_MAIL_SEND_SCOPE];
-    }
-    const requested = request.scopes ?? [WHOYOU_READ_SCOPE];
-    return requested.includes(WHOYOU_MAIL_WRITE_SCOPE)
-      ? [WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE]
-      : [WHOYOU_READ_SCOPE];
   }
   return [SHIYAN_AUTHENTICATE_SCOPE];
 }
@@ -80,29 +64,57 @@ export class ServiceCredentialService {
   ) {}
 
   issue(token: string, request: ServiceCredentialRequest): IssuedServiceCredential {
-    return this.issueResolved(token, accountId => {
-      if (request.audience === CLOUD_WHO_YOU_AUDIENCE && !this.repository.permitsLegacyWhoYouCredential(accountId)) {
-        throw new ServiceCredentialRequestError("SERVICE_CREDENTIAL_PRINCIPAL_NOT_READY", 409, "The account is not authorized for the requested service");
-      }
-      return request;
-    });
+    return this.issueResolved(token, () => request);
   }
 
-  issueRegistered(token: string, registry: ServiceRegistryRepository, serviceId: string, revision: number): RegisteredServiceCredential {
-    const credential = this.issueResolved(token, accountId => {
-      const definition = registry.require(accountId, serviceId, revision).definition;
-      switch (definition.audience) {
-        case CLOUD_WHO_YOU_AUDIENCE:
-          return { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: [WHOYOU_READ_SCOPE] };
-        case CLOUD_GUANLAN_AUDIENCE:
-          return { audience: CLOUD_GUANLAN_AUDIENCE, scopes: [GUANLAN_READ_SCOPE] };
-        case "mira:cloud-shiyan":
-          return { audience: "mira:cloud-shiyan" };
-        default:
-          return { audience: definition.audience, registeredScopes: definition.scopes.map(scope => registeredServiceScopeSchema.parse(scope)) };
-      }
+  /**
+   * Issues one short-lived credential for an exact instance-scoped binding.
+   * `resolve` runs inside the session/device/account authority transaction and
+   * must re-read the grant and current declaration there; its returned scopes
+   * are the only authority copied into the signed claims.
+   */
+  issueApplicationService(
+    token: string,
+    resolve: (accountId: string) => {
+      appId: string;
+      serviceId: string;
+      resource: string;
+      revision: number;
+      scopes: ApplicationServiceScope[];
+    },
+  ): ApplicationServiceCredential {
+    let binding:
+      | ReturnType<typeof resolve>
+      | undefined;
+    const credential = this.issueResolved(token, (accountId) => {
+      binding = resolve(accountId);
+      return {
+        audience: binding.resource,
+        application: {
+          appId: binding.appId,
+          serviceId: binding.serviceId,
+          resource: binding.resource,
+        },
+        applicationScopes: binding.scopes,
+      };
     });
-    return registeredServiceCredentialSchema.parse({ ...credential, serviceId, revision });
+    if (!binding) {
+      throw new ServiceCredentialRequestError(
+        "SERVICE_CREDENTIAL_REAUTH_REQUIRED",
+        401,
+        "Re-authentication is required",
+      );
+    }
+    return {
+      token: credential.token,
+      tokenType: "Bearer",
+      appId: binding.appId,
+      serviceId: binding.serviceId,
+      resource: binding.resource,
+      revision: binding.revision,
+      scopes: binding.scopes,
+      expiresAt: credential.expiresAt,
+    };
   }
 
   private issueResolved(token: string, resolve: (accountId: string) => ResolvedRequest): IssuedServiceCredential {
@@ -131,10 +143,8 @@ export class ServiceCredentialService {
       now.toISOString(),
       ({ accountId, deviceId, devicePlatform }) => {
         const request = resolve(accountId);
-        const relay = request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE ? request.relay : null;
+        const relay = "relay" in request ? request.relay : null;
         const guanlan = request.audience === CLOUD_GUANLAN_AUDIENCE;
-        const whoYou = request.audience === CLOUD_WHO_YOU_AUDIENCE;
-        const confirmation = request.audience === CLOUD_WHO_YOU_AUDIENCE ? request.confirmation : undefined;
         if (relay) {
           // This query shares the issuance BEGIN IMMEDIATE transaction, so a
           // Host lease, room binding, or device revoke cannot interleave.
@@ -174,12 +184,10 @@ export class ServiceCredentialService {
             deviceId,
             audience: request.audience,
             scope: scopeForRequest(request),
+            ...("application" in request ? { application: request.application } : {}),
             ...(relay ? { relay } : {}),
-            // The Guanlan consumer and the Who You consumer are both derived
-            // from the verified session, never from the request body. One
-            // account is one stable consumer for each service.
-            ...(guanlan || whoYou ? { consumerId: accountId } : {}),
-            ...(confirmation === undefined ? {} : { confirmation }),
+            // The Guanlan consumer is derived from the verified account.
+            ...(guanlan ? { consumerId: accountId } : {}),
           },
         );
         return {

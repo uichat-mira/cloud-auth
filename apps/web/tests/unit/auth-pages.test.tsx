@@ -358,7 +358,7 @@ describe("auth-backed route components", () => {
 
     // The account navigation and page heading remain single instances.
     expect(screen.getAllByRole("navigation", { name: "账户分区" })).toHaveLength(1);
-    expect(screen.queryAllByRole("heading", { level: 2 })).toHaveLength(0);
+    expect(screen.getByRole("heading", { level: 2, name: "已授权应用服务" })).toBeInTheDocument();
   });
 
   it("confirms an explicit session renewal without leaving the security route", async () => {

@@ -1,7 +1,4 @@
 import { readFileSync } from "node:fs";
-import { serviceDefinitionSchema } from "@uichat-mira/cloud-auth-contracts";
-import { ServiceRegistryRepository, ServiceRegistryError } from "./service-registry/repository.js";
-import { TrustedApplicationManagement } from "./trusted-applications/management.js";
 import { loadConfig } from "./config.js";
 import { openDatabase } from "./storage/database.js";
 import { AuthRepository } from "./auth/auth-repository.js";
@@ -13,7 +10,10 @@ import { backfillGuanlanRegistrations, listGuanlanRegistrations, retryGuanlanReg
 const command = process.argv[2];
 const username = process.argv[3] ?? "";
 
-if (!command || (!username && !['guanlan-backfill','guanlan-status','guanlan-deliver'].includes(command))) {
+const supportedCommands = new Set(["provision","reset-password","allow","deny","enable","disable",
+  "guanlan-backfill","guanlan-status","guanlan-retry","guanlan-deliver"]);
+
+if (!command || !supportedCommands.has(command) || (!username && !['guanlan-backfill','guanlan-status','guanlan-deliver'].includes(command))) {
   printUsageAndExit();
 }
 
@@ -65,34 +65,6 @@ try {
       service.setDisabled(username, true);
       console.log(JSON.stringify({ username, disabled: true, sessionsRevoked: true }));
       break;
-    case "application-enroll": {
-      const input: unknown = JSON.parse(readFileSync(0, "utf8"));
-      console.log(JSON.stringify(new TrustedApplicationManagement(db).enroll(username, input)));
-      break;
-    }
-    case "application-rotate":
-      console.log(JSON.stringify(new TrustedApplicationManagement(db).rotate(username)));
-      break;
-    case "application-disable":
-      console.log(JSON.stringify(new TrustedApplicationManagement(db).disable(username)));
-      break;
-    case "application-enable":
-      console.log(JSON.stringify(new TrustedApplicationManagement(db).enable(username)));
-      break;
-    case "service-register": {
-      const definition = serviceDefinitionSchema.parse(JSON.parse(readFileSync(0, "utf8")));
-      const expected = process.argv[4] === undefined ? undefined : Number(process.argv[4]);
-      if (expected !== undefined && (!Number.isSafeInteger(expected) || expected < 0)) throw new Error("Invalid revision");
-      console.log(JSON.stringify(new ServiceRegistryRepository(db).register(username, definition, expected)));
-      break;
-    }
-    case "service-revoke": {
-      const serviceId = process.argv[4] ?? "";
-      const expected = Number(process.argv[5]);
-      if (!Number.isSafeInteger(expected) || expected < 1) throw new Error("Invalid revision");
-      console.log(JSON.stringify({ revision: new ServiceRegistryRepository(db).revoke(username, serviceId, expected) }));
-      break;
-    }
     case "guanlan-backfill": {
       const enqueued = backfillGuanlanRegistrations(db, new Date().toISOString());
       console.log(JSON.stringify({ enqueued, registrations: listGuanlanRegistrations(db).length }));
@@ -122,7 +94,7 @@ try {
       printUsageAndExit();
   }
 } catch (error) {
-  if (error instanceof AuthError || error instanceof ServiceRegistryError) {
+  if (error instanceof AuthError) {
     console.error(`${error.code}: ${error.message}`);
     process.exitCode = 2;
   } else {
@@ -143,10 +115,8 @@ function readPasswordFromStdin(): string {
 
 function printUsageAndExit(): never {
   console.error(
-    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver|service-register|service-revoke|application-enroll|application-rotate|application-disable|application-enable> [username or accountId]\n" +
-      "provision/reset-password read the password from stdin.\n" +
-      "application-enroll <clientId> reads application metadata JSON on stdin; application-rotate/disable/enable <clientId>. Redirect secret-bearing output to a private file.\n" +
-      "service-register <accountId> [expectedRevision] reads a service definition from stdin; service-revoke <accountId> <serviceId> <expectedRevision>.",
+    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver> [username or accountId]\n" +
+      "provision/reset-password read the password from stdin.",
   );
   process.exit(2);
 }

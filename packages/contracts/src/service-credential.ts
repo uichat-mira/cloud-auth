@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { registeredServiceAudienceSchema, registeredServiceScopeSchema } from "./service-registry.js";
+import {
+  applicationIdSchema,
+  applicationServiceResourceSchema,
+} from "./application-instance.js";
+import {
+  registeredServiceAudienceSchema,
+  registeredServiceScopeSchema,
+  serviceIdSchema,
+} from "./service-registry.js";
 
 /**
  * Canonical, deployment-neutral issuer identity for Cloud Auth service
@@ -28,7 +36,10 @@ const canonicalServiceCredentialAudienceSchema = z.enum([
   CLOUD_GUANLAN_AUDIENCE,
   CLOUD_WHO_YOU_AUDIENCE,
 ]);
-export const serviceCredentialAudienceSchema = z.union([canonicalServiceCredentialAudienceSchema, registeredServiceAudienceSchema]);
+export const serviceCredentialAudienceSchema = z.union([
+  canonicalServiceCredentialAudienceSchema,
+  registeredServiceAudienceSchema,
+]);
 
 export const SHIYAN_AUTHENTICATE_SCOPE = "shiyan:authenticate" as const;
 export const RELAY_TRANSPORT_SCOPE = "relay:transport" as const;
@@ -355,6 +366,46 @@ export const registeredServiceClaimsSchema = z.object({
   }
   refineTemporalClaims(claims, context);
 });
+
+/**
+ * Scope carried by an instance-scoped application service credential. It is the
+ * exact declared service scope, not a platform-global permission. Duplicate and
+ * empty values are rejected below.
+ */
+export const applicationServiceScopeSchema = z.string().min(1).max(140);
+
+/**
+ * Credential for one concrete deployment instance. The audience is the exact
+ * protected resource URI. The app_id, service_id and resource claims make the
+ * canonical identity restorable without parsing the audience, so two instances
+ * may declare the same local serviceId or resource name without sharing a
+ * credential.
+ */
+export const applicationServiceClaimsSchema = z.object({
+  ...commonClaimsShape,
+  aud: applicationServiceResourceSchema,
+  app_id: applicationIdSchema,
+  service_id: serviceIdSchema,
+  resource: applicationServiceResourceSchema,
+  scope: z.array(applicationServiceScopeSchema).max(32),
+}).strict().superRefine((claims, context) => {
+  if (claims.aud !== claims.resource) {
+    context.addIssue({
+      code: "custom",
+      message: "aud must equal the protected resource",
+      path: ["aud"],
+    });
+  }
+  if (new Set(claims.scope).size !== claims.scope.length) {
+    context.addIssue({
+      code: "custom",
+      message: "Application service scopes must not repeat",
+      path: ["scope"],
+    });
+  }
+  refineTemporalClaims(claims, context);
+});
+
 export const serviceCredentialClaimsSchema = z.union([
   z.discriminatedUnion("aud", [
     shiyanServiceCredentialClaimsSchema,
@@ -396,40 +447,6 @@ export const guanlanRequestedScopesSchema = z
  * device, issuer, key id and business scope are derived by Cloud Auth from the
  * authenticated device-bound Cloud Session.
  */
-export const whoYouRequestedScopesSchema = z
-  .array(z.enum([WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE]))
-  .min(1)
-  .max(2)
-  .superRefine((scopes, context) => {
-    if (!scopes.includes(WHOYOU_READ_SCOPE)) {
-      context.addIssue({
-        code: "custom",
-        message: "whoyou.read is required",
-        path: [],
-      });
-    }
-    if (new Set(scopes).size !== scopes.length) {
-      context.addIssue({
-        code: "custom",
-        message: "requested scopes must not repeat",
-        path: [],
-      });
-    }
-  });
-
-/**
- * Who You request: either a general read/write scope set or one standalone
- * user confirmation (draft send or mailbox identity operation). The shapes are
- * mutually exclusive and strictly validated.
- */
-export const whoYouServiceCredentialRequestSchema = z
-  .object({
-    audience: z.literal(CLOUD_WHO_YOU_AUDIENCE),
-    scopes: whoYouRequestedScopesSchema.optional(),
-    confirmation: whoYouUserConfirmationSchema.optional(),
-  })
-  .strict();
-
 const baseServiceCredentialRequestSchema = z.discriminatedUnion("audience", [
   z
     .object({
@@ -450,27 +467,14 @@ const baseServiceCredentialRequestSchema = z.discriminatedUnion("audience", [
     .strict(),
 ]);
 
-export const serviceCredentialRequestSchema = z
-  .union([baseServiceCredentialRequestSchema, whoYouServiceCredentialRequestSchema])
-  .superRefine((request, context) => {
-    if (
-      request.audience === CLOUD_WHO_YOU_AUDIENCE &&
-      request.scopes !== undefined &&
-      request.confirmation !== undefined
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "scopes and confirmation are mutually exclusive",
-        path: ["confirmation"],
-      });
-    }
-  });
+// This issuance endpoint serves only the independent first-party authorities.
+export const serviceCredentialRequestSchema = baseServiceCredentialRequestSchema;
 
 export const issuedServiceCredentialSchema = z
   .object({
     token: z.string().min(1),
     tokenType: z.literal("Bearer"),
-    audience: serviceCredentialAudienceSchema,
+    audience: z.union([serviceCredentialAudienceSchema, applicationServiceResourceSchema]),
     expiresAt: z.iso.datetime(),
   })
   .strict();
@@ -523,6 +527,8 @@ export type ServiceCredentialErrorEnvelope = z.infer<
 >;
 export type ServiceCredentialAudience = z.infer<typeof serviceCredentialAudienceSchema>;
 export type ServiceCredentialScope = z.infer<typeof serviceCredentialScopeSchema>;
+export type ApplicationServiceScope = z.infer<typeof applicationServiceScopeSchema>;
+export type ApplicationServiceClaims = z.infer<typeof applicationServiceClaimsSchema>;
 export type RelayConnectionRole = z.infer<typeof relayConnectionRoleSchema>;
 export type RelayTicketContext = z.infer<typeof relayTicketContextSchema>;
 export type ServiceCredentialJwtHeader = z.infer<typeof serviceCredentialJwtHeaderSchema>;

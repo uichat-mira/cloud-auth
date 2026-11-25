@@ -44,8 +44,8 @@ jobs:
             python3 -c 'import json,sys; body=json.load(sys.stdin); assert body.get("status")=="ok" and body.get("service")=="mira-cloud-auth", body'
           docker compose -p cloud-auth-test-ci exec -T cloud-auth test -s /app/apps/web/dist/index.html
           docker compose -p cloud-auth-test-ci exec -T cloud-auth grep -Fq "Mira ID" /app/apps/web/dist/index.html
-      - name: Verify registered-service journey in the packaged runtime
-        run: docker compose -p cloud-auth-test-ci exec -T cloud-auth node scripts/smoke-service-registry.mjs
+      - name: Verify V1 instance-service journey and retired routes in the packaged runtime
+        run: docker compose -p cloud-auth-test-ci exec -T cloud-auth node scripts/smoke-application-services.mjs
       - name: Remove disposable runtime and data
         if: ${{ always() }}
         run: docker compose -p cloud-auth-test-ci down -v --remove-orphans

@@ -1,13 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { ApplicationOAuthRepository } from "../application-oauth/repository.js";
 import type { DatabaseSync } from "node:sqlite";
 import {
-  WHO_YOU_WEB_OAUTH_CLIENT_ID,
   type DevicePlatform,
 } from "@uichat-mira/cloud-auth-contracts";
 import { verifyAuthorizationCodeSecret } from "./authorization-code.js";
 import { verifyPkceS256 } from "./pkce.js";
 import { TrustedApplicationLoginCatalog } from "../trusted-applications/login-catalog.js";
-import { ServiceRegistryError, ServiceRegistryRepository } from "../service-registry/repository.js";
 
 export interface AuthorizationCodeRecord {
   id: string;
@@ -100,8 +99,10 @@ type AuthorizationCodeRow = {
 
 export class OAuthRepository {
   private readonly loginCatalog: TrustedApplicationLoginCatalog;
+  readonly applicationOAuth: ApplicationOAuthRepository;
   constructor(private readonly db: DatabaseSync) {
     this.loginCatalog = new TrustedApplicationLoginCatalog(db);
+    this.applicationOAuth = new ApplicationOAuthRepository(db);
   }
 
   resolveRegisteredClient(clientId: string, redirectUri: string) {
@@ -273,7 +274,7 @@ export class OAuthRepository {
             record.accountId,
             input.installationId,
             input.platform,
-            input.clientId === WHO_YOU_WEB_OAUTH_CLIENT_ID ? "Who You Web" : snapshot.client.displayName ?? null,
+            snapshot.client.displayName ?? null,
             input.now,
             input.now,
           );
@@ -300,9 +301,6 @@ export class OAuthRepository {
         .prepare("UPDATE accounts SET last_login_at = ?, updated_at = ? WHERE id = ?")
         .run(input.now, input.now, record.accountId);
 
-      new ServiceRegistryRepository(this.db).grantLoginServicesWithinTransaction(
-        record.accountId, snapshot.services, record.createdAt,
-      );
       this.db.exec("COMMIT;");
       return {
         ok: true,
@@ -317,7 +315,6 @@ export class OAuthRepository {
       };
     } catch (error) {
       this.db.exec("ROLLBACK;");
-      if (error instanceof ServiceRegistryError) return { ok: false, reason: "invalid_grant" };
       throw error;
     }
   }

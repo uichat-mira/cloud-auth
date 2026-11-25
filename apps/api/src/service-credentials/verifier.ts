@@ -1,10 +1,16 @@
 import { KeyObject, createPublicKey, verify } from "node:crypto";
 import {
   CLOUD_RELAY_TRANSPORT_AUDIENCE,
+  applicationIdSchema,
+  applicationServiceClaimsSchema,
+  applicationServiceResourceSchema,
   relayTicketContextSchema,
   serviceCredentialAudienceSchema,
   serviceCredentialClaimsSchema,
   serviceCredentialJwtHeaderSchema,
+  serviceIdSchema,
+  type ApplicationServiceClaims,
+  type ApplicationServiceResource,
   type RelayConnectionRole,
   type ServiceCredentialAudience,
   type ServiceCredentialClaims,
@@ -24,6 +30,17 @@ export interface ExpectedRelayContext {
   role: RelayConnectionRole;
 }
 
+/**
+ * Exact instance-scoped service identity the verifier accepts. The resource is
+ * both the credential audience and the expected protected resource; appId and
+ * serviceId are matched against the signed claims.
+ */
+export interface ExpectedApplicationServiceContext {
+  appId: string;
+  serviceId: string;
+  resource: ApplicationServiceResource;
+}
+
 export interface ServiceCredentialVerifierConfig {
   /** Explicitly trusted issuer value. Never taken from the token. */
   issuer: string;
@@ -40,8 +57,28 @@ export interface ServiceCredentialVerifierConfig {
   expectedRelay?: ExpectedRelayContext;
 }
 
+/**
+ * Application service credentials have their own verification entry point so a
+ * canonical/registered-service verifier can never silently accept an
+ * instance-scoped credential merely because its audience is an HTTPS URL.
+ */
+export interface ApplicationServiceVerifierConfig {
+  issuer: string;
+  expectedApplication: ExpectedApplicationServiceContext;
+  publicKeys: ReadonlyMap<string, Ed25519PublicKeyInput>;
+  maxTtlSeconds?: number;
+  clockSkewSeconds?: number;
+  now?: () => Date;
+}
+
 export interface VerifiedServiceCredential {
   claims: ServiceCredentialClaims;
+  keyId: string;
+  expiresAt: Date;
+}
+
+export interface VerifiedApplicationServiceCredential {
+  claims: ApplicationServiceClaims;
   keyId: string;
   expiresAt: Date;
 }
@@ -66,12 +103,17 @@ function resolvePublicKey(input: Ed25519PublicKeyInput): KeyObject {
   return key;
 }
 
-function validateConfig(config: ServiceCredentialVerifierConfig): number {
+interface CoreVerifierConfig {
+  issuer: string;
+  publicKeys: ReadonlyMap<string, Ed25519PublicKeyInput>;
+  maxTtlSeconds?: number;
+  clockSkewSeconds?: number;
+  now?: () => Date;
+}
+
+function validateCoreConfig(config: CoreVerifierConfig): void {
   if (typeof config.issuer !== "string" || config.issuer.length === 0) {
     fail("INVALID_VERIFIER_CONFIG", "Verifier issuer must be configured explicitly");
-  }
-  if (!serviceCredentialAudienceSchema.safeParse(config.audience).success) {
-    fail("INVALID_VERIFIER_CONFIG", "Verifier audience is not supported");
   }
   if (config.publicKeys.size === 0) {
     fail("INVALID_VERIFIER_CONFIG", "Verifier must be configured with at least one trusted key");
@@ -96,7 +138,13 @@ function validateConfig(config: ServiceCredentialVerifierConfig): number {
       `clockSkewSeconds must be an integer between 0 and ${MAX_CLOCK_SKEW_SECONDS}`,
     );
   }
+}
 
+function validateConfig(config: ServiceCredentialVerifierConfig): void {
+  validateCoreConfig(config);
+  if (!serviceCredentialAudienceSchema.safeParse(config.audience).success) {
+    fail("INVALID_VERIFIER_CONFIG", "Verifier audience is not supported");
+  }
   if (config.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE && config.expectedRelay === undefined) {
     fail("INVALID_VERIFIER_CONFIG", "Relay verifier must specify the expected room and role");
   }
@@ -108,8 +156,17 @@ function validateConfig(config: ServiceCredentialVerifierConfig): number {
       fail("INVALID_VERIFIER_CONFIG", "Expected Relay context is malformed");
     }
   }
+}
 
-  return maxTtl;
+function validateApplicationConfig(config: ApplicationServiceVerifierConfig): void {
+  validateCoreConfig(config);
+  if (
+    !applicationIdSchema.safeParse(config.expectedApplication.appId).success ||
+    !serviceIdSchema.safeParse(config.expectedApplication.serviceId).success ||
+    !applicationServiceResourceSchema.safeParse(config.expectedApplication.resource).success
+  ) {
+    fail("INVALID_VERIFIER_CONFIG", "Expected application service identity is malformed");
+  }
 }
 
 function parseHeader(parsed: ParsedCompactJwt): ServiceCredentialJwtHeader {
@@ -126,25 +183,48 @@ function parseHeader(parsed: ParsedCompactJwt): ServiceCredentialJwtHeader {
   return result.data;
 }
 
-function parseClaims(parsed: ParsedCompactJwt): ServiceCredentialClaims {
-  let raw: unknown;
+function decodeClaims(parsed: ParsedCompactJwt): unknown {
   try {
-    raw = decodeJsonSegment(parsed.payloadSegment);
+    return decodeJsonSegment(parsed.payloadSegment);
   } catch {
     fail("INVALID_CLAIMS", "JWT payload is not valid JSON");
   }
-  const result = serviceCredentialClaimsSchema.safeParse(raw);
+}
+
+function parseClaims(parsed: ParsedCompactJwt): ServiceCredentialClaims {
+  const result = serviceCredentialClaimsSchema.safeParse(decodeClaims(parsed));
   if (!result.success) {
     fail("INVALID_CLAIMS", "JWT payload does not satisfy the canonical claims contract");
   }
   return result.data;
 }
 
-export function verifyServiceCredential(
+function parseApplicationClaims(parsed: ParsedCompactJwt): ApplicationServiceClaims {
+  const result = applicationServiceClaimsSchema.safeParse(decodeClaims(parsed));
+  if (!result.success) {
+    fail(
+      "INVALID_CLAIMS",
+      "JWT payload does not satisfy the application service claims contract",
+    );
+  }
+  return result.data;
+}
+
+interface CoreClaims {
+  iss: string;
+  aud: string;
+  iat: number;
+  nbf: number;
+  exp: number;
+}
+
+function verifyCore<C extends CoreClaims>(
   token: string,
-  config: ServiceCredentialVerifierConfig,
-): VerifiedServiceCredential {
-  const maxTtlSeconds = validateConfig(config);
+  config: CoreVerifierConfig,
+  expectedAudience: string,
+  parse: (parsed: ParsedCompactJwt) => C,
+): { claims: C; keyId: string; expiresAt: Date } {
+  validateCoreConfig(config);
 
   let parsed: ParsedCompactJwt;
   try {
@@ -170,12 +250,12 @@ export function verifyServiceCredential(
     fail("INVALID_SIGNATURE", "Service credential signature is invalid");
   }
 
-  const claims = parseClaims(parsed);
+  const claims = parse(parsed);
 
   if (claims.iss !== config.issuer) {
     fail("ISSUER_MISMATCH", "Service credential issuer is not trusted");
   }
-  if (claims.aud !== config.audience) {
+  if (claims.aud !== expectedAudience) {
     fail("AUDIENCE_MISMATCH", "Service credential audience is not accepted by this verifier");
   }
 
@@ -194,19 +274,9 @@ export function verifyServiceCredential(
   if (claims.exp <= nowSeconds - clockSkew) {
     fail("EXPIRED", "Service credential has expired");
   }
-  if (claims.exp - claims.iat > maxTtlSeconds) {
+  const maxTtl = config.maxTtlSeconds ?? MAX_SERVICE_CREDENTIAL_TTL_SECONDS;
+  if (claims.exp - claims.iat > maxTtl) {
     fail("TTL_EXCEEDED", "Service credential lifetime exceeds the verifier limit");
-  }
-
-  if (claims.aud === CLOUD_RELAY_TRANSPORT_AUDIENCE) {
-    if (config.expectedRelay !== undefined) {
-      if (
-        claims.relay.room !== config.expectedRelay.room ||
-        claims.relay.role !== config.expectedRelay.role
-      ) {
-        fail("RELAY_CONTEXT_MISMATCH", "Relay ticket does not match the requested connection");
-      }
-    }
   }
 
   return {
@@ -214,4 +284,45 @@ export function verifyServiceCredential(
     keyId: header.kid,
     expiresAt: new Date(claims.exp * 1000),
   };
+}
+
+export function verifyServiceCredential(
+  token: string,
+  config: ServiceCredentialVerifierConfig,
+): VerifiedServiceCredential {
+  validateConfig(config);
+  const verified = verifyCore(token, config, config.audience, parseClaims);
+
+  if (verified.claims.aud === CLOUD_RELAY_TRANSPORT_AUDIENCE) {
+    if (config.expectedRelay !== undefined) {
+      if (
+        verified.claims.relay.room !== config.expectedRelay.room ||
+        verified.claims.relay.role !== config.expectedRelay.role
+      ) {
+        fail("RELAY_CONTEXT_MISMATCH", "Relay ticket does not match the requested connection");
+      }
+    }
+  }
+
+  return verified;
+}
+
+export function verifyApplicationServiceCredential(
+  token: string,
+  config: ApplicationServiceVerifierConfig,
+): VerifiedApplicationServiceCredential {
+  validateApplicationConfig(config);
+  const expected = config.expectedApplication;
+  const verified = verifyCore(token, config, expected.resource, parseApplicationClaims);
+  if (
+    verified.claims.app_id !== expected.appId ||
+    verified.claims.service_id !== expected.serviceId ||
+    verified.claims.resource !== expected.resource
+  ) {
+    fail(
+      "APPLICATION_MISMATCH",
+      "Service credential does not belong to the expected application service",
+    );
+  }
+  return verified;
 }
