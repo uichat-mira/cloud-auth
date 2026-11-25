@@ -53,9 +53,9 @@ async function resolvePublicTarget(hostname: string) {
     if (!isPublicNetworkAddress(hostname)) throw new ApplicationTransportError("UNSAFE_TARGET");
     return { address: hostname, family: isIP(hostname) as 4 | 6 };
   }
-  let records: Awaited<ReturnType<typeof lookup>>;
+  let records: Array<{ address: string; family: 4 | 6 }>;
   try {
-    records = await lookup(hostname, { all: true, verbatim: true });
+    records = await lookup(hostname, { all: true, verbatim: true }) as Array<{ address: string; family: 4 | 6 }>;
   } catch {
     throw new ApplicationTransportError("NETWORK_ERROR");
   }
