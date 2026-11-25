@@ -1,4 +1,5 @@
 import {
+  findFirstPartyOAuthClient,
   MIRA_DESKTOP_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
   OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
@@ -8,7 +9,6 @@ import {
   oauthStateSchema,
   oauthTokenRequestSchema,
   type OAuthAuthorizationRequest,
-  type FirstPartyOAuthClient,
   type OAuthAuthorizationCallbackError,
   type OAuthApiErrorCode,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -18,6 +18,7 @@ import { AuthError } from "../auth/auth-service.js";
 import { OAuthError } from "./errors.js";
 import { authorizationStyles } from "./authorization-styles.js";
 import type { OAuthService } from "./oauth-service.js";
+import type { LoginClient } from "../trusted-applications/login-catalog.js";
 
 const AUTHORIZATION_QUERY_KEYS = [
   "response_type",
@@ -122,14 +123,14 @@ const TOKEN_FORM_FIELDS = new Set<string>([
 ]);
 
 /** Consent copy is keyed by exact client ID so a new client cannot inherit another name. */
-const OAUTH_CLIENT_LABELS: Record<FirstPartyOAuthClient["clientId"], string> = {
+const OAUTH_CLIENT_LABELS: Record<string, string> = {
   [MIRA_DESKTOP_OAUTH_CLIENT_ID]: "Mira Desktop",
   [MIRA_MOBILE_OAUTH_CLIENT_ID]: "Mira Mobile",
   [WHO_YOU_WEB_OAUTH_CLIENT_ID]: "狐邮 Who You",
 };
 
-function oauthClientLabel(client: FirstPartyOAuthClient): string {
-  return OAUTH_CLIENT_LABELS[client.clientId];
+function oauthClientLabel(client: LoginClient): string {
+  return client.displayName ?? OAUTH_CLIENT_LABELS[client.clientId] ?? client.clientId;
 }
 
 function escapeHtml(value: string): string {
@@ -166,7 +167,7 @@ function validCsrf(request: FastifyRequest, posted: string | undefined): boolean
 function renderLoginForm(
   reply: FastifyReply,
   request: FastifyRequest,
-  client: FirstPartyOAuthClient,
+  client: LoginClient,
   parameters: OAuthAuthorizationRequest,
   status = 200,
   error?: string,
@@ -176,7 +177,7 @@ function renderLoginForm(
     '<input type="hidden" name="' + key + '" value="' +
     escapeHtml(parameters[key]) + '">'
   ).join("\n");
-  const clientLabel = oauthClientLabel(client);
+  const clientLabel = escapeHtml(oauthClientLabel(client));
   const page = [
     "<!doctype html>",
     '<html lang="zh-CN"><head><meta charset="utf-8">',
@@ -406,6 +407,10 @@ export function registerOAuthRoutes(app: FastifyInstance, oauthService: OAuthSer
       return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Invalid token request");
     }
 
+    if (!findFirstPartyOAuthClient(parsed.data.client_id) &&
+        !oauthService.resolveRegisteredClient(parsed.data.client_id, parsed.data.redirect_uri)) {
+      return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Invalid token request");
+    }
     try {
       return noStore(reply).code(200).send(
         oauthService.exchangeAuthorizationCode(parsed.data),
