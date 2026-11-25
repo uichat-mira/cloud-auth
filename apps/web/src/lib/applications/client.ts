@@ -36,19 +36,31 @@ export function createApplicationClient() {
   const route = "/v1/account/applications";
   return {
     list: (token: string) =>
-      transport.json(route, { method: "GET", headers: bearerHeaders(token), cache: "no-store" }, applicationInstanceCatalogSchema),
+      transport.json(
+        route,
+        { method: "GET", headers: bearerHeaders(token), cache: "no-store" },
+        applicationInstanceCatalogSchema,
+      ),
     register: (token: string, body: ApplicationRegistrationRequest) =>
-      transport.json(route, {
-        method: "POST",
-        headers: { ...bearerHeaders(token), "content-type": "application/json" },
-        body: JSON.stringify(body),
-        cache: "no-store",
-      }, applicationRegistrationResponseSchema),
+      transport.json(
+        route,
+        {
+          method: "POST",
+          headers: { ...bearerHeaders(token), "content-type": "application/json" },
+          body: JSON.stringify(body),
+          cache: "no-store",
+        },
+        applicationRegistrationResponseSchema,
+      ),
     remove: (token: string, appId: string) =>
-      transport.json(route + "/" + encodeURIComponent(appId), {
-        method: "DELETE",
-        headers: bearerHeaders(token),
-        cache: "no-store",
-      }, applicationOwnershipRemovalResponseSchema),
+      transport.json(
+        route + "/" + encodeURIComponent(appId),
+        {
+          method: "DELETE",
+          headers: bearerHeaders(token),
+          cache: "no-store",
+        },
+        applicationOwnershipRemovalResponseSchema,
+      ),
   };
 }
