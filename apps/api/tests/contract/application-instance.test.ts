@@ -12,6 +12,7 @@ const service = {
   protocol: { name: "mcp", version: "2026-07-28", endpoint: origin + "/mcp" },
   resource: origin + "/mcp",
   scopes: ["mail.read"],
+  capabilities: [{ id: "mail.read", title: "Mail", toolRefs: ["mail.search"] }],
   toolGovernance: [
     {
       toolRef: "mail.search",
@@ -59,8 +60,17 @@ describe("application instance V1 contract", () => {
     ).toBe(false);
   });
 
+  it("rejects malformed and non-HTTPS origins without throwing", () => {
+    for (const value of ["not-a-url", "http://app.example", "https://app.example/path", "https://app.example#fragment"]) {
+      expect(applicationRegistrationRequestSchema.safeParse({
+        origin: value, appId: manifest.appId, appSecret: "fixture-secret-0123456789",
+      }).success).toBe(false);
+    }
+  });
+
   it("preserves unknown risk hints and rejects duplicate service identity", () => {
     const parsed = applicationManifestSchema.parse(manifest);
+    expect(parsed.services[0]?.capabilities?.[0]?.id).toBe("mail.read");
     expect(parsed.services[0]?.toolGovernance?.[0]?.riskHints).toEqual([
       "sensitive-data-read",
       "future-risk-dimension",
