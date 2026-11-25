@@ -14,6 +14,12 @@ import { registerServiceCredentialRoutes } from "./service-credentials/routes.js
 import type { ServiceCredentialService } from "./service-credentials/service.js";
 import { ServiceRegistryRepository } from "./service-registry/repository.js";
 import { registerServiceRegistryRoutes } from "./service-registry/routes.js";
+import { ApplicationInstanceService } from "./application-instances/service.js";
+import { registerApplicationInstanceRoutes } from "./application-instances/routes.js";
+import {
+  HttpsApplicationRegistrationTransport,
+  type ApplicationRegistrationTransport,
+} from "./application-instances/transport.js";
 
 import { TrustedApplicationManagement } from "./trusted-applications/management.js";
 import { registerTrustedApplicationRoutes } from "./trusted-applications/routes.js";
@@ -26,6 +32,7 @@ export interface BuildAppOptions {
   hostGrantService?: HostGrantService;
   oauthService?: OAuthService;
   serviceCredentialService?: ServiceCredentialService;
+  applicationRegistrationTransport?: ApplicationRegistrationTransport;
   logger?: boolean | object;
   trustProxy?: boolean;
 }
@@ -54,6 +61,14 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   if (options.authService) {
     registerAuthRoutes(app, options.authService);
     registerServiceRegistryRoutes(app, options.authService, new ServiceRegistryRepository(options.db), options.serviceCredentialService);
+    registerApplicationInstanceRoutes(
+      app,
+      options.authService,
+      new ApplicationInstanceService(
+        options.db,
+        options.applicationRegistrationTransport ?? new HttpsApplicationRegistrationTransport(),
+      ),
+    );
   }
   if (options.deviceService) registerDeviceRoutes(app, options.deviceService);
   if (options.hostService) registerHostRoutes(app, options.hostService);
