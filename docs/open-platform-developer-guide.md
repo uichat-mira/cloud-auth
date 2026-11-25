@@ -1,6 +1,6 @@
 # Mira ID 开放平台开发指南（V1 预览）
 
-> 本指南描述目标接入体验，供狐邮、观澜、拾言及独立应用开发者讨论和准备。尚未发布 V1 SDK/API，不能按示例请求生产服务。规范唯一来源：[应用接入协议 V1](open-platform-protocol-v1.md)。现有第一方项目仍按 [V0 合同](service-registry-v0.md) 接入。
+> 本指南描述目标接入体验，供狐邮、观澜、拾言及独立应用开发者讨论和准备。尚未发布 V1 SDK/API，不能按示例请求生产服务。规范唯一来源：[应用接入协议 V1](open-platform-protocol-v1.md)。切换前的实际运行事实仍由 [V0 合同](service-registry-v0.md) 描述；V1 实施是 breaking cutover，不承诺 V0 双栈或 fallback。
 
 ## 你可以做什么
 
@@ -30,7 +30,7 @@ CF Workers 只是一个部署选项，普通自建服务器同样适用。每个
 
 - 实例 APP_ID、项目标识、应用名称、描述、首页与图标；
 - OAuth 客户端元数据及真实回调地址，候选采用独立的 HTTPS Client ID Metadata Document；
-- 所有权验证端点，能证明对当前部署实例管理凭据的控制；
+- 登记验证端点：Mira ID 服务端通过 HTTPS 提交 APP_ID + AppSecret，实例验证成功/失败；不要求 challenge、公私钥证明或额外人工字段；
 - 一个或多个服务描述：类型、协议版本、实际连接地址、资源标识、授权范围、适用终端；可提供能力分组、标准 MCP tool name 引用、0–1 的 `selectionWeightHint`，以及多维 `riskHints` / `confirmationHint` 等外层治理提示。工具引用与治理字段的冻结语义见协议 §5.2。
 
 公开声明中没有 AppSecret。实例管理凭据、OAuth 客户端认证与用户/终端访问凭据必须分开。不要提交一份由人手工维护的工具 Schema 副本来替代 MCP 的实际发现能力。Mira 外层只保存 tool name 引用；规范工具身份由 `(APP_ID, serviceId, MCP tool name)` 确定，真实 Schema 与 ToolAnnotations 始终来自标准 `tools/list`。
@@ -49,13 +49,13 @@ AppSecret [从自己的部署实例获得]
 验证 → 预览应用与服务 → 登记
 ```
 
-Mira ID 根据 [协议的所有权验证](open-platform-protocol-v1.md#32-所有权验证) 检查实例身份、地址、凭据及声明。登记通过后，在「我的应用」看到实例和服务信息。不能仅凭名称或公开 APP_ID 认领别人的实例；错误凭据、身份冲突、地址不一致须显式提示。
+这三个输入各有独立职责：**应用地址/Origin 用来定位实例，APP_ID 是稳定实例身份，AppSecret 用来证明当前登记者掌握实例管理凭据；三者缺一不可。** Mira ID 根据 [协议的登记验证](open-platform-protocol-v1.md#32-登记验证) 校验三者属于同一实例，然后自动读取名称、图标、OAuth callback、service、scope、resource、MCP endpoint 等元信息。登记通过后，在「我的应用」看到实例和服务信息。不能仅凭名称或公开 APP_ID 认领别人的实例；错误凭据、身份冲突、地址不一致须显式提示。
 
-正常登记不需要额外开发者账号、管理员资格审批，也不需要开发者到 Mira ID 服务器运行 CLI。敏感信息只通过必要的验证通道传递，不能放在 URL、声明、日志或客户端持久存储中。
+正常登记不需要额外开发者账号、管理员资格审批，也不需要开发者到 Mira ID 服务器运行 CLI；callback、serviceId、scope、resource 和 MCP endpoint 也不需要人工录入。敏感信息只通过必要的验证通道传递，不能放在 URL、声明、日志或客户端持久存储中。
 
 ## 4. 接入通过 Mira ID 登录
 
-应用网站提供「通过 Mira ID 登录」入口。候选接入采用 OAuth 授权码 + PKCE S256，应用负责生成 state/verifier，完成真实回调、校验 state/issuer 并在服务端兑换凭据。具体 OAuth endpoint 与登录凭据格式以最终协议和 SDK 为准。
+应用网站提供「通过 Mira ID 登录」入口。候选接入采用 OAuth 授权码 + PKCE S256，应用负责生成 state/verifier，完成真实回调、校验 state/issuer 并在服务端兑换凭据。登记阶段的 AppSecret 是部署管理凭据，**不默认作为 OAuth client_secret**；OAuth client authentication 与登录凭据格式以最终 V1 合同和 SDK 为准。
 
 - 用户在 Mira ID 的认证页面确认登录目标；应用不收集 Mira ID 用户密码。
 - 成功主动登录该实例后建立账号使用授权；应用按自身业务策略决定用户可使用的数据及操作。
@@ -75,7 +75,7 @@ Mira ID 根据 [协议的所有权验证](open-platform-protocol-v1.md#32-所有
 
 1. 以 [MCP 最新稳定官方规范](https://modelcontextprotocol.io/specification/latest) 实现标准 endpoint（截至 2026-11-25 为 2026-07-28）。不裁剪协议、不使用 Mira 私有 MCP 消息；满足适用必选要求，按实际支持情况协商官方可选能力。
 2. 在外层应用声明中提供 type、protocol、resource、scope 等。受保护 HTTP 服务按标准 RFC 9728 resource metadata 与 MCP Authorization 进行认证发现和资源绑定；Mira ID 接入必须兼容标准流程，具体 token 合同以最终协议为准。
-3. 2026-07-28 逐请求提供版本与能力元数据，服务端实现 server/discover；通过 tools/list 与 tools/call 发现和执行工具，遵守官方分页、缓存和变化通知规则。resources、prompts、官方扩展同样使用官方协议。2025-11-25 的 initialize 握手不是新版本前置条件。
+3. 2026-07-28 逐请求提供版本与能力元数据，服务端实现 server/discover；通过 tools/list 与 tools/call 发现和执行工具，遵守官方分页、缓存和变化通知规则。resources、prompts、官方扩展同样使用官方协议。当前 V1 实施直接切到 2026-07-28，不保留旧 initialize/initialized、多版本协商或失败后降级。
 4. 可在 Mira 外层声明表达适用终端、能力分组、标准 toolRef、`selectionWeightHint` 与多维 `riskHints`；不把它们作为 MCP 私有必选字段或私有协商。toolRef 只引用 `tools/list` 的真实 tool name，不复制 Schema。标准 ToolAnnotations 原样遵守。Mira 不定义 R0–R4 等单轴风险等级；riskHints 只能增加风险上下文，缺失某项不代表该风险不存在，`confirmationHint: recommended` 也只是建议。完整规则见 [协议 §5.2](open-platform-protocol-v1.md#52-mira-外层服务声明与治理信息)。
 5. 服务端继续检查业务对象归属和操作授权。标准 MCP Client 在合法授权下可直接使用服务，不需理解 Mira 外层声明；Mira 终端可利用治理信息，但登记或 token 不等于任意操作获准。
 其他类型尚未定义；不要为了通过登记而将非 MCP 服务伪装成 MCP，也不需要提前实现一个泛化工具框架。新类型出现时定义自己的 profile，复用已有应用身份、授权和服务目录。
@@ -96,12 +96,12 @@ Mira ID 根据 [协议的所有权验证](open-platform-protocol-v1.md#32-所有
 开发测试使用独立的测试账号和实例，不用生产数据。
 
 - [ ] 两个部署使用同一项目，但拥有不同 APP_ID、AppSecret、回调与服务资源。
-- [ ] 发现文档与凭据验证一致，不公开秘密，不接受任意回调或未验证来源。
+- [ ] HTTPS Origin、APP_ID、AppSecret 三者验证一致：Origin 可定位实例、发现文档 APP_ID 匹配、Secret 验证成功；callback/service/resource 从元信息读取，不公开秘密，不接受任意回调或未验证来源。
 - [ ] 自己的 Mira ID 可登记实例；另一账号无法未经授权取得管理权。
 - [ ] 另一账号成功 OAuth 登录后能够使用获准服务，不获得所有权。
 - [ ] 同账号 Mobile 与 Desktop 可以发现同一获准服务，各自使用对应的短期凭据。
 - [ ] 两个实例不能相互接受错误受众/资源的访问凭据，业务数据仍相互隔离。
-- [ ] 独立标准 MCP Client 在合法授权下可直连服务；Mira Client 按最新官方协议发现和调用实际工具，不要求 Mira 私有字段或握手。
+- [ ] 独立标准 MCP Client 在合法授权下可直连服务；Mira Client 按 2026-07-28 发现和调用实际工具，不要求 Mira 私有字段；只实现旧 initialize/initialized 的服务不会被生产客户端静默兼容。
 - [ ] 外层治理信息不改变标准 MCP 行为：toolRef 能与实际 `tools/list` 精确核对；未分组真实工具不被吞掉；unresolved 引用不伪造工具；缺失 riskHint、建议权重或 confirmationHint 都不能降低本地治理；未知服务类型不被当成 MCP。
 - [ ] 失效、撤权、重放与错误回调得到正确处理，升级不静默扩大授权。
 
