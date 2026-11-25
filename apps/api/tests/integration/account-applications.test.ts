@@ -1,0 +1,111 @@
+import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { createTestOAuthContext, createFirstPartySession } from "../helpers/oauth.js";
+import { createTestServiceCredentialKeyMaterial } from "../helpers/service-credential.js";
+import { TrustedApplicationManagement } from "../../src/trusted-applications/management.js";
+
+const password="correct horse battery staple";
+const callback="https://who-you.tomz.io/auth/callback";
+const metadata={projectId:"who-you",displayName:"Who You",redirectUri:callback,endpointOrigins:["https://who-you.tomz.io"]};
+const grant={endpointOrigins:metadata.endpointOrigins,reservedProjects:["who-you"]};
+const declaration={serviceId:"who-you",projectId:"who-you",displayName:"Who You",protocol:{name:"mcp",version:"2025-11-25",endpoint:"https://who-you.tomz.io/mcp"},audience:"mira:who-you",scopes:["whoyou.read"]};
+let dir:string|undefined;
+let ctx:ReturnType<typeof createTestOAuthContext>|undefined;
+afterEach(async()=>{if(ctx){await ctx.app.close();ctx.db.close();ctx=undefined;}if(dir){rmSync(dir,{recursive:true,force:true});dir=undefined;}});
+async function setup(){
+  dir=mkdtempSync(join(tmpdir(),"account-applications-"));
+  const context=createTestOAuthContext(join(dir,"auth.sqlite"),{serviceCredentialKeyMaterial:createTestServiceCredentialKeyMaterial()});ctx=context;
+  const owner=await context.service.provisionAccount("publisher",password);
+  const other=await context.service.provisionAccount("other",password);
+  const user=await context.service.provisionAccount("reader",password);
+  const management=new TrustedApplicationManagement(context.db);
+  management.approveDeveloper(owner.id,grant);
+  management.approveDeveloper(other.id,{endpointOrigins:["https://other.example"],reservedProjects:[]});
+  const ownerSession=await context.service.login("publisher",password,"127.0.0.1");
+  const otherSession=await context.service.login("other",password,"127.0.0.2");
+  const reader=await createFirstPartySession(context,{username:"reader",password,platform:"mobile"});
+  const call=(token:string,url:string,payload?:object,method?:"PUT"|"POST")=>context.app.inject({
+    method:method??(payload===undefined?"GET":"POST"),url,headers:{authorization:"Bearer "+token},...(payload===undefined?{}:{payload}),
+  });
+  const route="/v1/account/applications";
+  const create=(token=ownerSession.sessionToken,input:object=metadata)=>call(token,route,{...input,currentPassword:password});
+  const action=(token:string,id:string,operation:string)=>call(token,route+"/"+id+"/"+operation,{currentPassword:password});
+  return {context,owner,other,user,management,ownerSession,otherSession,reader,call,route,create,action};
+}
+describe("account-owned application management",()=>{
+  it("issues once, checks owner and developer eligibility, preserves app management and real OAuth grant semantics",async()=>{
+    const {context,owner,management,ownerSession,otherSession,reader,call,route,create,action}=await setup();
+    const ownerToken=ownerSession.sessionToken;
+    const otherToken=otherSession.sessionToken;
+    expect((await call(reader.sessionToken,route)).json()).toEqual({applications:[],developer:null});
+    expect((await create(reader.sessionToken)).statusCode).toBe(403);
+    expect((await create(otherToken)).statusCode).toBe(403);
+    expect((await create(ownerToken,{...metadata,endpointOrigins:["https://unapproved.example"]})).statusCode).toBe(403);
+    expect((await call(ownerToken,route,{...metadata,currentPassword:"wrong password"})).statusCode).toBe(403);
+    expect((await create(ownerToken,{...metadata,ownerAccountId:"another"})).statusCode).toBe(400);
+    const created=await create();
+    expect(created.statusCode).toBe(200);
+    expect(created.headers["cache-control"]).toBe("no-store");
+    const {clientId,managementToken}=created.json();
+    expect(clientId).toBe("who-you-web");
+    expect(managementToken).toMatch(/^mca_admin_v1\.who-you-web\./);
+    expect((await create()).statusCode).toBe(409);
+    const row=context.db.prepare("SELECT owner_account_id, management_key_hash FROM oauth_cloud_applications WHERE client_id=?").get(clientId);
+    expect(row).toMatchObject({owner_account_id:owner.id,management_key_hash:expect.stringMatching(/^[a-f0-9]{64}$/)});
+    expect(JSON.stringify(row)).not.toContain(managementToken);
+    expect((await call(ownerToken,route)).body).not.toContain(managementToken);
+    expect((await call(otherToken,route)).json().applications).toEqual([]);
+    expect((await action(otherToken,clientId,"rotate")).statusCode).toBe(404);
+    expect((await call(managementToken,route)).statusCode).toBe(401);
+    expect((await call(ownerToken,"/v1/application/services")).statusCode).toBe(401);
+    expect((await call(managementToken,"/v1/application/services/who-you",{definition:declaration,expectedRevision:0},"PUT")).statusCode).toBe(200);
+    expect((await call(ownerToken,route)).json().applications[0].services[0].definition).toEqual(declaration);
+    expect((await call(reader.sessionToken,"/v1/services")).json().services).toEqual([]);
+    const parameters=new URLSearchParams({response_type:"code",client_id:clientId,redirect_uri:callback,state:"fixture-state-0123456789",code_challenge:"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",code_challenge_method:"S256"});
+    const page=await context.app.inject({method:"GET",url:"/v1/oauth/authorize?"+parameters.toString()});
+    expect(page.statusCode).toBe(200);
+    const cookie=String(page.headers["set-cookie"]).split(";")[0]!;
+    parameters.set("csrf_token",cookie.split("=")[1]!);parameters.set("username","reader");parameters.set("password",password);
+    const authorized=await context.app.inject({method:"POST",url:"/v1/oauth/authorize",headers:{cookie,"content-type":"application/x-www-form-urlencoded"},payload:parameters.toString()});
+    expect(authorized.statusCode).toBe(303);
+    const code=new URL(String(authorized.headers.location)).searchParams.get("code");
+    const exchange=await context.app.inject({method:"POST",url:"/v1/oauth/token",payload:{grant_type:"authorization_code",client_id:clientId,code,redirect_uri:callback,code_verifier:"dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",installation_id:randomUUID(),platform:"web"}});
+    expect(exchange.statusCode).toBe(200);
+    expect((await call(reader.sessionToken,"/v1/services")).json().services[0].definition).toEqual(declaration);
+    expect((await call(reader.sessionToken,"/v1/services/who-you/credential",{expectedRevision:1})).statusCode).toBe(200);
+    expect((await call(ownerToken,"/v1/services")).json().services).toEqual([]);
+    const rotated=await action(ownerToken,clientId,"rotate");
+    expect(rotated.statusCode).toBe(200);
+    const next=rotated.json().managementToken;
+    expect(next).not.toBe(managementToken);
+    expect((await call(managementToken,"/v1/application/services")).statusCode).toBe(401);
+    expect((await call(next,"/v1/application/services")).statusCode).toBe(200);
+    expect((await action(ownerToken,clientId,"disable")).statusCode).toBe(200);
+    expect((await call(next,"/v1/application/services")).statusCode).toBe(401);
+    expect((await call(reader.sessionToken,"/v1/services")).json().services).toEqual([]);
+    expect((await action(ownerToken,clientId,"enable")).statusCode).toBe(200);
+    expect((await call(reader.sessionToken,"/v1/services")).json().services).toEqual([]);
+    expect(()=>management.approveDeveloper(owner.id,{endpointOrigins:["https://different.example"],reservedProjects:[]})).toThrow();
+  });
+  it("generates independent AppIDs on approved origins, permits multiple protocols, and claims legacy without key rotation",async()=>{
+    const {management,owner,other,ownerSession,call,route,create}=await setup();
+    const token=ownerSession.sessionToken;
+    const generic={projectId:"fixture",displayName:"Fixture",redirectUri:"https://who-you.tomz.io/fixture/callback",endpointOrigins:metadata.endpointOrigins};
+    const first=await create(token,generic);expect(first.statusCode).toBe(200);
+    const {clientId,managementToken}=first.json();expect(clientId).toMatch(/^app-[a-f0-9]{32}$/);
+    const second=await create(token,{...generic,projectId:"second",redirectUri:"https://who-you.tomz.io/second/callback"});
+    expect(second.statusCode).toBe(200);expect(second.json().clientId).not.toBe(clientId);
+    for(const name of ["mcp","http"]){
+      const definition={serviceId:"fixture-"+name,projectId:"fixture",displayName:name,protocol:{name,version:"1",endpoint:"https://who-you.tomz.io/"+name},audience:"mira:service:fixture-"+name,scopes:["service:fixture-"+name+":read"]};
+      expect((await call(managementToken,"/v1/application/services/"+definition.serviceId,{definition,expectedRevision:0},"PUT")).statusCode).toBe(200);
+    }
+    const legacy=management.enroll("old-web",{...generic,projectId:"old",redirectUri:"https://who-you.tomz.io/old/callback"});
+    expect(()=>management.claimLegacyApplication(other.id,legacy.clientId)).toThrow();
+    expect(management.claimLegacyApplication(owner.id,legacy.clientId)).toEqual({clientId:legacy.clientId,claimed:true});
+    expect((await call(legacy.managementToken,"/v1/application/services")).statusCode).toBe(200);
+    expect((await call(token,route)).json().applications.map((app:{clientId:string})=>app.clientId)).toContain(legacy.clientId);
+  });
+});

@@ -43,6 +43,12 @@ const routeCases = [
     screenshot: "services",
     authenticated: true,
   },
+  {
+    path: "/account/applications",
+    heading: "应用管理",
+    screenshot: "applications",
+    authenticated: true,
+  },
   { path: "/missing", heading: "页面不存在", screenshot: "not-found", authenticated: false },
 ] as const;
 
@@ -67,6 +73,8 @@ function apiBody(pathname: string): { status: number; body: unknown } {
       return { status: 200, body: { hosts: [] } };
     case "/v1/hosts":
       return { status: 200, body: { hosts: [] } };
+    case "/v1/account/applications":
+      return { status: 200, body: { applications: [], developer: null } };
     case "/v1/devices":
       return { status: 200, body: { devices: [] } };
     default:
@@ -178,7 +186,7 @@ for (const viewport of viewports) {
             // The console shell, not the public shell, owns these routes.
             const rail = page.getByRole("navigation", { name: consoleNavName });
             await rail.waitFor();
-            expect(await rail.getByRole("link").count()).toBe(4);
+            expect(await rail.getByRole("link").count()).toBe(5);
             expect(await page.getByRole("navigation", { name: "主导航" }).count()).toBe(0);
           }
 

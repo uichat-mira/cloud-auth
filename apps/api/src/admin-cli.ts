@@ -65,6 +65,14 @@ try {
       service.setDisabled(username, true);
       console.log(JSON.stringify({ username, disabled: true, sessionsRevoked: true }));
       break;
+    case "application-approve-developer": {
+      const input: unknown = JSON.parse(readFileSync(0, "utf8"));
+      console.log(JSON.stringify(new TrustedApplicationManagement(db).approveDeveloper(username, input)));
+      break;
+    }
+    case "application-claim-owner":
+      console.log(JSON.stringify(new TrustedApplicationManagement(db).claimLegacyApplication(username, process.argv[4] ?? "")));
+      break;
     case "application-enroll": {
       const input: unknown = JSON.parse(readFileSync(0, "utf8"));
       console.log(JSON.stringify(new TrustedApplicationManagement(db).enroll(username, input)));
@@ -143,8 +151,9 @@ function readPasswordFromStdin(): string {
 
 function printUsageAndExit(): never {
   console.error(
-    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver|service-register|service-revoke|application-enroll|application-rotate|application-disable|application-enable> [username or accountId]\n" +
+    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver|service-register|service-revoke|application-approve-developer|application-claim-owner|application-enroll|application-rotate|application-disable|application-enable> [username or accountId]\n" +
       "provision/reset-password read the password from stdin.\n" +
+      "application-approve-developer <accountId> reads reviewed endpointOrigins/reservedProjects JSON on stdin; no secret issued. application-claim-owner <accountId> <clientId> binds an existing unowned app.\n" +
       "application-enroll <clientId> reads application metadata JSON on stdin; application-rotate/disable/enable <clientId>. Redirect secret-bearing output to a private file.\n" +
       "service-register <accountId> [expectedRevision] reads a service definition from stdin; service-revoke <accountId> <serviceId> <expectedRevision>.",
   );

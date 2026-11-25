@@ -16,6 +16,7 @@ import { ServiceRegistryRepository } from "./service-registry/repository.js";
 import { registerServiceRegistryRoutes } from "./service-registry/routes.js";
 
 import { TrustedApplicationManagement } from "./trusted-applications/management.js";
+import { registerApplicationOwnerRoutes } from "./trusted-applications/owner-routes.js";
 import { registerTrustedApplicationRoutes } from "./trusted-applications/routes.js";
 
 export interface BuildAppOptions {
@@ -60,7 +61,9 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   if (options.hostGrantService) registerHostGrantRoutes(app, options.hostGrantService);
   if (options.oauthService) {
     registerOAuthRoutes(app, options.oauthService);
-    registerTrustedApplicationRoutes(app, new TrustedApplicationManagement(options.db));
+    const management = new TrustedApplicationManagement(options.db);
+    registerTrustedApplicationRoutes(app, management);
+    if (options.authService) registerApplicationOwnerRoutes(app, options.authService, management);
   }
   if (options.serviceCredentialService) {
     registerServiceCredentialRoutes(app, options.serviceCredentialService);

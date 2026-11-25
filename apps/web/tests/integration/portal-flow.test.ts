@@ -119,7 +119,7 @@ for (const viewport of viewports) {
         // The console shell keeps one rail for all four sections.
         const rail = page.getByRole("navigation", { name: "账户分区" });
         await rail.waitFor();
-        expect(await rail.getByRole("link").count()).toBe(4);
+        expect(await rail.getByRole("link").count()).toBe(5);
 
         await rail.getByRole("link", { name: "设备与授权" }).click();
         await page.getByRole("heading", { level: 1, name: "设备与授权" }).waitFor();

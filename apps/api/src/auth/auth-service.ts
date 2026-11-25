@@ -236,6 +236,22 @@ export class AuthService {
     }
   }
 
+  /** Step-up for account-owned application mutations. No new session is issued.
+   * The caller must revalidate this exact session inside its writer transaction. */
+  async verifyApplicationOwnerPassword(token: string, password: string, ip: string): Promise<void> {
+    const authenticated = this.requireSession(token);
+    const guard = this.beginCredentialAttempt(authenticated.account.usernameNormalized, ip);
+    try {
+      if (!await this.passwordHasher.verify(password, authenticated.account.passwordHash)) {
+        throw new AuthError("AUTH_INVALID_CREDENTIALS", 403, "Current password is incorrect");
+      }
+      this.requireSession(token);
+      this.loginGuard.resetAfterSuccess(authenticated.account.usernameNormalized);
+    } finally {
+      guard.releaseHashSlot();
+    }
+  }
+
   async provisionAccount(username: string, password: string): Promise<AccountRecord> {
     const usernameNormalized = this.normalizeAdminUsername(username);
     if (this.repository.findAccountByUsername(usernameNormalized)) {

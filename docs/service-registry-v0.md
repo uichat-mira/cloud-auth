@@ -59,7 +59,7 @@ The former #140 manual MCP enablement/second directory is not the implementation
 
 An application is a reviewed Mira-operated first-party web client, not a third-party OAuth platform. Its identity is the administrator-enrolled client ID, project ID, exact HTTPS OAuth callback and allowed HTTPS service endpoint origins. One application may publish multiple services. Desktop and Mobile native clients remain fixed and cannot enroll as publishers. Existing Who You must use its reserved client ID, project ID and exact reviewed callback. Application registration is not account authorization.
 
-The current operator CLI is the **one-time application onboarding** authority (not per-user onboarding). Enrollment metadata contains no secrets:
+The OPS-049 operator CLI is retained as a trusted maintenance/recovery path. OPS-050 below supersedes it for routine account-owned application creation; operator admission is account-scoped, not per application or per user. Legacy enrollment metadata contains no secrets:
 
 ```json
 {
@@ -123,3 +123,23 @@ Deploying the code/migrations alone creates no applications or grants. Existing 
 ### Verification
 
 The integration suite exercises two independently enrolled applications, real authenticated declaration HTTP routes, actual login forms/CSRF/PKCE, SQLite and EdDSA issuance; checks wrong application/secret/origin, scope changes, revisions, rotation, retirement, disable/enable, account isolation and old code replay, rollback, explicit revoke and legacy Who You issuance. The admin CLI is independently exercised against disposable SQLite. The source is the candidate contract for downstream review; no production application is registered by this implementation.
+
+## OPS-050: account-owned developer applications
+
+The normal onboarding surface is Mira ID → 应用管理 (`/account/applications`). Developer admission remains restricted to reviewed first-party accounts, with approved HTTPS origins and explicit permission for reserved projects (who-you, cloud-guanlan, cloud-shiyan). An operator verifies origin ownership once and grants the account eligibility; the owner then creates applications on those approved origins without a per-application CLI enrollment. Generic AppIDs are generated server-side; the existing Who You identity remains `who-you-web`, with its exact callback.
+
+One-time operator provisioning (use the stable account ID, not a username):
+```sh
+pnpm run admin application-approve-developer <accountId> < developer-permission.json
+pnpm run admin application-claim-owner <accountId> <existing-clientId>
+```
+The permission JSON has `endpointOrigins` (approved canonical HTTPS origins) and `reservedProjects` (approved subset; empty for ordinary developer projects). It contains no credentials. Explicit legacy claiming checks the approved metadata and cannot steal an owned application or silently rotate its key/grants. The CLI remains for operator recovery; existing legacy enrollment is unchanged.
+
+The owner uses the current Cloud Session (explicit Authorization header, not cookie auth); all mutations also require the current account password through the existing rate-limited password verification. The writer transaction revalidates the same session, developer permission, ownership and exact origin. App creation is not user authorization.
+
+- GET /v1/account/applications: own application metadata, disabled status and real declarations; developer permission or null. No existing secret values.
+- POST /v1/account/applications: applicationEnrollmentSchema fields + currentPassword. Returns clientId/managementToken (UI labels AppID/AppSecret).
+- POST /v1/account/applications/:clientId/rotate|disable|enable: currentPassword. Rotate/enable return a replacement secret; disable returns disabled status.
+- All responses use no-store. New secret displayed once, never persisted by the Portal. Copy it to the service-side secret store. No secret in OAuth parameters, client code, logs, URLs or persistent browser storage. Discard the disclosure after use. No automatic replay of a mutation after failure.
+
+For Who You: create project who-you using display name 狐邮 Who You, exact callback https://who-you.tomz.io/auth/callback and approved origin https://who-you.tomz.io. Copy AppID and AppSecret; AppSecret is the existing management bearer (no new OAuth password grant). Configure WHOYOU_APPLICATION_MANAGEMENT_TOKEN in the application's secure maintenance environment; run the existing service:registry sync operation. The existing management API and normal user login/authorization/revocation remain unchanged. Production activation still requires coordinated consumer verification, and no production accounts or declarations are changed by the migration alone.

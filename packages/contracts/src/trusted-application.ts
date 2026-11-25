@@ -23,3 +23,38 @@ export const declarationWriteSchema = z.object({
 export const declarationRevisionSchema = z.object({
   expectedRevision: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 }).strict();
+
+export const reservedApplicationProjects = ["who-you", "cloud-guanlan", "cloud-shiyan"] as const;
+export const developerApplicationPermissionSchema = z.object({
+  endpointOrigins: applicationEnrollmentSchema.shape.endpointOrigins,
+  reservedProjects: z.array(z.enum(reservedApplicationProjects)).max(reservedApplicationProjects.length)
+    .refine(values => new Set(values).size === values.length),
+}).strict();
+export const developerApplicationCreateSchema = applicationEnrollmentSchema.extend({
+  currentPassword: z.string().min(1).max(256),
+}).strict();
+export const developerApplicationActionSchema = z.object({
+  currentPassword: z.string().min(1).max(256),
+}).strict();
+export const applicationDeclarationSchema = z.object({
+  definition: serviceDefinitionSchema,
+  revision: z.number().int().positive(),
+  retired: z.boolean(),
+}).strict();
+export const ownedApplicationSchema = applicationEnrollmentSchema.extend({
+  clientId: serviceIdSchema,
+  disabled: z.boolean(),
+  services: z.array(applicationDeclarationSchema),
+}).strict();
+export const developerApplicationCatalogSchema = z.object({
+  applications: z.array(ownedApplicationSchema),
+  developer: developerApplicationPermissionSchema.nullable(),
+}).strict();
+export const developerApplicationSecretSchema = z.object({
+  clientId: serviceIdSchema,
+  managementToken: z.string().min(1),
+}).strict();
+export const developerApplicationDisabledSchema = z.object({
+  clientId: serviceIdSchema,
+  disabled: z.literal(true),
+}).strict();
