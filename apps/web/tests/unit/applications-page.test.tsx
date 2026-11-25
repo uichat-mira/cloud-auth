@@ -36,7 +36,10 @@ const application = {
   },
 };
 const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -61,9 +64,15 @@ describe("Mira ID application instance portal", () => {
     fireEvent.click(screen.getByRole("button", { name: "登记应用" }));
 
     const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("应用地址"), { target: { value: origin + "/" } });
-    fireEvent.change(within(dialog).getByLabelText("APP_ID"), { target: { value: appId } });
-    fireEvent.change(within(dialog).getByLabelText("AppSecret"), { target: { value: secret } });
+    fireEvent.change(within(dialog).getByLabelText("应用地址"), {
+      target: { value: origin + "/" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("APP_ID"), {
+      target: { value: appId },
+    });
+    fireEvent.change(within(dialog).getByLabelText("AppSecret"), {
+      target: { value: secret },
+    });
     fireEvent.click(within(dialog).getByRole("button", { name: "验证并登记" }));
 
     expect(await screen.findByText("狐邮")).toBeInTheDocument();
@@ -75,13 +84,16 @@ describe("Mira ID application instance portal", () => {
   it("removes only the management relationship", async () => {
     let applications = [application];
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      if (init?.method === "DELETE") {
-        applications = [];
-        return json({ appId, owned: false });
-      }
-      return json({ applications });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "DELETE") {
+          applications = [];
+          return json({ appId, owned: false });
+        }
+        return json({ applications });
+      }),
+    );
 
     mountPortal({ path: "/account/applications", session: storedSession });
     expect(await screen.findByText("狐邮")).toBeInTheDocument();
