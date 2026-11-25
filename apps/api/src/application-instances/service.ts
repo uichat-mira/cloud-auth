@@ -1,6 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
   applicationManifestSchema,
+  oauthClientIdSchema,
+  findFirstPartyOAuthClient,
+  WHO_YOU_WEB_OAUTH_CLIENT_ID,
   applicationRegistrationRequestSchema,
   applicationRegistrationVerificationResponseSchema,
   type ApplicationManifest,
@@ -17,6 +20,7 @@ type InstanceRow = {
   display_name: string;
   manifest_revision: number;
   manifest_json: string;
+  disabled_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -34,6 +38,7 @@ function present(row: InstanceRow): OwnedApplicationInstance {
     appId: row.app_id,
     origin: row.origin,
     manifest: applicationManifestSchema.parse(JSON.parse(row.manifest_json)),
+    disabledAt: row.disabled_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -50,7 +55,16 @@ function validateManifest(origin: string, expectedAppId: string, manifest: Appli
   assertSameOrigin(origin, manifest.homeUrl, "HOME");
   if (manifest.iconUrl) assertSameOrigin(origin, manifest.iconUrl, "ICON");
   if (manifest.oauth.metadataUrl) assertSameOrigin(origin, manifest.oauth.metadataUrl, "OAUTH_METADATA");
-  for (const redirectUri of manifest.oauth.redirectUris) assertSameOrigin(origin, redirectUri, "OAUTH_REDIRECT");
+  if (!oauthClientIdSchema.safeParse(manifest.oauth.clientId).success ||
+      findFirstPartyOAuthClient(manifest.oauth.clientId) ||
+      manifest.oauth.clientId === WHO_YOU_WEB_OAUTH_CLIENT_ID) {
+    throw failure("APPLICATION_OAUTH_CLIENT_INVALID", 400);
+  }
+  if (manifest.oauth.clientId.startsWith("https:")) assertSameOrigin(origin, manifest.oauth.clientId, "OAUTH_CLIENT");
+  for (const redirectUri of manifest.oauth.redirectUris) {
+    assertSameOrigin(origin, redirectUri, "OAUTH_REDIRECT");
+    if (new URL(redirectUri).search) throw failure("APPLICATION_OAUTH_CALLBACK_INVALID", 400);
+  }
   assertSameOrigin(origin, manifest.registrationVerification.endpoint, "VERIFICATION");
   for (const service of manifest.services) {
     assertSameOrigin(origin, service.protocol.endpoint, "SERVICE_ENDPOINT");
@@ -127,6 +141,9 @@ export class ApplicationInstanceService {
       const byOrigin = this.db.prepare("SELECT app_id FROM application_instances WHERE origin = ?")
         .get(origin) as { app_id: string } | undefined;
 
+      if (this.db.prepare("SELECT 1 FROM application_instances WHERE app_id <> ? AND json_extract(manifest_json, '$.oauth.clientId') = ?").get(appId, manifest.oauth.clientId)) {
+        throw failure("APPLICATION_OAUTH_CLIENT_CONFLICT", 409);
+      }
       if (byOrigin && byOrigin.app_id !== appId) throw failure("APPLICATION_IDENTITY_CONFLICT", 409);
       if (byId?.owner_account_id && byId.owner_account_id !== accountId) {
         throw failure("APPLICATION_ALREADY_OWNED", 409);

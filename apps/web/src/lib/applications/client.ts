@@ -52,6 +52,17 @@ export function createApplicationClient() {
         },
         applicationRegistrationResponseSchema,
       ),
+    setDisabled: (token: string, appId: string, disabled: boolean) =>
+      transport.empty(
+        route + "/" + encodeURIComponent(appId) + "/status",
+        {
+          method: "POST",
+          headers: { ...bearerHeaders(token), "content-type": "application/json" },
+          body: JSON.stringify({ disabled }),
+          cache: "no-store",
+        },
+        204,
+      ),
     remove: (token: string, appId: string) =>
       transport.json(
         route + "/" + encodeURIComponent(appId),

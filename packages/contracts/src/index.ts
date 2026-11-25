@@ -364,3 +364,5 @@ export { registeredServiceClaimsSchema } from "./service-credential.js";
 export * from "./trusted-application.js";
 export * from "./application-instance.js";
 export * from "./application-service.js";
+
+export * from "./application-oauth.js";

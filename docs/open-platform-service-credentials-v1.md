@@ -1,7 +1,7 @@
 # Mira ID 开放平台：实例级服务目录与短期凭据 V1（OPS-052 子集）
 
 - 维护方：cloud-auth / Mira ID；2026-11-25。
-- 状态：本文件描述 OPS-052 已在代码中实现的实例级目录、复合身份、服务粒度撤权与短期凭据。真实 OAuth 登录 → 账号 grant 的写入权威仍属于 OPS-051（#211）；在 #211 合并并以 dev 真实联验前，本文不宣称完整 OAuth→grant 链路已验收。
+- 状态：本文件描述 OPS-052 已在代码中实现的实例级目录、复合身份、服务粒度撤权与短期凭据。OPS-051 联合候选通过实际 OAuth 兑换事务调用该仓储写入 grant；是否合并及跨仓公网联验仍须依据对应候选证据。
 - 协议语义总纲见 [应用接入协议 V1](open-platform-protocol-v1.md)。V0 运行事实见 [服务登记 V0](service-registry-v0.md) 与 [服务凭据 V0](service-credentials-v0.md)。
 
 ## 1. 边界与权威
@@ -51,7 +51,7 @@ PRIMARY KEY (account_id, app_id, service_id)
 
 ```http
 GET /v1/application-services
-Authorization: Bearer <device-bound Cloud Session>
+Authorization: Bearer <Cloud Session>
 ```
 
 成功返回 `Cache-Control: no-store`：
@@ -84,7 +84,7 @@ Authorization: Bearer <device-bound Cloud Session>
 
 - 只返回当前账号有效、未撤销且与实例当前声明精确匹配的 grant。
 - `revision` 是账号 grant 修订；`manifestRevision` 是当前实例 manifest 修订。
-- 声明新增、删除、resource/endpoint/scopes 等发生变化后，旧 grant 不再出现在目录中，直到一次新的成功主动登录按当前声明刷新。
+- 实例 manifestRevision 变化即使随后恢复原声明也使旧 grant 失效，直至用户主动重新登录。这是当前保守授权策略，不静默恢复旧授权。
 - 目录只是发现与声明信息，不是工具 schema、执行授权或业务权限。`capabilities`、`toolGovernance`、`extensions` 是 Mira 外层语义/治理提示，不替代标准 MCP `tools/list`、ToolAnnotations 或服务自身授权。
 
 ## 4. 短期凭据
@@ -173,10 +173,10 @@ Content-Type: application/json
 
 ## 6. 声明变化、失效与修订
 
-- grant 只在 `definition_json` 与实例当前服务声明精确一致时可用。
+- grant 只在 `definition_json` 与实例当前服务声明精确一致、manifestRevision 一致且实例启用时可用。
 - 声明 endpoint、resource、scopes、type 等变化后，旧 grant 立即从目录隐藏，新凭据签发失败，直到重新登录授权当前声明。
 - 不静默扩大 scope：客户端持有的旧 catalog 条目不能用于新声明；旧 ticket 只在自身 `exp` 前有效。
-- 应用实例停用/删除由 OPS-051 与实例管理边界负责；实例行不存在时本卡 fail closed。当前 `application_instances` 尚无独立 `disabled_at` 列，这是本卡的已知对齐缺口，不得用删除 grant 冒充产品停用语义。
+- 应用实例停用由 OPS-051 实现，停用原子撤销该实例的授权码、应用会话及所有服务 grant；重新启用不恢复旧授权。实例缺失或停用时目录和取票 fail closed。
 
 ## 7. 消费者与切换顺序
 

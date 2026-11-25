@@ -21,7 +21,15 @@ export const OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS = 600;
 
 // Syntax only for a dynamic application ID; registered identity and the exact
 // redirect are resolved by the server, not by a client-controlled schema.
-export const oauthClientIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/);
+export const oauthClientIdSchema = z.string().min(1).max(2048).refine((value) => {
+  if (!/^https?:/i.test(value) && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(value)) return true;
+  if (!value.startsWith("https://")) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password &&
+      !url.search && !url.hash && !/[\s\\*]/.test(value);
+  } catch { return false; }
+}, "Invalid OAuth client identity");
 
 export const oauthRedirectUriSchema = z.string().min(1).max(2048);
 
@@ -95,11 +103,6 @@ export const FIRST_PARTY_OAUTH_CLIENTS: readonly FirstPartyOAuthClient[] = Objec
     clientId: MIRA_MOBILE_OAUTH_CLIENT_ID,
     platform: "mobile",
     redirectUris: [MIRA_MOBILE_OAUTH_REDIRECT_URI],
-  }),
-  firstPartyClient({
-    clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
-    platform: "web",
-    redirectUris: [WHO_YOU_WEB_OAUTH_REDIRECT_URI],
   }),
 ]);
 

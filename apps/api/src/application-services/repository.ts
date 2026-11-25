@@ -77,7 +77,7 @@ export class ApplicationServiceRepository {
 
   private instance(appId: string): InstanceRow | undefined {
     return this.db.prepare(
-      "SELECT app_id, project_id, manifest_revision, manifest_json FROM application_instances WHERE app_id = ?",
+      "SELECT app_id, project_id, manifest_revision, manifest_json FROM application_instances WHERE app_id = ? AND disabled_at IS NULL",
     ).get(appId) as InstanceRow | undefined;
   }
 
@@ -104,7 +104,7 @@ export class ApplicationServiceRepository {
   ): ApplicationServiceCatalogEntry | null {
     const current = manifest.services.find((service) => service.serviceId === row.service_id);
     if (!current || manifest.projectId !== row.project_id) return null;
-    if (encodeDeclaration(current) !== row.definition_json) return null;
+    if (manifest.manifestRevision !== row.manifest_revision || encodeDeclaration(current) !== row.definition_json) return null;
     return applicationServiceCatalogEntrySchema.parse({
       ...normalizeDeclaration(current),
       appId: row.app_id,
@@ -148,12 +148,7 @@ export class ApplicationServiceRepository {
       const definition = normalizeDeclaration(raw);
       const encoded = JSON.stringify(definition);
       const old = this.grant(accountId, appId, definition.serviceId);
-      if (old?.revoked_at === null && old.definition_json === encoded) {
-        if (old.manifest_revision !== manifestRevision) {
-          this.db.prepare(
-            "UPDATE application_service_grants SET manifest_revision = ?, updated_at = ? WHERE account_id = ? AND app_id = ? AND service_id = ?",
-          ).run(manifestRevision, now, accountId, appId, definition.serviceId);
-        }
+      if (old?.revoked_at === null && old.definition_json === encoded && old.manifest_revision === manifestRevision) {
         continue;
       }
       const revision = (old?.revision ?? 0) + 1;
@@ -232,6 +227,7 @@ export class ApplicationServiceRepository {
     if (
       !current ||
       manifest.projectId !== row.project_id ||
+      manifest.manifestRevision !== row.manifest_revision ||
       encodeDeclaration(current) !== row.definition_json
     ) {
       throw failure("APPLICATION_SERVICE_DECLARATION_CHANGED", 409);
@@ -266,6 +262,9 @@ export class ApplicationServiceRepository {
         throw failure("APPLICATION_SERVICE_CHANGED", 409);
       }
       if (row.revoked_at !== null) return row.revision;
+      // A code issued before explicit revocation may not restore this grant.
+      this.db.prepare("UPDATE application_oauth_codes SET consumed_at = ? WHERE account_id = ? AND app_id = ? AND consumed_at IS NULL")
+        .run(new Date().toISOString(), accountId, appId);
       const revision = row.revision + 1;
       this.db.prepare(
         `UPDATE application_service_grants

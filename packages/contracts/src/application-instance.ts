@@ -121,6 +121,7 @@ export const ownedApplicationInstanceSchema = z.object({
   appId: applicationIdSchema,
   origin: applicationOriginSchema,
   manifest: applicationManifestSchema,
+  disabledAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 }).strict();

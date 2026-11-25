@@ -29,7 +29,7 @@ CF Workers 只是一个部署选项，普通自建服务器同样适用。每个
 开发者准备：
 
 - 实例 APP_ID、项目标识、应用名称、描述、首页与图标；
-- OAuth 客户端元数据及真实回调地址，候选采用独立的 HTTPS Client ID Metadata Document；
+- 已验证的 OAuth client_id 与真实 HTTPS 回调地址（同源 URL 或合法不透明 client_id；非自动 CIMD 接入）；
 - 登记验证端点：Mira ID 服务端通过 HTTPS 提交 APP_ID + AppSecret，实例验证成功/失败；不要求 challenge、公私钥证明或额外人工字段；
 - 一个或多个服务描述：类型、协议版本、实际连接地址、资源标识、授权范围、适用终端；可提供能力分组、标准 MCP tool name 引用、0–1 的 `selectionWeightHint`，以及多维 `riskHints` / `confirmationHint` 等外层治理提示。工具引用与治理字段的冻结语义见协议 §5.2。
 
@@ -55,15 +55,11 @@ AppSecret [从自己的部署实例获得]
 
 ## 4. 接入通过 Mira ID 登录
 
-应用网站提供「通过 Mira ID 登录」入口。候选接入采用 OAuth 授权码 + PKCE S256，应用负责生成 state/verifier，完成真实回调、校验 state/issuer 并在服务端兑换凭据。登记阶段的 AppSecret 是部署管理凭据，**不默认作为 OAuth client_secret**；OAuth client authentication 与登录凭据格式以最终 V1 合同和 SDK 为准。
+应用网站提供「通过 Mira ID 登录」入口。按 [开放应用 OAuth V1](application-oauth-v1.md) 实现授权码 + PKCE S256：应用生成 state/verifier，经 Mira ID 浏览器授权后验证回调 state，再在服务端兑换应用专属凭据。登记 AppSecret 不进入 OAuth，不提供安装 ID、platform 或 client_secret。
 
-- 用户在 Mira ID 的认证页面确认登录目标；应用不收集 Mira ID 用户密码。
-- 成功主动登录该实例后建立账号使用授权；应用按自身业务策略决定用户可使用的数据及操作。
-- 已登记的自己的实例不自动等于已使用的服务，仍按登录流程取得关联授权。
-- 用户访问其他开发者的实例，也走相同的登录流程；不需要获得对方 AppSecret。
-- 登录完成后应用建立自己的业务会话。应用专用登录凭据不能兑换其他服务、管理用户设备或冒充 Mira 原生终端。
+用户成功登录应用实例后建立账号使用授权，不获得该实例所有权。应用必须验证返回的 issuer、subject、audience、APP_ID 和有效期，再按自身业务准入策略建立本地会话；通过应用会话查询接口确认授权仍有效。Mira ID 会话被停用或撤销时应用不能继续将旧本地会话视为有效 Mira ID 身份。应用不得拿应用专属凭据访问其他 Mira 服务或设备。
 
-实例应在用户确认的实际域名展示登录关系。别把 OAuth 登录失败、业务准入失败或声明过期伪装成成功授权。最终客户端认证、应用登录票据和业务准入交互尚待冻结，见 [协议 §4](open-platform-protocol-v1.md#4-oauth-登录与账号使用授权)。
+具体请求字段、应用退出、撤权、停用与声明修订语义以该 HTTP 合同为准。生产切换必须与狐邮和 Mobile 消费端联合验收，不允许旧 Cloud Session 兑换兜底。
 
 ## 5. 对 Mira 终端提供服务
 

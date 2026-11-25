@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
 import type { AuthService } from "./auth/auth-service.js";
 import { registerAuthRoutes } from "./auth/routes.js";
+import { registerApplicationOAuthRoutes } from "./application-oauth/routes.js";
 import type { DeviceService } from "./devices/device-service.js";
 import { registerDeviceRoutes } from "./devices/routes.js";
 import type { HostGrantService } from "./grants/host-grant-service.js";
@@ -63,6 +64,7 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
   if (options.authService) {
     registerAuthRoutes(app, options.authService);
+    registerApplicationOAuthRoutes(app, options.db, options.authService);
     registerServiceRegistryRoutes(app, options.authService, new ServiceRegistryRepository(options.db), options.serviceCredentialService);
     registerApplicationServiceRoutes(
       app,

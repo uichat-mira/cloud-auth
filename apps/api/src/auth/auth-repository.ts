@@ -536,6 +536,7 @@ export class AuthRepository {
           WHERE account_id = ? AND consumed_at IS NULL`,
       )
       .run(now, reason, accountId);
+    this.db.prepare("UPDATE application_oauth_codes SET consumed_at = ? WHERE account_id = ? AND consumed_at IS NULL").run(now, accountId);
   }
 
   private revokeAllSessions(accountId: string, reason: string, now: string): void {
@@ -547,6 +548,11 @@ export class AuthRepository {
           WHERE account_id = ? AND revoked_at IS NULL`,
       )
       .run(now, reason, accountId);
+    this.db.prepare("UPDATE application_oauth_sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL").run(now, accountId);
+    this.db.prepare("UPDATE application_oauth_codes SET consumed_at = ? WHERE account_id = ? AND consumed_at IS NULL").run(now, accountId);
+    if (reason === "admission_revoked" || reason === "account_disabled") {
+      this.db.prepare("UPDATE application_service_grants SET revoked_at = ?, updated_at = ?, revision = revision + 1 WHERE account_id = ? AND revoked_at IS NULL").run(now, now, accountId);
+    }
   }
 }
 

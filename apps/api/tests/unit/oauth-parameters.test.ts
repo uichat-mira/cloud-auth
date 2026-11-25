@@ -32,8 +32,8 @@ function request(overrides: Record<string, unknown> = {}) {
 }
 
 describe("first-party OAuth client registry", () => {
-  it("pins Desktop, Mobile and Who You Web to exact reviewed callbacks", () => {
-    expect(FIRST_PARTY_OAUTH_CLIENTS).toHaveLength(3);
+  it("pins only native Desktop and Mobile to exact reviewed callbacks", () => {
+    expect(FIRST_PARTY_OAUTH_CLIENTS).toHaveLength(2);
     expect(
       FIRST_PARTY_OAUTH_CLIENTS.map((client) => ({
         clientId: client.clientId,
@@ -50,11 +50,6 @@ describe("first-party OAuth client registry", () => {
         clientId: MIRA_MOBILE_OAUTH_CLIENT_ID,
         platform: "mobile",
         redirectUris: [MIRA_MOBILE_OAUTH_REDIRECT_URI],
-      },
-      {
-        clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
-        platform: "web",
-        redirectUris: [WHO_YOU_WEB_OAUTH_REDIRECT_URI],
       },
     ]);
 
@@ -73,6 +68,8 @@ describe("first-party OAuth client registry", () => {
     }
 
     expect(findFirstPartyOAuthClient("third-party")).toBeUndefined();
+    expect(findFirstPartyOAuthClient(WHO_YOU_WEB_OAUTH_CLIENT_ID)).toBeUndefined();
+    expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID, WHO_YOU_WEB_OAUTH_REDIRECT_URI)).toBe(false);
     expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
       MIRA_DESKTOP_OAUTH_REDIRECT_URI)).toBe(false);
     expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
