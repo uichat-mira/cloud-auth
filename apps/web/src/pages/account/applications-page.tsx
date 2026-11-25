@@ -293,7 +293,7 @@ function ApplicationsForAccount() {
             AppSecret 仅用于本次服务端登记验证，不会显示在应用列表，也不会下发给 Mira 终端。
           </p>
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" disabled={busy} onClick={closeRegister}>取消</Button>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => closeRegister()}>取消</Button>
             <Button type="submit" disabled={busy || !origin || !appId || !appSecret}>
               {busy ? "验证中…" : "验证并登记"}
             </Button>
