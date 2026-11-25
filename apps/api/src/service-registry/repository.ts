@@ -30,7 +30,12 @@ export class ServiceRegistryRepository {
   }
   // Trusted management path only. Public account sessions cannot mutate this ledger.
   register(accountId: string, input: ServiceDefinition, expectedRevision?: number): RegisteredService {
-    return this.transaction(() => this.registerWithinTransaction(accountId, input, expectedRevision));
+    return this.transaction(() => {
+      if (this.db.prepare("SELECT 1 FROM oauth_cloud_application_services WHERE service_id = ?").get(input.serviceId)) {
+        throw new ServiceRegistryError("SERVICE_REGISTRATION_MANAGED_BY_APPLICATION", 409);
+      }
+      return this.registerWithinTransaction(accountId, input, expectedRevision);
+    });
   }
 
   /** Reuses the same identity and revision checks while a higher-level authority

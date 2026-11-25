@@ -221,6 +221,18 @@ export class AuthRepository {
     }
   }
 
+  /** Used only inside the credential issuance transaction. Before a service
+   * is managed, preserve existing first-party consumers. Once managed, a
+   * retired/revoked/missing grant must not be bypassed by legacy issuance. */
+  permitsLegacyWhoYouCredential(accountId: string): boolean {
+    if (!this.db.isTransaction) throw new Error("Legacy service admission requires the issuance transaction");
+    const managed = this.db.prepare("SELECT 1 FROM oauth_cloud_application_services WHERE service_id = 'who-you'").get();
+    if (!managed) return true;
+    return Boolean(this.db.prepare(
+      "SELECT 1 FROM service_registrations r JOIN oauth_cloud_application_services d ON d.service_id = r.service_id JOIN oauth_cloud_applications a ON a.client_id = d.client_id WHERE r.account_id = ? AND r.service_id = 'who-you' AND r.revoked_at IS NULL AND d.retired_at IS NULL AND a.disabled_at IS NULL",
+    ).get(accountId));
+  }
+
   /**
    * Re-verifies the complete account/device/session authority inside one
    * BEGIN IMMEDIATE transaction. The action runs while the write lock is held,

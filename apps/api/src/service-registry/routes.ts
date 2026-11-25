@@ -22,6 +22,15 @@ export function registerServiceRegistryRoutes(
       return reply.header("cache-control", "no-store").send({ services: registry.list(account.id) });
     } catch (error) { return failure(reply, error); }
   });
+  app.post<{ Params: { serviceId: string } }>("/v1/services/:serviceId/revoke", async (request, reply) => {
+    try {
+      const account = auth.requireAccountIdentity(readBearerToken(request));
+      const id = serviceIdSchema.safeParse(request.params.serviceId);
+      const parsed = registeredServiceCredentialRequestSchema.safeParse(request.body);
+      if (!id.success || !parsed.success) throw new ServiceRegistryError("SERVICE_REGISTRATION_INVALID_REQUEST", 400);
+      return reply.header("cache-control", "no-store").send({ revision: registry.revoke(account.id, id.data, parsed.data.expectedRevision) });
+    } catch (error) { return failure(reply, error); }
+  });
   app.post<{ Params: { serviceId: string } }>("/v1/services/:serviceId/credential", async (request, reply) => {
     try {
       const token = readBearerToken(request);
