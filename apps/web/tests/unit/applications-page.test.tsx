@@ -81,6 +81,28 @@ describe("Mira ID application instance portal", () => {
     expect(document.body.textContent).not.toContain(secret);
   });
 
+  it("shows rejected registration inside the dialog and clears the secret", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          return json({ error: { code: "APPLICATION_SECRET_REJECTED" } }, 403);
+        }
+        return json({ applications: [] });
+      }),
+    );
+    mountPortal({ path: "/account/applications", session: storedSession });
+    await screen.findByText("尚未登记应用。");
+    fireEvent.click(screen.getByRole("button", { name: "登记应用" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("应用地址"), { target: { value: origin } });
+    fireEvent.change(within(dialog).getByLabelText("APP_ID"), { target: { value: appId } });
+    fireEvent.change(within(dialog).getByLabelText("AppSecret"), { target: { value: secret } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "验证并登记" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("AppSecret 验证失败。");
+    expect(within(dialog).getByLabelText("AppSecret")).toHaveValue("");
+  });
+
   it("removes only the management relationship", async () => {
     let applications = [application];
     vi.spyOn(window, "confirm").mockReturnValue(true);
