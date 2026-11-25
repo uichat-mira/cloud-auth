@@ -24,7 +24,8 @@ export class ApplicationTransportError extends Error {
 function isPrivateIpv4(address: string): boolean {
   const octets = address.split(".").map(Number);
   if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
-  const [a, b] = octets;
+  const a = octets[0]!;
+  const b = octets[1]!;
   if (a === 0 || a === 10 || a === 127 || a >= 224) return true;
   if (a === 100 && b >= 64 && b <= 127) return true;
   if (a === 169 && b === 254) return true;
