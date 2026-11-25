@@ -13,7 +13,8 @@ const errorMessage = (error: unknown) => {
   if (error.code === "APPLICATION_SECRET_REJECTED") return "AppSecret 验证失败。";
   if (error.code === "APPLICATION_ALREADY_OWNED") return "这个应用实例已归属于其他 Mira 账号。";
   if (error.code === "APPLICATION_ID_MISMATCH") return "APP_ID 与应用声明不一致。";
-  if (error.code === "APPLICATION_UNSAFE_ORIGIN") return "应用地址不是可安全访问的公网 HTTPS Origin。";
+  if (error.code === "APPLICATION_UNSAFE_ORIGIN")
+    return "应用地址不是可安全访问的公网 HTTPS Origin。";
   if (error.code === "APPLICATION_INVALID_MANIFEST") return "应用元信息格式不符合 Mira ID V1。";
   if (error.code.startsWith("APPLICATION_METADATA_ORIGIN_MISMATCH"))
     return "应用声明包含尚未验证的跨域地址。";
@@ -44,12 +45,35 @@ function ApplicationsForAccount() {
 
   useEffect(() => {
     mounted.current = true;
-    void refresh();
+    const token = getSessionToken();
+    if (token) {
+      const request = ++generation.current;
+      void client
+        .list(token)
+        .then((result) => {
+          if (mounted.current && request === generation.current && getSessionToken() === token) {
+            setCatalog(result);
+          }
+        })
+        .catch((failure) => {
+          if (
+            !mounted.current ||
+            request !== generation.current ||
+            getSessionToken() !== token
+          ) {
+            return;
+          }
+          if (failure instanceof ApplicationRequestError && failure.status === 401) {
+            invalidateSession(token);
+          }
+          setError(errorMessage(failure));
+        });
+    }
     return () => {
       mounted.current = false;
       generation.current += 1;
     };
-  }, []);
+  }, [client, getSessionToken, invalidateSession]);
 
   async function refresh() {
     const token = getSessionToken();
@@ -63,7 +87,9 @@ function ApplicationsForAccount() {
       }
     } catch (failure) {
       if (!mounted.current || request !== generation.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401) invalidateSession(token);
+      if (failure instanceof ApplicationRequestError && failure.status === 401) {
+        invalidateSession(token);
+      }
       setError(errorMessage(failure));
     }
   }
@@ -110,7 +136,9 @@ function ApplicationsForAccount() {
       await refresh();
     } catch (failure) {
       if (!mounted.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401) invalidateSession(token);
+      if (failure instanceof ApplicationRequestError && failure.status === 401) {
+        invalidateSession(token);
+      }
       setError(errorMessage(failure));
     } finally {
       if (mounted.current) setBusy(false);
@@ -118,7 +146,12 @@ function ApplicationsForAccount() {
   }
 
   async function remove(appIdToRemove: string, name: string) {
-    if (busy || !window.confirm("从“我的应用”移除“" + name + "”？这不会自动撤销你对该服务的使用授权。")) return;
+    if (
+      busy ||
+      !window.confirm("从“我的应用”移除“" + name + "”？这不会自动撤销你对该服务的使用授权。")
+    ) {
+      return;
+    }
     const token = getSessionToken();
     if (!token) return;
     setBusy(true);
@@ -131,7 +164,9 @@ function ApplicationsForAccount() {
       await refresh();
     } catch (failure) {
       if (!mounted.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401) invalidateSession(token);
+      if (failure instanceof ApplicationRequestError && failure.status === 401) {
+        invalidateSession(token);
+      }
       setError(errorMessage(failure));
     } finally {
       if (mounted.current) setBusy(false);
@@ -156,14 +191,24 @@ function ApplicationsForAccount() {
         </p>
       </header>
 
-      {error ? <p role="alert" className="cloud-notice">{error}</p> : null}
-      {notice ? <p role="status" className="cloud-notice cloud-notice-success">{notice}</p> : null}
+      {error ? (
+        <p role="alert" className="cloud-notice">
+          {error}
+        </p>
+      ) : null}
+      {notice ? (
+        <p role="status" className="cloud-notice cloud-notice-success">
+          {notice}
+        </p>
+      ) : null}
 
       <section className="console-section" aria-labelledby="application-list">
         <div className="console-section-head">
           <div>
             <h2 id="application-list">应用实例</h2>
-            <p className="console-section-caption">“我的应用”是管理关系，不等于“关联服务”的使用授权。</p>
+            <p className="console-section-caption">
+              “我的应用”是管理关系，不等于“关联服务”的使用授权。
+            </p>
           </div>
           <div className="flex gap-2 flex-wrap">
             <Button type="button" variant="outline" disabled={busy} onClick={() => void refresh()}>
@@ -186,7 +231,10 @@ function ApplicationsForAccount() {
             <div className="console-section-head">
               <div>
                 <h3 className="font-semibold">{application.manifest.name}</h3>
-                <p className="console-section-caption">{application.manifest.projectId} · revision {application.manifest.manifestRevision}</p>
+                <p className="console-section-caption">
+                  {application.manifest.projectId} · revision{" "}
+                  {application.manifest.manifestRevision}
+                </p>
               </div>
               <Button
                 type="button"
@@ -206,29 +254,40 @@ function ApplicationsForAccount() {
                 <dt>APP_ID</dt>
                 <dd className="break-all">
                   {application.appId}{" "}
-                  <Button variant="ghost" size="sm" onClick={() => void copy(application.appId, "APP_ID")}>复制</Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void copy(application.appId, "APP_ID")}
+                  >
+                    复制
+                  </Button>
                 </dd>
               </div>
               <div>
                 <dt>OAuth 回调</dt>
-                <dd className="break-all">{application.manifest.oauth.redirectUris.join("、")}</dd>
+                <dd className="break-all">
+                  {application.manifest.oauth.redirectUris.join("、")}
+                </dd>
               </div>
             </dl>
             <h4 className="font-medium text-sm mt-3">自动发现的服务</h4>
             {!application.manifest.services.length ? (
               <p className="console-section-caption">这个实例当前没有声明服务。</p>
-            ) : application.manifest.services.map((service) => (
-              <div className="cloud-row" key={service.serviceId}>
-                <span className="cloud-row-copy min-w-0">
-                  <strong>{service.name}</strong>
-                  <small className="break-all">
-                    {service.protocol.name} · {service.protocol.version} · {service.protocol.endpoint}
-                  </small>
-                  <small className="break-all">{service.resource}</small>
-                </span>
-                <span className="text-sm shrink-0">{service.type}</span>
-              </div>
-            ))}
+            ) : (
+              application.manifest.services.map((service) => (
+                <div className="cloud-row" key={service.serviceId}>
+                  <span className="cloud-row-copy min-w-0">
+                    <strong>{service.name}</strong>
+                    <small className="break-all">
+                      {service.protocol.name} · {service.protocol.version} ·{" "}
+                      {service.protocol.endpoint}
+                    </small>
+                    <small className="break-all">{service.resource}</small>
+                  </span>
+                  <span className="text-sm shrink-0">{service.type}</span>
+                </div>
+              ))
+            )}
           </section>
         ))}
       </section>
@@ -293,7 +352,14 @@ function ApplicationsForAccount() {
             AppSecret 仅用于本次服务端登记验证，不会显示在应用列表，也不会下发给 Mira 终端。
           </p>
           <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => closeRegister()}>取消</Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => closeRegister()}
+            >
+              取消
+            </Button>
             <Button type="submit" disabled={busy || !origin || !appId || !appSecret}>
               {busy ? "验证中…" : "验证并登记"}
             </Button>
