@@ -1,5 +1,7 @@
 # Mira Cloud Auth OAuth Authorization Code + Token Exchange V0 (OPS-016/OPS-017)
 
+> This is the first-party V0 contract. For OPS-049 dynamic administrator-managed applications see [service registry V0](service-registry-v0.md). The [Open Platform V1 design](open-platform-protocol-v1.md) considers independent deployment identity and an application-specific login credential instead of exposing the native Cloud Session; it is not yet implemented. The static registry section below is the historical OPS-016/017 baseline, not the complete current application admission path.
+
 This document specifies the first-party OAuth 2.0 Authorization Code + PKCE S256
 authorization boundary implemented by OPS-016 and the one-time token exchange
 implemented by OPS-017. It issues one short-lived, single-use authorization
