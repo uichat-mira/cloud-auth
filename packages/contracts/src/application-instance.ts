@@ -82,7 +82,7 @@ export const applicationDeclaredServiceSchema = z.object({
     endpoint: safeHttpsUrl,
   }).strict(),
   resource: safeHttpsUrl,
-  scopes: z.array(z.string().min(1).max(140)).max(32).default([]),
+  scopes: z.array(z.string().min(1).max(140)).max(32).refine(scopes => new Set(scopes).size === scopes.length, "Duplicate service scope").default([]),
   targets: z.array(z.enum(["mobile", "desktop"])).max(2).optional(),
   capabilities: z.array(applicationCapabilitySchema).max(128).optional(),
   toolGovernance: z.array(applicationToolGovernanceSchema).max(256).optional(),

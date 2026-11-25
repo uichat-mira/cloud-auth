@@ -203,9 +203,4 @@ Content-Type: application/json
   - 声明变化后旧 binding 失效、不静默扩 scope，旧 ticket 按真实 exp 过期；
   - 普通登录不创建 grant，V0 裸 serviceId 凭据不能被实例 verifier 接受，实例凭据也不能被 V0 verifier 接受。
 
-尚未完成、必须在 #211 落地后的 dev 对齐并真实联验：
-
-- 真实 OAuth 登录 A → 登录事务调用 `establishLoginGrants(A)` → catalog/credential HTTP 全链路；
-- 登录 B、普通 Mira Cloud 登录、已有 Cloud Session 不旁路创建 A grant 的真实联验；
-- 应用停用状态列/状态机与 #211 的最终接口对齐；
-- 旧 V0 route/schema/audience 的最终删除和负向证据（依赖 Mobile/Who You/运维消费者实际切换顺序）。
+联合候选已覆盖真实 SQLite/Fastify OAuth → grant → catalog/credential，普通登录及不同实例隔离、停用与旧 code 撤权。Portal「关联服务」读取当前 V1 目录，支持精确服务撤权和当前可见实例的全部授权解除。仍需 Mobile/Who You/运维消费者完成切换后删除旧 V0 路径，并在 OPS-053 完成真实跨仓部署验收。
