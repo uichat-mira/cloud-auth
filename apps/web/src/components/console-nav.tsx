@@ -10,11 +10,12 @@ export interface ConsoleSection {
   end?: boolean;
 }
 
-/** The four console sections. Order is the reading order of the rail. */
+/** Console sections. Order is the reading order of the rail. */
 export const consoleSections: ConsoleSection[] = [
   { to: "/account", label: "概览", end: true },
   { to: "/account/devices", label: "设备与授权" },
   { to: "/account/security", label: "账户安全" },
+  { to: "/account/applications", label: "我的应用" },
   { to: "/account/services", label: "关联服务" },
 ];
 

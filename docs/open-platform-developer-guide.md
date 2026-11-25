@@ -24,7 +24,7 @@ CF Workers 只是一个部署选项，普通自建服务器同样适用。每个
 
 ## 2. 让应用能够自我描述
 
-应用提供公开的机器可读发现文档（候选：`/.well-known/mira-application`）。完整字段、JSON 示例及校验语义见 [协议 §3](open-platform-protocol-v1.md#3-登记与发现候选-http-profile)。
+应用提供公开的机器可读发现文档 `/.well-known/mira-application`。这是 OPS-050 已实现的 V1 最小登记入口；完整字段、JSON 示例及校验语义见 [协议 §3](open-platform-protocol-v1.md#3-登记与发现v1-http-profileops-050-已实现最小子集)。
 
 开发者准备：
 

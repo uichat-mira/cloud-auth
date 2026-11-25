@@ -358,3 +358,4 @@ export * from "./service-registry.js";
 export { registeredServiceClaimsSchema } from "./service-credential.js";
 
 export * from "./trusted-application.js";
+export * from "./application-instance.js";

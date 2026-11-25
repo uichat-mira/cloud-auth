@@ -1,7 +1,7 @@
 # Mira ID 开放平台：应用接入协议 V1（设计稿）
 
 - 维护方：cloud-auth / Mira ID；2026-11-25。
-- 状态：目标产品决策已确认；本文的协议字段与接口是待联验、待确认的设计候选，不是已发布 API。
+- 状态：目标产品决策已确认。OPS-050 已实现 §3 的最小实例登记子集（HTTPS Origin + APP_ID + AppSecret、固定发现文档、登记验证与 ownership）；§4–§5 的开放应用 OAuth、V1 服务授权/凭据和消费者切换仍由后续工作项实现，不能把部分落地误写成整个平台已发布。
 - 适用：独立部署的应用实例，以及 Mira ID 账号、已登记终端与这些应用之间的身份和授权关系。
 - 开发者接入路径见 [开放平台开发指南](open-platform-developer-guide.md)。协议语义以本文为准。
 - 现行运行合同仍见 [V0 服务登记](service-registry-v0.md)、[OAuth V0](oauth-authorization-v0.md)、[服务凭据 V0](service-credentials-v0.md)。不要把 V1 示例当作线上能力。
@@ -34,9 +34,9 @@
 
 候选实现：APP_ID 为实例首次部署时生成并持久保存的高熵随机标识（可使用随机材料的 SHA-256 摘要）；公开标识不等于认证凭据。JWK Thumbprint（RFC 7638/9278）标识公钥，可另用于证明密钥身份，但不宜直接用可轮换公钥的指纹或代码 commit SHA 作为永不变的实例 ID。域名迁移、所有权转移和密钥恢复协议留待专门设计。普通升级保持原标识，独立复制部署生成新标识。
 
-## 3. 登记与发现：候选 HTTP profile
+## 3. 登记与发现：V1 HTTP profile（OPS-050 已实现最小子集）
 
-本节是技术候选，目的是提供可以评审的最小协议，而非提前冻结 API 路径、算法或 UI 细节。
+OPS-050 已冻结并实现本节的最小同源登记链路：用户提交 HTTPS Origin、APP_ID 与 AppSecret；Mira ID 从 `/.well-known/mira-application` 读取声明，并调用声明中的同源 `registrationVerification.endpoint` 完成管理凭据验证。跨源托管、域名迁移、共同所有权与其他扩展仍未冻结，不得从当前实现自行外推。
 
 ### 3.1 发现文档
 
