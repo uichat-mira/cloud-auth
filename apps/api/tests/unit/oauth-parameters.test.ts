@@ -133,6 +133,16 @@ describe("OAuth authorization request parameters", () => {
     }
   });
 
+  it("accepts only the syntax of a dynamic HTTPS client; server admission is separate", () => {
+    expect(oauthAuthorizationRequestSchema.safeParse(request({
+      client_id: "fixture-web", redirect_uri: "https://fixture.example/auth/callback",
+    })).success).toBe(true);
+    expect(findFirstPartyOAuthClient("fixture-web")).toBeUndefined();
+    expect(oauthAuthorizationRequestSchema.safeParse(request({
+      client_id: "fixture-web", redirect_uri: "https://fixture.example/auth/callback?extra=1",
+    })).success).toBe(false);
+  });
+
   it("bounds state without allowing callback or header injection characters", () => {
     expect(oauthStateSchema.parse(state)).toBe(state);
     expect(oauthStateSchema.parse("abcdefghijklmnop")).toBe("abcdefghijklmnop");
@@ -222,7 +232,7 @@ describe("OAuth token exchange parameters", () => {
       tokenRequest({ installation_id: "not-a-uuid" }),
       tokenRequest({ platform: "server" }),
       tokenRequest({ code: "mcs_v1.abc.def" }),
-      tokenRequest({ client_id: "third-party" }),
+      tokenRequest({ client_id: "invalid client!" }),
     ]) {
       expect(oauthTokenRequestSchema.safeParse(invalid).success).toBe(false);
     }
