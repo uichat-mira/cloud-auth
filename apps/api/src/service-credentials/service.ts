@@ -80,7 +80,12 @@ export class ServiceCredentialService {
   ) {}
 
   issue(token: string, request: ServiceCredentialRequest): IssuedServiceCredential {
-    return this.issueResolved(token, () => request);
+    return this.issueResolved(token, accountId => {
+      if (request.audience === CLOUD_WHO_YOU_AUDIENCE && !this.repository.permitsLegacyWhoYouCredential(accountId)) {
+        throw new ServiceCredentialRequestError("SERVICE_CREDENTIAL_PRINCIPAL_NOT_READY", 409, "The account is not authorized for the requested service");
+      }
+      return request;
+    });
   }
 
   issueRegistered(token: string, registry: ServiceRegistryRepository, serviceId: string, revision: number): RegisteredServiceCredential {

@@ -15,6 +15,9 @@ import type { ServiceCredentialService } from "./service-credentials/service.js"
 import { ServiceRegistryRepository } from "./service-registry/repository.js";
 import { registerServiceRegistryRoutes } from "./service-registry/routes.js";
 
+import { TrustedApplicationManagement } from "./trusted-applications/management.js";
+import { registerTrustedApplicationRoutes } from "./trusted-applications/routes.js";
+
 export interface BuildAppOptions {
   db: DatabaseSync;
   authService?: AuthService;
@@ -55,7 +58,10 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   if (options.deviceService) registerDeviceRoutes(app, options.deviceService);
   if (options.hostService) registerHostRoutes(app, options.hostService);
   if (options.hostGrantService) registerHostGrantRoutes(app, options.hostGrantService);
-  if (options.oauthService) registerOAuthRoutes(app, options.oauthService);
+  if (options.oauthService) {
+    registerOAuthRoutes(app, options.oauthService);
+    registerTrustedApplicationRoutes(app, new TrustedApplicationManagement(options.db));
+  }
   if (options.serviceCredentialService) {
     registerServiceCredentialRoutes(app, options.serviceCredentialService);
   }

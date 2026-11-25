@@ -356,3 +356,5 @@ export type AuthErrorEnvelope = z.infer<typeof authErrorEnvelopeSchema>;
 
 export * from "./service-registry.js";
 export { registeredServiceClaimsSchema } from "./service-credential.js";
+
+export * from "./trusted-application.js";
