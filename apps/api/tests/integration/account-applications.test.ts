@@ -140,6 +140,9 @@ describe("Mira ID V1 application instance ownership", () => {
       origin,
       manifest: { name: "狐邮", oauth: { redirectUris: [origin + "/auth/callback"] } },
     });
+    expect(
+      (await call(ownerSession.sessionToken, "GET", route + "/" + encodeURIComponent(appId))).json(),
+    ).toMatchObject({ appId, origin, manifest: { projectId: "who-you" } });
 
     const row = auth.db.prepare("SELECT * FROM application_instances WHERE app_id = ?").get(appId) as Record<string, unknown>;
     expect(row.owner_account_id).toBe(owner.id);
@@ -256,6 +259,95 @@ describe("Mira ID V1 application instance ownership", () => {
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: { code: "APPLICATION_UNSAFE_ORIGIN" } });
+  });
+
+  it("keeps two deployments of the same project and serviceId as independent instances", async () => {
+    const secondOrigin = "https://mail-b.example";
+    const secondAppId = "app_who_you_fixture_002";
+    const secondSecret = "fixture-second-secret-0123456789";
+    const secondManifest = {
+      ...manifest,
+      appId: secondAppId,
+      name: "狐邮 B",
+      homeUrl: secondOrigin + "/",
+      iconUrl: secondOrigin + "/icon.png",
+      oauth: {
+        clientId: secondOrigin + "/oauth-client.json",
+        metadataUrl: secondOrigin + "/oauth-client.json",
+        redirectUris: [secondOrigin + "/auth/callback"],
+      },
+      registrationVerification: {
+        endpoint: secondOrigin + "/mira/verify-registration",
+      },
+      services: manifest.services.map((service) => ({
+        ...service,
+        protocol: { ...service.protocol, endpoint: secondOrigin + "/mcp" },
+        resource: secondOrigin + "/mcp",
+      })),
+    };
+    const transport: ApplicationRegistrationTransport = {
+      get: async (url) => {
+        if (url === origin + "/.well-known/mira-application") {
+          return { status: 200, body: manifest };
+        }
+        if (url === secondOrigin + "/.well-known/mira-application") {
+          return { status: 200, body: secondManifest };
+        }
+        return { status: 404, body: { error: "not_found" } };
+      },
+      post: async (url, body) => {
+        const value = body as { appId?: string; appSecret?: string };
+        if (
+          url === manifest.registrationVerification.endpoint &&
+          value.appId === appId &&
+          value.appSecret === secret
+        ) {
+          return { status: 200, body: { ok: true, appId } };
+        }
+        if (
+          url === secondManifest.registrationVerification.endpoint &&
+          value.appId === secondAppId &&
+          value.appSecret === secondSecret
+        ) {
+          return { status: 200, body: { ok: true, appId: secondAppId } };
+        }
+        return { status: 403, body: { ok: false } };
+      },
+    };
+    const { auth, ownerSession, call } = await setup(transport);
+    const route = "/v1/account/applications";
+
+    expect(
+      (await call(ownerSession.sessionToken, "POST", route, { origin, appId, appSecret: secret }))
+        .statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await call(ownerSession.sessionToken, "POST", route, {
+          origin: secondOrigin,
+          appId: secondAppId,
+          appSecret: secondSecret,
+        })
+      ).statusCode,
+    ).toBe(200);
+
+    const catalog = (await call(ownerSession.sessionToken, "GET", route)).json().applications;
+    expect(catalog).toHaveLength(2);
+    expect(catalog.map((application: { appId: string }) => application.appId).sort()).toEqual(
+      [appId, secondAppId].sort(),
+    );
+    expect(
+      catalog.map(
+        (application: { manifest: { projectId: string; services: Array<{ serviceId: string }> } }) =>
+          [application.manifest.projectId, application.manifest.services[0]?.serviceId],
+      ),
+    ).toEqual([
+      ["who-you", "mail"],
+      ["who-you", "mail"],
+    ]);
+    expect(
+      auth.db.prepare("SELECT COUNT(*) AS count FROM application_instances").get(),
+    ).toMatchObject({ count: 2 });
   });
 
 });
