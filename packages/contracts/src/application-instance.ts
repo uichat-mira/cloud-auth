@@ -23,6 +23,14 @@ export const applicationOriginSchema = safeHttpsUrl.refine(
   "Expected an HTTPS origin without path, query or fragment",
 );
 
+/**
+ * Exact resource URI a declared service protects. It is part of the canonical
+ * service identity and of the issued credential audience; it is never derived
+ * from a caller-supplied serviceId or projectId.
+ */
+export const applicationServiceResourceSchema = safeHttpsUrl;
+export type ApplicationServiceResource = z.infer<typeof applicationServiceResourceSchema>;
+
 export const applicationIdSchema = z.string()
   .min(8)
   .max(160)

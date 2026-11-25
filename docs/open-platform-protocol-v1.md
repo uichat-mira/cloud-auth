@@ -1,7 +1,7 @@
 # Mira ID 开放平台：应用接入协议 V1（设计稿）
 
 - 维护方：cloud-auth / Mira ID；2026-11-25。
-- 状态：目标产品决策已确认。OPS-050 已实现 §3 的最小实例登记子集（HTTPS Origin + APP_ID + AppSecret、固定发现文档、登记验证与 ownership）；§4–§5 的开放应用 OAuth、V1 服务授权/凭据和消费者切换仍由后续工作项实现，不能把部分落地误写成整个平台已发布。
+- 状态：目标产品决策已确认。OPS-050 已实现 §3 的最小实例登记子集（HTTPS Origin + APP_ID + AppSecret、固定发现文档、登记验证与 ownership）；OPS-052 已实现实例级目录、复合身份、服务粒度撤权与短期凭据子集（见 [实例级服务目录与短期凭据 V1](open-platform-service-credentials-v1.md)）。§4 的开放应用 OAuth 与账号 grant 写入权威仍由 OPS-051 实现；在 OPS-051 合并并以 dev 真实联验前，不能把部分落地误写成整个平台已发布。
 - 适用：独立部署的应用实例，以及 Mira ID 账号、已登记终端与这些应用之间的身份和授权关系。
 - 开发者接入路径见 [开放平台开发指南](open-platform-developer-guide.md)。协议语义以本文为准。
 - 现行运行合同仍见 [V0 服务登记](service-registry-v0.md)、[OAuth V0](oauth-authorization-v0.md)、[服务凭据 V0](service-credentials-v0.md)。不要把 V1 示例当作线上能力。
@@ -156,6 +156,8 @@ Mira ID -> 终端: 仅对该资源与授权范围有效的凭据
 ```
 
 建议复用现有目录与短期签发的内部能力，而不是把 V0 路径/响应直接宣称为 V1。候选新目录至少含实例 APP_ID、projectId、serviceId、类型、资源/端点、scope、适用终端、声明/授权修订；凭据请求至少绑定实例、服务、resource 与修订，账号及终端身份由认证上下文得出。精确 V1 API 路径和 token 格式待冻结；对外合同按破坏性切换实施，不把旧裸 serviceId 路径包装成长期兼容接口。
+
+OPS-052 已冻结并实现其独立子集：目录为 `GET /v1/application-services`，取票与撤权为 `POST /v1/application-services/{appId}/{serviceId}/credential|revoke`；凭据 claims 绑定 `iss/sub/device_id/aud(=resource)/app_id/service_id/resource/scope/exp`。账号 grant 的写入权威、应用停用状态机与真实 OAuth 联验仍按 OPS-051 对齐；详细契约、错误和切换顺序见 [实例级服务目录与短期凭据 V1](open-platform-service-credentials-v1.md)。
 
 资源隔离优先参考 RFC 8707 与 RFC 9728。应用 A 与 B 即使同名同项目，凭据也不能互相使用；服务应验证可信 issuer、签名或认可的 introspection、精确 audience/resource、有效期、scope 及业务 subject，不接受仅凭 projectId 或全局 whoyou.read 推断实例授权。短期访问凭据的受众、实例和资源映射必须唯一，避免同源多个资源间混用；终端不可直接使用 AppSecret 或将原始 Cloud Session 传给服务。缓存绑定账号、终端、实例、服务、资源、声明/授权修订和有效期，变化时重新发现，不因缓存继续扩大权限。
 
