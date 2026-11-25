@@ -1,5 +1,7 @@
 # Mira ID service registry V0 (OPS-047)
 
+> **Historical / retired on dev (OPS-052, 2026-11-25).** These routes, management bearer and operator commands no longer exist in the current dev runtime. This document is preserved solely to explain historical migrations and the replaced contract. Use [Open Platform V1](open-platform-protocol-v1.md) instead. Production state is separate.
+
 ## Authority: legacy V0 operator path (unmanaged services only)
 
 For managed cloud applications, the OPS-049 contract below takes precedence. The legacy operator path remains only for existing unmanaged services.

@@ -13,6 +13,7 @@ export type ServiceCredentialVerificationErrorCode =
   | "EXPIRED"
   | "TTL_EXCEEDED"
   | "RELAY_CONTEXT_MISMATCH"
+  | "APPLICATION_MISMATCH"
   | "INVALID_VERIFIER_CONFIG";
 
 export class ServiceCredentialVerificationError extends Error {

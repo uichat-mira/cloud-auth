@@ -113,4 +113,10 @@ See docs/hosts-v0.md for the OPS-018 Desktop Host caller contract, presence leas
 
 See docs/host-grants-v0.md for the OPS-020 Host -> Mobile Remote V1 scope ledger, revision/TTL snapshot contract, Portal narrowing/revocation, and DSK-005/DSK-007/OPS-021 consumer fixtures.
 
-Service registration and protocol discovery: [OPS-047 contract](docs/service-registry-v0.md).
+### Application ecosystem / 开放平台
+
+- Current dev contract: [Mira ID 开放平台接入协议](docs/open-platform-protocol-v1.md).
+- Developer-facing walkthrough: [开放平台开发指南](docs/open-platform-developer-guide.md).
+- Historical (retired): [OPS-047 / OPS-049 service registry](docs/service-registry-v0.md).
+
+On dev, OPS-050/051/052 provide instance registration, application-scoped OAuth and instance-bound service credentials. Who You and Mobile have migrated on their dev branches. Legacy administrator enrollment, management bearer, serviceId-only catalog/credential and Who You named-audience issuance are removed; historical rows and migrations are not used as authorization. Native Desktop/Mobile OAuth, Relay, Guanlan and Shiyan credential issuance remain independent. Production deployment and cross-environment acceptance are separate; see OPS-053.

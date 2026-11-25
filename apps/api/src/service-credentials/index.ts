@@ -34,10 +34,13 @@ export type {
   IssueServiceCredentialInput,
   ServiceCredentialSignerConfig,
 } from "./signer.js";
-export { verifyServiceCredential } from "./verifier.js";
+export { verifyApplicationServiceCredential, verifyServiceCredential } from "./verifier.js";
 export type {
+  ApplicationServiceVerifierConfig,
   Ed25519PublicKeyInput,
+  ExpectedApplicationServiceContext,
   ExpectedRelayContext,
   ServiceCredentialVerifierConfig,
+  VerifiedApplicationServiceCredential,
   VerifiedServiceCredential,
 } from "./verifier.js";
