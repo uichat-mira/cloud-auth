@@ -25,8 +25,7 @@ const errorMessage = (error: unknown) => {
     return "应用声明包含尚未验证的跨域地址。";
   if (error.status === 401) return "登录已失效，请重新登录。";
   if (error.status === 400) return "请检查应用地址、APP_ID 与 AppSecret。";
-  if (error.status === 502)
-    return "无法读取或验证应用，请确认应用服务已上线。";
+  if (error.status === 502) return "无法读取或验证应用，请确认应用服务已上线。";
   return "请求未完成，请刷新应用列表确认状态后重试。";
 };
 
@@ -178,9 +177,7 @@ function ApplicationsForAccount() {
     if (
       busy ||
       !window.confirm(
-        "从“我的应用”移除“" +
-          name +
-          "”？这不会自动撤销你对该服务的使用授权。",
+        "从“我的应用”移除“" + name + "”？这不会自动撤销你对该服务的使用授权。",
       )
     ) {
       return;
@@ -223,8 +220,8 @@ function ApplicationsForAccount() {
       <header className="console-page-head">
         <h1 tabIndex={-1}>我的应用</h1>
         <p className="console-page-caption">
-          登记你控制的应用实例。只需要应用地址、APP_ID 和 AppSecret，其余信息由 Mira
-          ID 自动读取。
+          登记你控制的应用实例。只需要应用地址、APP_ID 和 AppSecret，其余信息由
+          Mira ID 自动读取。
         </p>
       </header>
 
@@ -274,9 +271,7 @@ function ApplicationsForAccount() {
           <section key={application.appId} className="console-section">
             <div className="console-section-head">
               <div>
-                <h3 className="font-semibold">
-                  {application.manifest.name}
-                </h3>
+                <h3 className="font-semibold">{application.manifest.name}</h3>
                 <p className="console-section-caption">
                   {application.manifest.projectId} · revision{" "}
                   {application.manifest.manifestRevision}
@@ -305,9 +300,7 @@ function ApplicationsForAccount() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      void copy(application.appId, "APP_ID")
-                    }
+                    onClick={() => void copy(application.appId, "APP_ID")}
                   >
                     复制
                   </Button>
@@ -405,9 +398,8 @@ function ApplicationsForAccount() {
             />
           </div>
           <p className="console-section-caption">
-            AppSecret
-            仅用于本次服务端登记验证，不会显示在应用列表，也不会下发给 Mira
-            终端。
+            AppSecret 仅用于本次服务端登记验证，不会显示在应用列表，也不会下发给
+            Mira 终端。
           </p>
           <div className="flex gap-2 justify-end">
             <Button
