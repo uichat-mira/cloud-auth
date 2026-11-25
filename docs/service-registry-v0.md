@@ -1,5 +1,7 @@
 # Mira ID service registry V0 (OPS-047)
 
+> **Current implementation / V0 only.** The later 2026-11-25 product direction for independent deployments and self-generated APP_ID/AppSecret is recorded in [Open Platform V1 design](open-platform-protocol-v1.md) and its [developer guide](open-platform-developer-guide.md). The administrator-enrollment model below describes existing code, not the future product admission policy. V1 remains a design candidate; current consumers must continue to use this V0 contract until verified migration.
+
 ## Authority: legacy V0 operator path (unmanaged services only)
 
 For managed cloud applications, the OPS-049 contract below takes precedence. The legacy operator path remains only for existing unmanaged services.

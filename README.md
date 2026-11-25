@@ -113,4 +113,10 @@ See docs/hosts-v0.md for the OPS-018 Desktop Host caller contract, presence leas
 
 See docs/host-grants-v0.md for the OPS-020 Host -> Mobile Remote V1 scope ledger, revision/TTL snapshot contract, Portal narrowing/revocation, and DSK-005/DSK-007/OPS-021 consumer fixtures.
 
-Service registration and protocol discovery: [OPS-047 contract](docs/service-registry-v0.md).
+### Application ecosystem / 开放平台
+
+- Current V0 implementation contract: [OPS-047 / OPS-049 service registry](docs/service-registry-v0.md).
+- Target product design and candidate V1 application integration protocol: [Mira ID 开放平台接入协议](docs/open-platform-protocol-v1.md).
+- Developer-facing walkthrough: [开放平台开发指南](docs/open-platform-developer-guide.md).
+
+The V1 design records the 2026-11-25 maintainer decisions for independent instances, account ownership and service grants. It is not yet an implemented API; the earlier AGT-025 canonical design remains the baseline for V0 account/device/session architecture. Do not use the V1 draft as production integration instructions.
