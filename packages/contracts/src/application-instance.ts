@@ -9,6 +9,7 @@ const safeHttpsUrl = z.string().max(2048).refine((value) => {
       !!url.hostname &&
       !url.username &&
       !url.password &&
+      !url.hash &&
       !/[\s\\*]/.test(value);
   } catch {
     return false;
@@ -16,7 +17,9 @@ const safeHttpsUrl = z.string().max(2048).refine((value) => {
 }, "Expected a valid HTTPS URL");
 
 export const applicationOriginSchema = safeHttpsUrl.refine(
-  (value) => new URL(value).origin === value,
+  (value) => {
+    try { return new URL(value).origin === value; } catch { return false; }
+  },
   "Expected an HTTPS origin without path, query or fragment",
 );
 
@@ -47,7 +50,7 @@ export const applicationRiskHintSchema = z.string().regex(/^[a-z][a-z0-9-]{0,79}
 const toolNameSchema = z.string().min(1).max(200);
 
 export const applicationCapabilitySchema = z.object({
-  id: serviceIdSchema,
+  id: z.string().regex(/^[a-z][a-z0-9.-]{0,63}$/),
   title: z.string().trim().min(1).max(100),
   description: z.string().trim().min(1).max(500).optional(),
   toolRefs: z.array(toolNameSchema).max(256).default([]),
