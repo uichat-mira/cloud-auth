@@ -12,6 +12,7 @@ const sections = [
   { href: "/account", label: "概览" },
   { href: "/account/devices", label: "设备与授权" },
   { href: "/account/security", label: "账户安全" },
+  { href: "/account/applications", label: "我的应用" },
   { href: "/account/services", label: "关联服务" },
 ] as const;
 
@@ -82,9 +83,10 @@ describe("console section navigation", () => {
     ["/account", "概览"],
     ["/account/devices", "设备与授权"],
     ["/account/security", "账户安全"],
+    ["/account/applications", "我的应用"],
     ["/account/services", "关联服务"],
     ["/account/services/dc", "关联服务"],
-  ] as const)("offers the four sections on %s and marks %s active", async (path, activeLabel) => {
+  ] as const)("offers every console section on %s and marks %s active", async (path, activeLabel) => {
     mountConsole({ path, status: "authenticated" });
 
     const nav = await consoleNav();
