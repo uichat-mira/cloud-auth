@@ -22,6 +22,7 @@ type ApplicationRow = {
   display_name: string;
   redirect_uri: string;
   disabled_at: string | null;
+  generation: number;
 };
 
 function validWebCallback(value: string): boolean {
@@ -46,7 +47,7 @@ export class TrustedApplicationLoginCatalog {
         ? { client: builtin, fingerprint: null, services: [] } : null;
     }
     const row = this.db.prepare(
-      "SELECT client_id, project_id, display_name, redirect_uri, disabled_at FROM oauth_cloud_applications WHERE client_id = ?",
+      "SELECT client_id, project_id, display_name, redirect_uri, disabled_at, generation FROM oauth_cloud_applications WHERE client_id = ?",
     ).get(clientId) as ApplicationRow | undefined;
     if (!row) {
       // Until the existing reviewed Who You client is enrolled, preserve its
@@ -64,8 +65,8 @@ export class TrustedApplicationLoginCatalog {
         (row.project_id === "who-you" || findFirstPartyOAuthClient(WHO_YOU_WEB_OAUTH_CLIENT_ID)?.redirectUris.includes(redirectUri))) return null;
 
     const rows = this.db.prepare(
-      "SELECT service_id, definition_json FROM oauth_cloud_application_services WHERE client_id = ? AND retired_at IS NULL ORDER BY service_id",
-    ).all(clientId) as { service_id: string; definition_json: string }[];
+      "SELECT service_id, definition_json, revision FROM oauth_cloud_application_services WHERE client_id = ? AND retired_at IS NULL ORDER BY service_id",
+    ).all(clientId) as { service_id: string; definition_json: string; revision: number }[];
     const services = rows.map(item => {
       const definition = serviceDefinitionSchema.parse(JSON.parse(item.definition_json));
       if (definition.serviceId !== item.service_id || definition.projectId !== row.project_id) {
@@ -76,7 +77,8 @@ export class TrustedApplicationLoginCatalog {
     });
     const fingerprint = createHash("sha256").update(JSON.stringify({
       clientId: row.client_id, projectId: row.project_id,
-      displayName: row.display_name, redirectUri: row.redirect_uri, services,
+      displayName: row.display_name, redirectUri: row.redirect_uri, generation: row.generation,
+      revisions: rows.map(item => [item.service_id, item.revision]), services,
     })).digest("hex");
     return {
       client: { clientId: row.client_id, platform: "web", redirectUris: [row.redirect_uri], displayName: row.display_name },
