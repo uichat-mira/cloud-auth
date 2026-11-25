@@ -1,8 +1,6 @@
 import {
-  findFirstPartyOAuthClient,
   MIRA_DESKTOP_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
-  type FirstPartyOAuthClient,
   type IssuedCloudSession,
   type OAuthAuthorizationRequest,
   type OAuthTokenRequest,
@@ -12,6 +10,7 @@ import { issueSessionToken } from "../security/session-token.js";
 import { issueAuthorizationCode, parseAuthorizationCode } from "./authorization-code.js";
 import { OAuthError } from "./errors.js";
 import type { OAuthRepository } from "./oauth-repository.js";
+import type { LoginClient } from "../trusted-applications/login-catalog.js";
 
 export interface OAuthServiceOptions {
   codeTtlSeconds: number;
@@ -40,11 +39,9 @@ export class OAuthService {
   resolveRegisteredClient(
     clientId: string | undefined,
     redirectUri: string | undefined,
-  ): FirstPartyOAuthClient | null {
+  ): LoginClient | null {
     if (!clientId || !redirectUri) return null;
-    const client = findFirstPartyOAuthClient(clientId);
-    if (!client?.redirectUris.includes(redirectUri)) return null;
-    return client;
+    return this.repository.resolveRegisteredClient(clientId, redirectUri);
   }
 
   /**
