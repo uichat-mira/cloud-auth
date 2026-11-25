@@ -4,6 +4,7 @@ import { isIP } from "node:net";
 
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const REQUEST_TIMEOUT_MS = 5_000;
+const MAX_CONCURRENT_REQUESTS = 8;
 
 export interface ApplicationRegistrationHttpResponse {
   status: number;
@@ -16,7 +17,7 @@ export interface ApplicationRegistrationTransport {
 }
 
 export class ApplicationTransportError extends Error {
-  constructor(readonly code: "INVALID_TARGET" | "UNSAFE_TARGET" | "NETWORK_ERROR" | "INVALID_RESPONSE") {
+  constructor(readonly code: "INVALID_TARGET" | "UNSAFE_TARGET" | "NETWORK_ERROR" | "INVALID_RESPONSE" | "BUSY") {
     super(code);
   }
 }
@@ -79,9 +80,10 @@ function parseTarget(value: string): URL {
   return url;
 }
 
-async function requestJson(method: "GET" | "POST", value: string, body?: unknown): Promise<ApplicationRegistrationHttpResponse> {
+async function requestJson(method: "GET" | "POST", value: string, signal: AbortSignal, body?: unknown): Promise<ApplicationRegistrationHttpResponse> {
   const target = parseTarget(value);
   const resolved = await resolvePublicTarget(target.hostname);
+  if (signal.aborted) throw new ApplicationTransportError("NETWORK_ERROR");
   const payload = body === undefined ? undefined : JSON.stringify(body);
 
   return await new Promise<ApplicationRegistrationHttpResponse>((resolve, reject) => {
@@ -90,6 +92,7 @@ async function requestJson(method: "GET" | "POST", value: string, body?: unknown
       hostname: resolved.address,
       port: target.port ? Number(target.port) : 443,
       method,
+      signal,
       path: target.pathname + target.search,
       servername: target.hostname,
       headers: {
@@ -111,6 +114,7 @@ async function requestJson(method: "GET" | "POST", value: string, body?: unknown
         }
         chunks.push(chunk);
       });
+      response.on("error", () => reject(new ApplicationTransportError("NETWORK_ERROR")));
       response.on("end", () => {
         try {
           const text = Buffer.concat(chunks).toString("utf8");
@@ -122,9 +126,6 @@ async function requestJson(method: "GET" | "POST", value: string, body?: unknown
       });
     });
 
-    request.setTimeout(REQUEST_TIMEOUT_MS, () => {
-      request.destroy(new ApplicationTransportError("NETWORK_ERROR"));
-    });
     request.on("error", (error) => {
       reject(error instanceof ApplicationTransportError ? error : new ApplicationTransportError("NETWORK_ERROR"));
     });
@@ -134,11 +135,38 @@ async function requestJson(method: "GET" | "POST", value: string, body?: unknown
 }
 
 export class HttpsApplicationRegistrationTransport implements ApplicationRegistrationTransport {
+  private activeRequests = 0;
+
   get(url: string) {
-    return requestJson("GET", url);
+    return this.request("GET", url);
   }
 
   post(url: string, body: unknown) {
-    return requestJson("POST", url, body);
+    return this.request("POST", url, body);
+  }
+
+  private async request(method: "GET" | "POST", url: string, body?: unknown) {
+    if (this.activeRequests >= MAX_CONCURRENT_REQUESTS) {
+      throw new ApplicationTransportError("BUSY");
+    }
+    this.activeRequests++;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new ApplicationTransportError("NETWORK_ERROR"));
+      }, REQUEST_TIMEOUT_MS);
+    });
+    // DNS lookup cannot be aborted. Keep its slot occupied until the actual
+    // work settles, even if the caller has already hit the deadline.
+    const work = requestJson(method, url, controller.signal, body).finally(() => {
+      this.activeRequests--;
+    });
+    try {
+      return await Promise.race([work, deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
