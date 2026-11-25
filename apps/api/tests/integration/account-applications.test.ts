@@ -93,13 +93,13 @@ afterEach(async () => {
   }
 });
 
-async function setup() {
+async function setup(registrationTransport: ApplicationRegistrationTransport = new FixtureTransport()) {
   const dir = mkdtempSync(join(tmpdir(), "mira-app-instance-"));
   const auth = createTestAuth(join(dir, "auth.sqlite"));
   const app = buildApp({
     db: auth.db,
     authService: auth.service,
-    applicationRegistrationTransport: new FixtureTransport(),
+    applicationRegistrationTransport: registrationTransport,
   });
   const owner = await auth.service.provisionAccount("owner", password);
   const other = await auth.service.provisionAccount("other", password);
@@ -179,12 +179,6 @@ describe("Mira ID V1 application instance ownership", () => {
   });
 
   it("rejects manifest URLs that escape the verified Origin", async () => {
-    const { ownerSession, call, app } = await setup();
-    await app.close();
-    const authDir = mkdtempSync(join(tmpdir(), "mira-app-origin-mismatch-"));
-    const auth = createTestAuth(join(authDir, "auth.sqlite"));
-    await auth.service.provisionAccount("owner2", password);
-    const session = await auth.service.login("owner2", password, "127.0.0.3");
     const badManifest = {
       ...manifest,
       oauth: { ...manifest.oauth, redirectUris: ["https://evil.example/callback"] },
@@ -193,21 +187,13 @@ describe("Mira ID V1 application instance ownership", () => {
       get: async () => ({ status: 200, body: badManifest }),
       post: async () => ({ status: 200, body: { ok: true, appId } }),
     };
-    const badApp = buildApp({ db: auth.db, authService: auth.service, applicationRegistrationTransport: transport });
-    try {
-      const response = await badApp.inject({
-        method: "POST",
-        url: "/v1/account/applications",
-        headers: { authorization: "Bearer " + session.sessionToken },
-        payload: { origin, appId, appSecret: secret },
-      });
-      expect(response.statusCode).toBe(400);
-      expect(response.json().error.code).toMatch(/^APPLICATION_METADATA_ORIGIN_MISMATCH_/);
-    } finally {
-      await badApp.close();
-      auth.db.close();
-      rmSync(authDir, { recursive: true, force: true });
-    }
-    expect(call).toBeTypeOf("function");
+    const { ownerSession, call } = await setup(transport);
+    const response = await call(ownerSession.sessionToken, "POST", "/v1/account/applications", {
+      origin,
+      appId,
+      appSecret: secret,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toMatch(/^APPLICATION_METADATA_ORIGIN_MISMATCH_/);
   });
 });
