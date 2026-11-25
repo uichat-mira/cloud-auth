@@ -80,8 +80,8 @@ function ApplicationsForAccount() {
     else dialog.setAttribute("open", "");
   }
 
-  function closeRegister() {
-    if (busy) return;
+  function closeRegister(force = false) {
+    if (busy && !force) return;
     setAppSecret("");
     const dialog = dialogRef.current;
     if (dialog?.open && typeof dialog.close === "function") dialog.close();
@@ -106,7 +106,7 @@ function ApplicationsForAccount() {
       });
       if (!mounted.current || token !== getSessionToken()) return;
       setNotice("已登记 " + result.application.manifest.name + "。");
-      closeRegister();
+      closeRegister(true);
       await refresh();
     } catch (failure) {
       if (!mounted.current || token !== getSessionToken()) return;
