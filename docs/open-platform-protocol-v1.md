@@ -10,13 +10,13 @@
 
 1. 所有 Mira ID 账号拥有者天然是开发者。没有独立开发者资格、资格申请或管理员逐账号预授。既有 Mira ID 账号自身的登录和停用规则不变。
 2. 应用项目与部署实例是两件事。共同开发同一项目的人可以各自部署，各自管理业务数据和资源；同一项目不具有全局唯一实例或唯一所有者。
-3. 每个部署实例自行生成稳定 APP_ID 与 AppSecret。开发者登录自己的 Mira ID，在「我的应用」输入应用地址和凭据完成登记；Mira ID 从实例发现名称、回调、服务等信息。正常登记不依赖人工运维 CLI、修改静态客户端名单或联动发包。
+3. 每个部署实例自行生成稳定 APP_ID 与 AppSecret。开发者登录自己的 Mira ID，在「我的应用」输入规范 HTTPS Origin、APP_ID 与 AppSecret 完成登记；Origin 只用于定位实例，APP_ID 是稳定实例身份，AppSecret 用于受保护的登记验证。Mira ID 从该 Origin 自动读取名称、回调、服务等元信息；callback、serviceId、scope、resource、MCP endpoint 不由用户手工填写。正常登记不依赖人工运维 CLI、修改静态客户端名单或联动发包。
 4. 「我的应用」表示应用实例的管理关系；「关联服务」表示账号的使用授权。两者独立；自己的实例可以同时出现在两个栏目。也可以通过 OAuth 主动登录别人部署的实例，取得使用权，但不获得所有权。
 5. 成功主动 OAuth 登录某实例所取得的账号级服务授权，可被该账号下全部已登记、有效且支持相应服务的 Mira 终端消费，无须每个终端配置 AppSecret 或重复登录应用。仅登录 Mira ID 不授予所有实例。
 6. MCP 是现阶段重点接入的第一种服务类型，不是开放平台的定义。子应用提供完整、符合最新稳定官方规范的标准 MCP 服务，Mira 终端使用标准 MCP Client。开放平台包含 MCP，不定义 Mira 版 MCP，不裁剪或修改协议，不要求私有 MCP 字段或协商。应用可声明多个服务、不同类型与协议；其他服务类型保留扩展空间，暂不设计。Mira ID 负责身份、声明、授权与发现，不承担各类服务的业务逻辑。
 7. Mira 外层应用服务声明可表达终端适用范围、能力分组、标准工具引用及非授权性质的治理提示，不是 MCP 私有协议字段。工具引用的规范身份为 `(APP_ID, serviceId, MCP tool name)`；声明只引用标准 `tools/list` 中真实存在的工具，不复制 Tool Schema。风险治理采用多维 `riskHints`，不定义 R0–R4 等单轴等级；`selectionWeightHint` 仅在已合法进入候选集的工具/能力之间提供相对排序建议。所有提示均不得授予权限、降低客户端既有安全门槛或强制 Agent 调用。
 
-上述决策改变 OPS-049 管理员登记模式及 OPS-050 原方案的目标边界。它们与旧代码不是同一件事。保留历史证据，待新合同获确认后再重定实施任务。Local/Direct/Tailscale、Host Grant、Relay 及各应用业务授权边界不变。
+上述决策改变 OPS-049 管理员登记模式及 OPS-050 原方案的目标边界。V1 由当前 OPS-050/051/052、OPS-048、MOB-105/107 与 AGT-073 等工作项按破坏性切换实施：不承诺 V0 双读、双写、alias、旧协议 fallback 或长期兼容层。V0 文档仍描述切换前的实际运行事实；消费者完成迁移后，旧入口应删除并留下负向验证。Local/Direct/Tailscale、Host Grant、Relay 及各应用业务授权边界不变。
 
 ## 2. 角色与身份
 
@@ -66,8 +66,8 @@ Accept: application/json
     "metadataUrl": "https://mail-a.example/oauth-client.json",
     "redirectUris": ["https://mail-a.example/auth/callback"]
   },
-  "ownershipVerification": {
-    "endpoint": "https://mail-a.example/mira/verify-ownership"
+  "registrationVerification": {
+    "endpoint": "https://mail-a.example/mira/verify-registration"
   },
   "services": [
     {
@@ -111,17 +111,17 @@ Accept: application/json
 - targets 只是实例声明的适用环境；消费端按支持的类型、协议版本、授权和本地能力治理取交集。未知类型可以显示元数据，不自动调用、不被当作 MCP。不要为尚未出现的类型规定实现。
 - 同一项目的第二个实例具有不同 origin、APP_ID、OAuth client_id、资源地址；服务的 local serviceId 可以相同。
 
-### 3.2 所有权验证
+### 3.2 登记验证
 
-建议登记过程采用以下顺序：
+V1 采用最小登记流程，不引入 challenge、公私钥所有权协议或额外人工字段：
 
-1. Mira ID 已登录账号启动登记，获取发现文档；验证输入 APP_ID 与文档一致，验证 HTTPS origin、回调和端点的关系，预览应用名称、域名、服务。应用自称的名称和图标不能证明它可信。
-2. Mira ID 为该登记事务生成一次性、短有效期 challenge，绑定当前账号会话、发现 origin、APP_ID 与声明快照；通过经验证的应用 origin 进行 AppSecret 所有权证明。
-3. 候选 profile 为 Mira ID 服务端向同源验证 endpoint 发起 HTTPS POST，提交 APP_ID、challenge、声明摘要及用户提供的 AppSecret（经 TLS，禁止 URL/日志/重定向传播）；应用用自己的管理凭据验证，返回与请求绑定的验证结果。双方应限制重放、失败频率与请求大小，challenge 只能消费一次。精确请求/响应格式与可选签名 challenge 升级待安全设计冻结。
-4. Mira ID 只在验证成功后建立账号—实例管理关系，拒绝未经现有所有者授权的重复认领或覆盖。以 verified origin + APP_ID 及 OAuth metadata binding 防止不同域名冒用相同公开 ID。应用自身的管理凭据与 Mira ID 内部管理权限分别维护；不把 AppSecret 下发终端，不在目录、声明或日志中保存明文。候选最小方案仅在登记事务中使用 AppSecret，不长期保留；后续刷新使用已验证 origin 与公开元数据，敏感变更需要重新证明。
-5. 登记成功后，实例出现于「我的应用」，Mira ID 可以识别其 OAuth 客户端；仅登记不自动授予服务使用权。已有有效实例的重复登记、共享管理、移除和转移的具体交互待确认，不能用重复登记偷换所有者。
+1. 已登录 Mira ID 的开发者提交规范 HTTPS Origin、APP_ID 与 AppSecret。
+2. Mira ID 服务端从该 Origin 的固定发现地址读取公开元信息，验证发现文档中的 APP_ID 与输入一致，并校验 Origin、OAuth 回调、服务 endpoint/resource 等关系。应用名称和图标只用于展示，不能证明身份。
+3. Mira ID 服务端向发现文档声明的同源登记验证 endpoint 发起 HTTPS POST，提交 APP_ID 与用户提供的 AppSecret。应用服务端验证这组管理凭据后只返回有界成功/失败结果。AppSecret 不进入 URL、重定向、日志、公开声明、模型上下文或终端；验证接口应限制失败频率、请求大小和滥用。
+4. Mira ID 仅在验证成功后建立账号—实例 ownership，并保存 verified Origin、APP_ID 与必要的声明快照。默认登记流程不要求长期保存 AppSecret 明文；公开元信息可从 verified Origin 刷新，涉及 ownership、敏感 endpoint 或密钥变更时可要求重新输入管理凭据。
+5. 登记成功后实例出现在「我的应用」；登记本身不授予服务使用权。已有有效实例的重复登记、共享管理、移除和转移不能通过重复提交凭据偷换所有者。
 
-AppSecret 是 Mira 自定义的部署管理凭据，不是必须使用的 OAuth client_secret，也不是用户密码；应用端需安全生成、存储与轮换。公开元数据和管理凭据不混用。可研究私钥签名（RFC 7523/private_key_jwt）作为常规客户端证明；不在本轮决定必须使用某一种密钥算法。
+AppSecret 是 Mira 自定义的部署管理凭据，不是用户密码，也**不默认等同于 OAuth client_secret**。OAuth client identity 与 confidential-client authentication 由已验证登记记录和 §4 的独立合同决定，不能因为登记阶段存在 AppSecret 就自动复用它。
 
 ### 3.3 声明验证、刷新与信任
 
@@ -155,7 +155,7 @@ Mira ID -> 终端: 仅对该资源与授权范围有效的凭据
 终端 -> 实例服务: 按其协议直接访问
 ```
 
-建议复用现有 GET /v1/services 和凭据签发的概念，而不是把现有路径/响应直接宣称为 V1。候选新目录至少含实例 APP_ID、projectId、serviceId、类型、资源/端点、scope、适用终端、声明/授权修订；凭据请求至少绑定实例、服务、修订，账号及终端身份由认证上下文得出。精确 API 路径、兼容方式和 token 格式待冻结。
+建议复用现有目录与短期签发的内部能力，而不是把 V0 路径/响应直接宣称为 V1。候选新目录至少含实例 APP_ID、projectId、serviceId、类型、资源/端点、scope、适用终端、声明/授权修订；凭据请求至少绑定实例、服务、resource 与修订，账号及终端身份由认证上下文得出。精确 V1 API 路径和 token 格式待冻结；对外合同按破坏性切换实施，不把旧裸 serviceId 路径包装成长期兼容接口。
 
 资源隔离优先参考 RFC 8707 与 RFC 9728。应用 A 与 B 即使同名同项目，凭据也不能互相使用；服务应验证可信 issuer、签名或认可的 introspection、精确 audience/resource、有效期、scope 及业务 subject，不接受仅凭 projectId 或全局 whoyou.read 推断实例授权。短期访问凭据的受众、实例和资源映射必须唯一，避免同源多个资源间混用；终端不可直接使用 AppSecret 或将原始 Cloud Session 传给服务。缓存绑定账号、终端、实例、服务、资源、声明/授权修订和有效期，变化时重新发现，不因缓存继续扩大权限。
 
@@ -168,7 +168,7 @@ MCP 是完整独立的官方协议，不是 Mira 自定义传输或子集。新�
 - 能力发现：2026-07-28 使用无状态、逐请求版本与能力元数据，服务端实现标准 server/discover；不以旧版 initialize 握手为新协议前置条件。通过标准 tools/list、tools/call 消费工具，遵守适用的分页、缓存、变化通知、JSON Schema、错误语义和传输要求；resources、prompts、官方可选扩展按官方规范和实际支持能力使用。
 - 标准互操作：非 Mira 标准 MCP Client 在满足标准认证及业务授权前提下，可以直接使用该服务，不需要理解 Mira 应用声明、私有工具字段或私有能力协商；Mira Client 同样不要求 MCP 服务修改 wire protocol。
 
-既有 2025-11-25 实现按官方兼容规则迁移；不将旧会话、旧握手或旧 SDK 限制带入 V1 目标合同。具体 SDK 与跨仓迁移另行验证；本文不宣称当前代码已经符合最新版本。
+既有 2025-11-25/2025-06-18 实现只作为迁移来源，不是 V1 兼容目标。当前实施合同要求 Mobile 与 Desktop 直接切到 2026-07-28，不保留 initialize/initialized、旧版本协商或失败后降级；Who-You 同样以 2026-07-28 作为纵切目标。具体 SDK 与跨仓实现仍需验证；本文不宣称当前代码已经符合最新版本。
 
 ### 5.2 Mira 外层服务声明与治理信息
 
@@ -244,7 +244,7 @@ Mira 自定义部分：应用实例所有权登记、跨实例账号使用授权
 
 ## 8. 迁移边界
 
-- 现行 dev V0 的 OAuth client ID 及 project/service 唯一约束、管理员 enrollment、managementToken 和服务凭据不能直接表达本协议的多实例目标。OPS-049 已有授权码、签发、目录、修订及撤权底座可评估复用，不能宣称兼容 V1。
-- OPS-050 #208 与 Draft PR #209 的旧方案是 Mira ID 签发应用凭据并预授资格，与第 1 节冲突，保留历史候选，不继续按其旧合同施工。新的实施合同与迁移步骤在协议评审后确定。
-- 狐邮（OPS-048 #83）、Mobile（MOB-105 #392）和既有 V0 使用者仍依其现行合同，不因本文自动切换、重发或启用生产声明。验证后再做兼容/迁移，不为适配 V1 擅自扩大业务权限或删除旧链路。
-- 不在本次文档工作中决定数据库结构、立即删除旧接口或操作生产账号/密钥；不设公共插件市场或另建通用业务代理。
+- 现行 dev V0 的 OAuth client ID、project/service 唯一约束、管理员 enrollment、managementToken、Cloud Session→开放应用以及裸 serviceId 服务凭据不能表达 V1 多实例目标。已有授权码、签发、目录、修订与撤权内部能力可按实际代码复用，但**V0 对外合同不作为兼容目标**。
+- OPS-050 #208 的旧“由 Mira ID 创建/签发应用凭据与开发者资格”方案及 Draft PR #209 已被当前合同取代，不得继续作为可合并候选。当前登记输入固定为 HTTPS Origin + APP_ID + AppSecret，其余 callback/service/scope/resource 元信息自动读取。
+- OPS-048 #83、MOB-105 #392、MOB-107、AGT-073 及 OPS-051/052 按 breaking cutover 实施：不建立双读、双写、alias、legacy adapter、旧 MCP 握手或静默 fallback。真实消费者迁移完成后直接删除旧入口，并用负向测试证明旧路径不能重新进入成功链路。
+- V0 文档在代码切换前继续描述当前运行事实，不为“看起来统一”提前改写成 V1。生产账号、密钥、真实数据和发布仍由各自授权与发布任务控制。
