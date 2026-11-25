@@ -86,26 +86,29 @@ describe("console section navigation", () => {
     ["/account/applications", "我的应用"],
     ["/account/services", "关联服务"],
     ["/account/services/dc", "关联服务"],
-  ] as const)("offers every console section on %s and marks %s active", async (path, activeLabel) => {
-    mountConsole({ path, status: "authenticated" });
+  ] as const)(
+    "offers every console section on %s and marks %s active",
+    async (path, activeLabel) => {
+      mountConsole({ path, status: "authenticated" });
 
-    const nav = await consoleNav();
-    await waitFor(() => {
-      expect(within(nav).getAllByRole("link")).toHaveLength(sections.length);
-    });
+      const nav = await consoleNav();
+      await waitFor(() => {
+        expect(within(nav).getAllByRole("link")).toHaveLength(sections.length);
+      });
 
-    const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(
-      sections.map((section) => section.href),
-    );
-    expect(links.map((link) => link.textContent?.trim())).toEqual(
-      sections.map((section) => section.label),
-    );
+      const links = within(nav).getAllByRole("link");
+      expect(links.map((link) => link.getAttribute("href"))).toEqual(
+        sections.map((section) => section.href),
+      );
+      expect(links.map((link) => link.textContent?.trim())).toEqual(
+        sections.map((section) => section.label),
+      );
 
-    const active = links.filter((link) => link.getAttribute("aria-current") === "page");
-    expect(active).toHaveLength(1);
-    expect(active[0]).toHaveTextContent(activeLabel);
-  });
+      const active = links.filter((link) => link.getAttribute("aria-current") === "page");
+      expect(active).toHaveLength(1);
+      expect(active[0]).toHaveTextContent(activeLabel);
+    },
+  );
 
   it("shows one logout action only inside the header account dropdown", async () => {
     mountConsole({ path: "/account", status: "authenticated" });
