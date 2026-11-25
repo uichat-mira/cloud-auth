@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app.js";
-import type {
-  ApplicationRegistrationHttpResponse,
-  ApplicationRegistrationTransport,
+import {
+  ApplicationTransportError,
+  type ApplicationRegistrationHttpResponse,
+  type ApplicationRegistrationTransport,
 } from "../../src/application-instances/transport.js";
 import { createTestAuth } from "../helpers/auth.js";
 
@@ -200,4 +201,61 @@ describe("Mira ID V1 application instance ownership", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json().error.code).toMatch(/^APPLICATION_METADATA_ORIGIN_MISMATCH_/);
   });
+  it("requires manifestRevision to change when discovered metadata changes", async () => {
+    let currentManifest: unknown = manifest;
+    const transport: ApplicationRegistrationTransport = {
+      get: async () => ({ status: 200, body: currentManifest }),
+      post: async () => ({ status: 200, body: { ok: true, appId } }),
+    };
+    const { ownerSession, call } = await setup(transport);
+    const route = "/v1/account/applications";
+
+    expect(
+      (await call(ownerSession.sessionToken, "POST", route, { origin, appId, appSecret: secret }))
+        .statusCode,
+    ).toBe(200);
+
+    currentManifest = { ...manifest, name: "狐邮（改变但未升 revision）" };
+    const staleRevision = await call(ownerSession.sessionToken, "POST", route, {
+      origin,
+      appId,
+      appSecret: secret,
+    });
+    expect(staleRevision.statusCode).toBe(409);
+    expect(staleRevision.json()).toMatchObject({
+      error: { code: "APPLICATION_MANIFEST_REVISION_REQUIRED" },
+    });
+
+    currentManifest = { ...manifest, name: "狐邮 V2", manifestRevision: 2 };
+    const updated = await call(ownerSession.sessionToken, "POST", route, {
+      origin,
+      appId,
+      appSecret: secret,
+    });
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json().application.manifest).toMatchObject({
+      name: "狐邮 V2",
+      manifestRevision: 2,
+    });
+  });
+
+  it("fails closed when the production transport rejects an unsafe target", async () => {
+    const transport: ApplicationRegistrationTransport = {
+      get: async () => {
+        throw new ApplicationTransportError("UNSAFE_TARGET");
+      },
+      post: async () => {
+        throw new Error("verification must not run");
+      },
+    };
+    const { ownerSession, call } = await setup(transport);
+    const response = await call(ownerSession.sessionToken, "POST", "/v1/account/applications", {
+      origin,
+      appId,
+      appSecret: secret,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: { code: "APPLICATION_UNSAFE_ORIGIN" } });
+  });
+
 });
