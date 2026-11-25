@@ -15,7 +15,6 @@ import { createTestOAuthContext, createFirstPartySession } from "../helpers/oaut
 import { createTestServiceCredentialKeyMaterial, trustedServiceCredentialKeys } from "../helpers/service-credential.js";
 import { verifyApplicationServiceCredential } from "../../src/service-credentials/verifier.js";
 import { ApplicationInstanceService } from "../../src/application-instances/service.js";
-import { TrustedApplicationManagement } from "../../src/trusted-applications/management.js";
 import { computePkceS256Challenge } from "../../src/oauth/pkce.js";
 
 const password = "correct horse battery staple";
@@ -234,10 +233,9 @@ describe("V1 registered application OAuth and instance service grants", () => {
 
   it("rejects V0 trusted application OAuth even when the old enrollment exists", async () => {
     const s = await setup();
-    new TrustedApplicationManagement(s.context.db).enroll("legacy-web", {
-      projectId: "legacy", displayName: "Legacy", redirectUri: "https://legacy.example/callback",
-      endpointOrigins: ["https://legacy.example"],
-    });
+    s.context.db.prepare(
+      "INSERT INTO oauth_cloud_applications(client_id,project_id,display_name,redirect_uri,endpoint_origins_json) VALUES(?,?,?,?,?)",
+    ).run("legacy-web","legacy","Legacy","https://legacy.example/callback",'["https://legacy.example"]');
     const query = new URLSearchParams({ response_type: "code", client_id: "legacy-web",
       redirect_uri: "https://legacy.example/callback", state, code_challenge: challenge, code_challenge_method: "S256" });
     expect((await s.context.app.inject({ method: "GET", url: "/v1/oauth/authorize?" + query })).statusCode).toBe(400);

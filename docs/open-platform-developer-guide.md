@@ -1,6 +1,6 @@
 # Mira ID 开放平台开发指南（V1 预览）
 
-> 本指南描述目标接入体验，供狐邮、观澜、拾言及独立应用开发者讨论和准备。尚未发布 V1 SDK/API，不能按示例请求生产服务。规范唯一来源：[应用接入协议 V1](open-platform-protocol-v1.md)。切换前的实际运行事实仍由 [V0 合同](service-registry-v0.md) 描述；V1 实施是 breaking cutover，不承诺 V0 双栈或 fallback。
+> 本指南描述已实现的 dev V1 接入合同。规范唯一来源：[应用接入协议 V1](open-platform-protocol-v1.md)。旧开放应用 V0 已在 dev 退役，不提供兼容层；本指南不代表生产已发布。
 
 ## 你可以做什么
 

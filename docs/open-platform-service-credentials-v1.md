@@ -1,8 +1,8 @@
 # Mira ID 开放平台：实例级服务目录与短期凭据 V1（OPS-052 子集）
 
 - 维护方：cloud-auth / Mira ID；2026-11-25。
-- 状态：本文件描述 OPS-052 已在代码中实现的实例级目录、复合身份、服务粒度撤权与短期凭据。OPS-051 联合候选通过实际 OAuth 兑换事务调用该仓储写入 grant；是否合并及跨仓公网联验仍须依据对应候选证据。
-- 协议语义总纲见 [应用接入协议 V1](open-platform-protocol-v1.md)。V0 运行事实见 [服务登记 V0](service-registry-v0.md) 与 [服务凭据 V0](service-credentials-v0.md)。
+- 状态：OPS-050/051/052 的实例登记、应用 OAuth、实例目录和短票已实现；旧开放应用 V0 入口在本次 dev 切换中删除。生产部署与 OPS-053 联验另行判断。
+- 协议语义总纲见 [应用接入协议 V1](open-platform-protocol-v1.md)。[服务登记 V0](service-registry-v0.md) 为历史合同；[服务凭据 V0](service-credentials-v0.md) 的 Relay、Guanlan、Shiyan 独立签发仍适用，旧 Who You 签发不再适用。
 
 ## 1. 边界与权威
 
@@ -178,19 +178,14 @@ Content-Type: application/json
 - 不静默扩大 scope：客户端持有的旧 catalog 条目不能用于新声明；旧 ticket 只在自身 `exp` 前有效。
 - 应用实例停用由 OPS-051 实现，停用原子撤销该实例的授权码、应用会话及所有服务 grant；重新启用不恢复旧授权。实例缺失或停用时目录和取票 fail closed。
 
-## 7. 消费者与切换顺序
+## 7. 破坏性切换
 
-已知仍依赖 V0 路径的面：
+Who You #92 与 Mobile #406 已合入各自 dev；不再依赖旧应用登记、裸 serviceId 目录或旧狐邮短票。Cloud Auth dev 退役：
 
-| 消费者/面 | 当前依赖 | 切换顺序 |
-| --- | --- | --- |
-| OAuth 登录事务（#211） | `oauth_cloud_applications`、`service_registrations` | 1. #211 在登录事务内改走 `establishLoginGrants`，并移除开放应用 Cloud Session 产物 |
-| Mira Mobile | `/v1/services` + `/v1/services/:serviceId/credential`，裸 `mira:service:*` audience | 2. 切到 `/v1/application-services` + 实例凭据；校验 APP_ID/serviceId/resource |
-| Who You Web BFF | `/v1/service-credentials` canonical `mira:who-you` | 3. 先按 #211 冻结的应用会话迁移，再评估是否使用实例凭据；Who You 业务 scope/确认语义不变 |
-| 运维 CLI / smoke | `service-register`、`service-revoke`、`/v1/services` | 4. 在真实消费者迁移后删除 V0 route/CLI 入口，并保留负向测试 |
-| 原生 Relay/Desktop/Mobile Cloud Session | 不变的 Cloud Session / Relay ticket 能力 | 不迁移，不得被本卡误伤 |
-
-本卡不提供 V0 adapter、双读写、alias 或 legacy fallback。旧 V0 route 的删除必须等真实消费者切换完成；在 #211 未落地前，本卡只提供新 V1 面并证明跨契约不能互相消费，不能宣称旧入口已经下线。
+- GET /v1/services、POST /v1/services/:serviceId/credential 与 /revoke；
+- /v1/application/services 管理接口与 application-enroll/rotate/enable/disable、service-register/revoke 运维命令；
+- POST /v1/service-credentials 的旧 Who You read/write/confirmation 及泛 serviceId audience 请求。Relay、Guanlan、Shiyan 的独立签发与 JWKS 不变。
+- 不迁移旧 grant；历史表仅保留迁移/历史记录，不参与 V1 授权，不接受旧管理 token，不建立双栈。旧 JWT 不能用于 V1；既有离线凭据按接收端合同及真实 exp 处理。
 
 ## 8. 验证与未完成项
 
@@ -203,4 +198,4 @@ Content-Type: application/json
   - 声明变化后旧 binding 失效、不静默扩 scope，旧 ticket 按真实 exp 过期；
   - 普通登录不创建 grant，V0 裸 serviceId 凭据不能被实例 verifier 接受，实例凭据也不能被 V0 verifier 接受。
 
-联合候选已覆盖真实 SQLite/Fastify OAuth → grant → catalog/credential，普通登录及不同实例隔离、停用与旧 code 撤权。Portal「关联服务」读取当前 V1 目录，支持精确服务撤权和当前可见实例的全部授权解除。仍需 Mobile/Who You/运维消费者完成切换后删除旧 V0 路径，并在 OPS-053 完成真实跨仓部署验收。
+联合候选已覆盖真实 SQLite/Fastify OAuth → grant → catalog/credential，普通登录及不同实例隔离、停用与旧 code 撤权。Portal「关联服务」读取当前 V1 目录，支持精确服务撤权和当前可见实例的全部授权解除。旧 V0 路由与 CLI 的负向证据见本仓 integration/contract 测试；OPS-053 继续完成实际 Mobile 消费链及跨仓验收。
