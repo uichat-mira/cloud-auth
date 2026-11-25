@@ -7,14 +7,12 @@ import {
   applicationManifestSchema,
   applicationServiceCatalogSchema,
   applicationServiceCredentialSchema,
-  serviceDefinitionSchema,
   type ApplicationManifest,
-  type ServiceDefinition,
 } from "@uichat-mira/cloud-auth-contracts";
-import { ServiceRegistryRepository } from "../../src/service-registry/repository.js";
 import { ApplicationServiceRepository } from "../../src/application-services/repository.js";
 import { verifyApplicationServiceCredential } from "../../src/service-credentials/verifier.js";
 import { verifyServiceCredential } from "../../src/service-credentials/verifier.js";
+import { issueServiceCredential } from "../../src/service-credentials/signer.js";
 import {
   createTestServiceCredentialContext,
   createTestServiceCredentialKeyMaterial,
@@ -293,26 +291,37 @@ describe("instance-scoped application service catalog and credentials", () => {
       .toEqual({ n: 0 });
 
     const legacyAudience = `mira:service:${serviceId}` as const;
-    const legacy: ServiceDefinition = serviceDefinitionSchema.parse({
-      serviceId,
-      projectId,
-      displayName: "Legacy mail",
+    // Historical rows cannot reactivate a retired route. No legacy grant is
+    // translated or copied into the authoritative instance grant ledger.
+    ctx.db.prepare(
+      "INSERT INTO service_registrations(account_id, service_id, definition_json, revision, revoked_at) VALUES(?,?,?,?,NULL)",
+    ).run(alice.account.id, serviceId, JSON.stringify({
+      serviceId, projectId, displayName: "Legacy mail",
       protocol: { name: "mcp", version: "2025-11-25", endpoint: resourceA },
-      audience: legacyAudience,
-      scopes: ["service:mail:read"],
-    });
-    const registry = new ServiceRegistryRepository(ctx.db);
-    registry.register(alice.account.id, legacy);
-    const legacyTicketResponse = await ctx.app.inject({
-      method: "POST",
-      url: `/v1/services/${serviceId}/credential`,
-      headers: headers(alice.sessionToken),
-      payload: { expectedRevision: 1 },
-    });
-    expect(legacyTicketResponse.statusCode).toBe(200);
-    const legacyTicket = String(legacyTicketResponse.json().token);
-
+      audience: legacyAudience, scopes: ["service:mail:read"],
+    }), 1);
+    for (const [method,url] of [
+      ["GET","/v1/services"],
+      ["POST", "/v1/services/"+serviceId+"/credential"],
+      ["POST", "/v1/services/"+serviceId+"/revoke"],
+      ["GET","/v1/application/services"],
+      ["PUT","/v1/application/services/"+serviceId],
+      ["POST","/v1/application/services/"+serviceId+"/retire"],
+    ] as const) {
+      const response = await ctx.app.inject({method,url,headers:headers(alice.sessionToken),
+        ...(method === "GET" ? {} : {payload:{expectedRevision:1}})});
+      expect(response.statusCode, method+" "+url).toBe(404);
+    }
+    expect((await ctx.app.inject({method:"POST",url:"/v1/service-credentials",
+      headers:headers(alice.sessionToken),payload:{audience:legacyAudience}})).statusCode).toBe(400);
     expect((await credential(ctx, alice.sessionToken, appA, resourceA, 1)).statusCode).toBe(404);
+
+    // A genuinely signed, previously issued V0 ticket cannot cross the V1 boundary.
+    if (!ctx.keyRing || !alice.deviceId) throw new Error("Missing fixture signing key or device");
+    const legacyTicket = issueServiceCredential(ctx.keyRing.signer, {
+      accountId: alice.account.id, deviceId: alice.deviceId,
+      audience: legacyAudience, scope: ["service:mail:read"],
+    });
     expect(() => verifyApplicationServiceCredential(legacyTicket, {
       issuer: SERVICE_CREDENTIAL_ISSUER,
       expectedApplication: { appId: appA, serviceId, resource: resourceA },

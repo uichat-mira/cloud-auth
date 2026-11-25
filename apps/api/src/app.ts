@@ -13,8 +13,6 @@ import type { OAuthService } from "./oauth/oauth-service.js";
 import { registerOAuthRoutes } from "./oauth/routes.js";
 import { registerServiceCredentialRoutes } from "./service-credentials/routes.js";
 import type { ServiceCredentialService } from "./service-credentials/service.js";
-import { ServiceRegistryRepository } from "./service-registry/repository.js";
-import { registerServiceRegistryRoutes } from "./service-registry/routes.js";
 import { ApplicationServiceRepository } from "./application-services/repository.js";
 import { ApplicationServiceService } from "./application-services/service.js";
 import { registerApplicationServiceRoutes } from "./application-services/routes.js";
@@ -25,8 +23,6 @@ import {
   type ApplicationRegistrationTransport,
 } from "./application-instances/transport.js";
 
-import { TrustedApplicationManagement } from "./trusted-applications/management.js";
-import { registerTrustedApplicationRoutes } from "./trusted-applications/routes.js";
 
 export interface BuildAppOptions {
   db: DatabaseSync;
@@ -65,7 +61,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   if (options.authService) {
     registerAuthRoutes(app, options.authService);
     registerApplicationOAuthRoutes(app, options.db, options.authService);
-    registerServiceRegistryRoutes(app, options.authService, new ServiceRegistryRepository(options.db), options.serviceCredentialService);
     registerApplicationServiceRoutes(
       app,
       options.authService,
@@ -88,7 +83,6 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   if (options.hostGrantService) registerHostGrantRoutes(app, options.hostGrantService);
   if (options.oauthService) {
     registerOAuthRoutes(app, options.oauthService);
-    registerTrustedApplicationRoutes(app, new TrustedApplicationManagement(options.db));
   }
   if (options.serviceCredentialService) {
     registerServiceCredentialRoutes(app, options.serviceCredentialService);

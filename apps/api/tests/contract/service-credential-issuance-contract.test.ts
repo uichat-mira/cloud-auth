@@ -116,7 +116,7 @@ describe("service credential HTTP contract", () => {
     }
   });
 
-  it("accepts only the canonical Who You request shapes", () => {
+  it("rejects all retired Who You issuance request shapes", () => {
     for (const body of [
       { audience: CLOUD_WHO_YOU_AUDIENCE },
       { audience: CLOUD_WHO_YOU_AUDIENCE, scopes: [WHOYOU_READ_SCOPE] },
@@ -155,7 +155,7 @@ describe("service credential HTTP contract", () => {
         },
       },
     ]) {
-      expect(serviceCredentialRequestSchema.parse(body)).toEqual(body);
+      expect(serviceCredentialRequestSchema.safeParse(body).success).toBe(false);
     }
 
     for (const body of [

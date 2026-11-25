@@ -1,10 +1,10 @@
 # Mira ID 开放平台：应用接入协议 V1（设计稿）
 
 - 维护方：cloud-auth / Mira ID；2026-11-25。
-- 状态：目标产品决策已确认。OPS-050 已实现 §3 的最小实例登记子集（HTTPS Origin + APP_ID + AppSecret、固定发现文档、登记验证与 ownership）；OPS-052 已实现实例级目录、复合身份、服务粒度撤权与短期凭据子集（见 [实例级服务目录与短期凭据 V1](open-platform-service-credentials-v1.md)）。§4 的开放应用 OAuth 与账号 grant 写入权威仍由 OPS-051 实现；在 OPS-051 合并并以 dev 真实联验前，不能把部分落地误写成整个平台已发布。
+- 状态：OPS-050/051/052 已实现 dev 实例登记、应用 OAuth、目录与短票；Who You/Mobile 已迁移 dev，旧开放应用 V0 入口退役。生产部署与 OPS-053 联验另行判断。
 - 适用：独立部署的应用实例，以及 Mira ID 账号、已登记终端与这些应用之间的身份和授权关系。
 - 开发者接入路径见 [开放平台开发指南](open-platform-developer-guide.md)。协议语义以本文为准。
-- 现行运行合同仍见 [V0 服务登记](service-registry-v0.md)、[OAuth V0](oauth-authorization-v0.md)、[服务凭据 V0](service-credentials-v0.md)。不要把 V1 示例当作线上能力。
+- [V0 服务登记](service-registry-v0.md) 已是历史合同；[OAuth V0](oauth-authorization-v0.md)、[服务凭据 V0](service-credentials-v0.md) 中原生及独立第一方服务合同仍适用。不要把 dev 示例当作线上部署证明。
 
 ## 1. 产品决策（已确认）
 
@@ -245,4 +245,4 @@ Mira 自定义部分：应用实例所有权登记、跨实例账号使用授权
 - 现行 dev V0 的 OAuth client ID、project/service 唯一约束、管理员 enrollment、managementToken、Cloud Session→开放应用以及裸 serviceId 服务凭据不能表达 V1 多实例目标。已有授权码、签发、目录、修订与撤权内部能力可按实际代码复用，但**V0 对外合同不作为兼容目标**。
 - OPS-050 #208 的旧“由 Mira ID 创建/签发应用凭据与开发者资格”方案及 Draft PR #209 已被当前合同取代，不得继续作为可合并候选。当前登记输入固定为 HTTPS Origin + APP_ID + AppSecret，其余 callback/service/scope/resource 元信息自动读取。
 - OPS-048 #83、MOB-105 #392、MOB-107、AGT-073 及 OPS-051/052 按 breaking cutover 实施：不建立双读、双写、alias、legacy adapter、旧 MCP 握手或静默 fallback。真实消费者迁移完成后直接删除旧入口，并用负向测试证明旧路径不能重新进入成功链路。
-- V0 文档在代码切换前继续描述当前运行事实，不为“看起来统一”提前改写成 V1。生产账号、密钥、真实数据和发布仍由各自授权与发布任务控制。
+- V0 开放应用文档在 dev 切换后保留为历史记录，不作为当前接入指南。生产账号、密钥、真实数据和发布仍由各自授权与发布任务控制。

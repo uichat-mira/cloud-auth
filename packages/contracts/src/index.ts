@@ -93,10 +93,8 @@ export {
   whoYouContentHashSchema,
   whoYouDraftIdSchema,
   whoYouDraftVersionSchema,
-  whoYouRequestedScopesSchema,
   whoYouScopeClaimsSchema,
   whoYouServiceCredentialClaimsSchema,
-  whoYouServiceCredentialRequestSchema,
 } from "./service-credential.js";
 
 export type {

@@ -42,36 +42,30 @@ describe("maintainer admin CLI", () => {
     ).resolves.toMatchObject({ account: { username: "pilot" } });
     afterReset.db.close();
   });
-  it("enrolls and rotates a trusted application with a digest-only persisted key", () => {
+  it("rejects retired registration, grant and management commands without mutation", () => {
     const dir = mkdtempSync(join(tmpdir(), "mira-auth-app-admin-"));
     cleanup.push(dir);
     const databasePath = join(dir, "auth.sqlite");
     const env = { ...process.env, MIRA_AUTH_DB_PATH: databasePath };
-    const metadata = JSON.stringify({
-      projectId:"test-app", displayName:"Test App", redirectUri:"https://app.example/callback",
-      endpointOrigins:["https://app.example"],
-    });
-    const enroll = runAdmin(["application-enroll", "test-app-web"], metadata, env);
-    expect(enroll.status).toBe(0);
-    const first = JSON.parse(enroll.stdout).managementToken as string;
-    expect(first).toMatch(/^mca_admin_v1\.test-app-web\.[A-Za-z0-9_-]{43}$/);
-    expect(runAdmin(["application-enroll", "test-app-web"], metadata, env).status).toBe(2);
-    const rotate = runAdmin(["application-rotate", "test-app-web"], "", env);
-    expect(rotate.status).toBe(0);
-    const second = JSON.parse(rotate.stdout).managementToken as string;
-    expect(second).not.toBe(first);
     const context = createTestAuth(databasePath);
-    const row = context.db.prepare("SELECT management_key_hash FROM oauth_cloud_applications WHERE client_id=?").get("test-app-web") as {management_key_hash:string};
-    expect(row.management_key_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(row.management_key_hash).not.toContain(second);
+    context.db.prepare("INSERT INTO oauth_cloud_applications(client_id,project_id,display_name,redirect_uri,management_key_hash) VALUES(?,?,?,?,?)")
+      .run("test-app-web","test-app","Test App","https://app.example/callback","historical-digest-fixture");
     context.db.close();
-    const disabled = runAdmin(["application-disable","test-app-web"],"",env);
-    expect(disabled.status).toBe(0);
-    expect(JSON.parse(disabled.stdout)).toEqual({clientId:"test-app-web",disabled:true});
-    expect(runAdmin(["application-rotate","test-app-web"],"",env).status).toBe(2);
-    const enabled = runAdmin(["application-enable","test-app-web"],"",env);
-    expect(enabled.status).toBe(0);
-    expect(JSON.parse(enabled.stdout).managementToken).not.toBe(second);
+    for (const args of [
+      ["application-enroll","other-app-web"],["application-rotate","test-app-web"],
+      ["application-disable","test-app-web"],["application-enable","test-app-web"],
+      ["service-register","account-fixture"],["service-revoke","account-fixture","mail","1"],
+    ]) {
+      const result = runAdmin(args, "{}", env);
+      expect(result.status, args[0]).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("Usage:");
+    }
+    const after = createTestAuth(databasePath);
+    expect(after.db.prepare("SELECT client_id,management_key_hash,disabled_at FROM oauth_cloud_applications").all())
+      .toEqual([{client_id:"test-app-web",management_key_hash:"historical-digest-fixture",disabled_at:null}]);
+    expect(after.db.prepare("SELECT COUNT(*) AS n FROM service_registrations").get()).toEqual({n:0});
+    after.db.close();
   });
 
 });

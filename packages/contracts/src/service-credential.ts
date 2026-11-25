@@ -447,40 +447,6 @@ export const guanlanRequestedScopesSchema = z
  * device, issuer, key id and business scope are derived by Cloud Auth from the
  * authenticated device-bound Cloud Session.
  */
-export const whoYouRequestedScopesSchema = z
-  .array(z.enum([WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE]))
-  .min(1)
-  .max(2)
-  .superRefine((scopes, context) => {
-    if (!scopes.includes(WHOYOU_READ_SCOPE)) {
-      context.addIssue({
-        code: "custom",
-        message: "whoyou.read is required",
-        path: [],
-      });
-    }
-    if (new Set(scopes).size !== scopes.length) {
-      context.addIssue({
-        code: "custom",
-        message: "requested scopes must not repeat",
-        path: [],
-      });
-    }
-  });
-
-/**
- * Who You request: either a general read/write scope set or one standalone
- * user confirmation (draft send or mailbox identity operation). The shapes are
- * mutually exclusive and strictly validated.
- */
-export const whoYouServiceCredentialRequestSchema = z
-  .object({
-    audience: z.literal(CLOUD_WHO_YOU_AUDIENCE),
-    scopes: whoYouRequestedScopesSchema.optional(),
-    confirmation: whoYouUserConfirmationSchema.optional(),
-  })
-  .strict();
-
 const baseServiceCredentialRequestSchema = z.discriminatedUnion("audience", [
   z
     .object({
@@ -501,21 +467,8 @@ const baseServiceCredentialRequestSchema = z.discriminatedUnion("audience", [
     .strict(),
 ]);
 
-export const serviceCredentialRequestSchema = z
-  .union([baseServiceCredentialRequestSchema, whoYouServiceCredentialRequestSchema])
-  .superRefine((request, context) => {
-    if (
-      request.audience === CLOUD_WHO_YOU_AUDIENCE &&
-      request.scopes !== undefined &&
-      request.confirmation !== undefined
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "scopes and confirmation are mutually exclusive",
-        path: ["confirmation"],
-      });
-    }
-  });
+// This issuance endpoint serves only the independent first-party authorities.
+export const serviceCredentialRequestSchema = baseServiceCredentialRequestSchema;
 
 export const issuedServiceCredentialSchema = z
   .object({

@@ -29,6 +29,6 @@ V1 使用 OAuth 授权码 + PKCE S256 的公开客户端模式，不要求独立
 
 ## 破坏性切换
 
-原生 Desktop/Mobile OAuth 仅原生客户端可取得原生 Cloud Session。旧 who-you-web 和 trusted application 的 OAuth admission 已关闭；迁移 015 撤销历史非原生 OAuth 签发的 Cloud Session 及尚未兑换的旧 code。原生和直接账号会话不受影响。旧 registry/management 仍有真实狐邮/Mobile 消费者，按 OPS-048/MOB-105 切换后删除，V1 无读写桥接、fallback、alias；上线前须确认消费者已迁移。
+原生 Desktop/Mobile OAuth 仅原生客户端可取得原生 Cloud Session。旧 who-you-web 和 trusted application 的 OAuth admission 已关闭；迁移 015 撤销历史非原生 OAuth 签发的 Cloud Session 及尚未兑换的旧 code。原生和直接账号会话不受影响。狐邮 OPS-048 与 Mobile MOB-105 已合入 dev；旧 registry/management 路由与 CLI 在 OPS-052 收尾中删除，V1 无读写桥接、fallback、alias。生产晋级由 OPS-053 联验及发布授权决定。
 
 验证以隔离 SQLite、Fastify HTTP 表单/兑换/目录/取票、实际签名、撤权及失败事务为依据。登记远端 HTTP 在测试中由受控 fixture 代替，真实公网实例与终端联合验收属于 OPS-053。

@@ -115,8 +115,8 @@ See docs/host-grants-v0.md for the OPS-020 Host -> Mobile Remote V1 scope ledger
 
 ### Application ecosystem / 开放平台
 
-- Current V0 implementation contract: [OPS-047 / OPS-049 service registry](docs/service-registry-v0.md).
-- Target product design and candidate V1 application integration protocol: [Mira ID 开放平台接入协议](docs/open-platform-protocol-v1.md).
+- Current dev contract: [Mira ID 开放平台接入协议](docs/open-platform-protocol-v1.md).
 - Developer-facing walkthrough: [开放平台开发指南](docs/open-platform-developer-guide.md).
+- Historical (retired): [OPS-047 / OPS-049 service registry](docs/service-registry-v0.md).
 
-The V1 design records the 2026-11-25 maintainer decisions for independent instances, account ownership and service grants. OPS-050 implements the first bounded V1 slice: an authenticated account can register ownership of one deployment instance with HTTPS Origin + APP_ID + AppSecret, while Mira ID discovers and stores the validated public manifest without persisting the supplied AppSecret. The OPS-051/052 combined candidate implements [application-scoped OAuth](docs/application-oauth-v1.md) and [instance-bound service credentials](docs/open-platform-service-credentials-v1.md). Native Desktop/Mobile OAuth remains unchanged; legacy registry/management paths have identified downstream consumers and must be removed in the coordinated cutover. No consumer migration or deployment is implied. Do not treat this partial V1 implementation as production activation of the whole open platform.
+On dev, OPS-050/051/052 provide instance registration, application-scoped OAuth and instance-bound service credentials. Who You and Mobile have migrated on their dev branches. Legacy administrator enrollment, management bearer, serviceId-only catalog/credential and Who You named-audience issuance are removed; historical rows and migrations are not used as authorization. Native Desktop/Mobile OAuth, Relay, Guanlan and Shiyan credential issuance remain independent. Production deployment and cross-environment acceptance are separate; see OPS-053.
