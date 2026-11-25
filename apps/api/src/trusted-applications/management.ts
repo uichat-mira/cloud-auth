@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   findFirstPartyOAuthClient, serviceDefinitionSchema, serviceIdSchema,
-  MIRA_DESKTOP_OAUTH_CLIENT_ID, MIRA_MOBILE_OAUTH_CLIENT_ID, WHO_YOU_WEB_OAUTH_CLIENT_ID,
+  MIRA_DESKTOP_OAUTH_CLIENT_ID, MIRA_MOBILE_OAUTH_CLIENT_ID, WHO_YOU_WEB_OAUTH_CLIENT_ID, WHO_YOU_WEB_OAUTH_REDIRECT_URI,
   applicationEnrollmentSchema, declarationWriteSchema, declarationRevisionSchema,
   type ServiceDefinition,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -62,9 +62,9 @@ export class TrustedApplicationManagement {
     const builtin = findFirstPartyOAuthClient(clientId);
     if (clientId === MIRA_DESKTOP_OAUTH_CLIENT_ID || clientId === MIRA_MOBILE_OAUTH_CLIENT_ID ||
         (builtin && !builtin.redirectUris.includes(value.redirectUri)) ||
-        (clientId === WHO_YOU_WEB_OAUTH_CLIENT_ID && value.projectId !== "who-you") ||
+        (clientId === WHO_YOU_WEB_OAUTH_CLIENT_ID && (value.projectId !== "who-you" || value.redirectUri !== WHO_YOU_WEB_OAUTH_REDIRECT_URI)) ||
         (clientId !== WHO_YOU_WEB_OAUTH_CLIENT_ID &&
-          (value.projectId === "who-you" || findFirstPartyOAuthClient(WHO_YOU_WEB_OAUTH_CLIENT_ID)?.redirectUris.includes(value.redirectUri)))) {
+          (value.projectId === "who-you" || value.redirectUri === WHO_YOU_WEB_OAUTH_REDIRECT_URI))) {
       throw err("APPLICATION_IDENTITY_CONFLICT");
     }
     return this.transaction(() => {

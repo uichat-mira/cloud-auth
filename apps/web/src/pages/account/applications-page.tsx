@@ -145,6 +145,35 @@ function ApplicationsForAccount() {
     }
   }
 
+  async function changeStatus(id: string, name: string, disabled: boolean) {
+    if (
+      busy ||
+      (disabled &&
+        !window.confirm(
+          "停用“" + name + "”？现有应用登录与服务授权将撤销，重新启用后需要用户主动登录。",
+        ))
+    )
+      return;
+    const token = getSessionToken();
+    if (!token) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await client.setDisabled(token, id, disabled);
+      if (!mounted.current || token !== getSessionToken()) return;
+      setNotice(disabled ? "应用已停用。" : "应用已启用。");
+      await refresh();
+    } catch (failure) {
+      if (!mounted.current || token !== getSessionToken()) return;
+      if (failure instanceof ApplicationRequestError && failure.status === 401)
+        invalidateSession(token);
+      setError(errorMessage(failure));
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  }
+
   async function remove(appIdToRemove: string, name: string) {
     if (
       busy ||
@@ -233,17 +262,34 @@ function ApplicationsForAccount() {
                 <h3 className="font-semibold">{application.manifest.name}</h3>
                 <p className="console-section-caption">
                   {application.manifest.projectId} · revision{" "}
-                  {application.manifest.manifestRevision}
+                  {application.manifest.manifestRevision} ·{" "}
+                  {application.disabledAt ? "已停用" : "已启用"}
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void remove(application.appId, application.manifest.name)}
-              >
-                移除
-              </Button>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() =>
+                    void changeStatus(
+                      application.appId,
+                      application.manifest.name,
+                      !application.disabledAt,
+                    )
+                  }
+                >
+                  {application.disabledAt ? "启用" : "停用"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void remove(application.appId, application.manifest.name)}
+                >
+                  移除
+                </Button>
+              </div>
             </div>
             <dl className="console-facts">
               <div>

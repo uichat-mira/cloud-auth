@@ -1,304 +1,246 @@
-import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  issuedCloudSessionSchema, registeredServiceCredentialSchema, serviceCatalogSchema,
-  SERVICE_CREDENTIAL_ISSUER, WHO_YOU_WEB_OAUTH_CLIENT_ID, WHO_YOU_WEB_OAUTH_REDIRECT_URI,
-  CLOUD_WHO_YOU_AUDIENCE, type ServiceDefinition,
+  applicationManifestSchema,
+  applicationOAuthTokenResponseSchema,
+  applicationServiceCatalogSchema,
+  applicationServiceCredentialSchema,
+  MIRA_MOBILE_OAUTH_CLIENT_ID,
+  MIRA_MOBILE_OAUTH_REDIRECT_URI,
+  SERVICE_CREDENTIAL_ISSUER,
 } from "@uichat-mira/cloud-auth-contracts";
 import { createTestOAuthContext, createFirstPartySession } from "../helpers/oauth.js";
 import { createTestServiceCredentialKeyMaterial, trustedServiceCredentialKeys } from "../helpers/service-credential.js";
+import { verifyApplicationServiceCredential } from "../../src/service-credentials/verifier.js";
+import { ApplicationInstanceService } from "../../src/application-instances/service.js";
 import { TrustedApplicationManagement } from "../../src/trusted-applications/management.js";
-import { ServiceRegistryRepository } from "../../src/service-registry/repository.js";
-import { parseAuthorizationCode } from "../../src/oauth/authorization-code.js";
-import { verifyServiceCredential } from "../../src/service-credentials/verifier.js";
+import { computePkceS256Challenge } from "../../src/oauth/pkce.js";
 
 const password = "correct horse battery staple";
 const verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
-const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
-const clientId = "fixture-web";
-const callback = "https://fixture.example/auth/callback";
-const otherClient = "other-web";
-const otherCallback = "https://other.example/auth/callback";
-const notes: ServiceDefinition = {
-  serviceId: "notes", projectId: "fixture", displayName: "Notes",
-  protocol: { name: "mcp", version: "2025-11-25", endpoint: "https://fixture.example/mcp" },
-  audience: "mira:service:notes", scopes: ["service:notes:read"],
-};
-const archive: ServiceDefinition = {
-  serviceId: "archive", projectId: "fixture", displayName: "Archive",
-  protocol: { name: "http", version: "1", endpoint: "https://fixture.example/archive" },
-  audience: "mira:service:archive", scopes: ["service:archive:read"],
-};
-const otherService: ServiceDefinition = {
-  ...notes, serviceId: "other", projectId: "other", displayName: "Other",
-  protocol: { ...notes.protocol, endpoint: "https://other.example/mcp" },
-  audience: "mira:service:other", scopes: ["service:other:read"],
-};
+const challenge = computePkceS256Challenge(verifier);
+const state = "fixture-state-0123456789abcdef";
+const appA = "app-fixture-a";
+const appB = "app-fixture-b";
+const secret = "fixture-registration-" + "x".repeat(20);
+const origin = (id: string) => "https://" + id + ".example";
+const clientId = (id: string) => origin(id) + "/oauth-client.json";
+const callback = (id: string) => origin(id) + "/auth/callback";
+const resource = (id: string) => origin(id) + "/mcp";
+function declaration(id: string, revision = 1, scopes = ["mail.read"]) {
+  return applicationManifestSchema.parse({
+    schemaVersion: "1", appId: id, projectId: "fixture-mail",
+    name: "Fixture <Mail>", homeUrl: origin(id), manifestRevision: revision,
+    oauth: { clientId: clientId(id), redirectUris: [callback(id)] },
+    registrationVerification: { endpoint: origin(id) + "/verify" },
+    services: [{ serviceId: "mail", name: "Mail", type: "mcp",
+      protocol: { name: "mcp", version: "2026-07-28", endpoint: resource(id) },
+      resource: resource(id), scopes }],
+  });
+}
 let dir: string | undefined;
 let ctx: ReturnType<typeof createTestOAuthContext> | undefined;
 afterEach(async () => {
   if (ctx) { await ctx.app.close(); ctx.db.close(); ctx = undefined; }
   if (dir) { rmSync(dir, { recursive: true, force: true }); dir = undefined; }
 });
+const bearer = (token: string) => ({ authorization: "Bearer " + token });
 
 async function setup() {
-  dir = mkdtempSync(join(tmpdir(), "oauth-app-grants-"));
+  dir = mkdtempSync(join(tmpdir(), "oauth-app-v1-"));
   const context = createTestOAuthContext(join(dir, "auth.sqlite"), {
     serviceCredentialKeyMaterial: createTestServiceCredentialKeyMaterial(),
   });
   ctx = context;
-  const management = new TrustedApplicationManagement(context.db);
-  const appToken = management.enroll(clientId, {
-    projectId: "fixture", displayName: "Fixture <Cloud>", redirectUri: callback,
-    endpointOrigins: ["https://fixture.example"],
-  }).managementToken;
-  const otherToken = management.enroll(otherClient, {
-    projectId: "other", displayName: "Other Cloud", redirectUri: otherCallback,
-    endpointOrigins: ["https://other.example"],
-  }).managementToken;
-  const put = (token: string, definition: ServiceDefinition, expectedRevision = 0) => context.app.inject({
-    method: "PUT", url: "/v1/application/services/" + definition.serviceId,
-    headers: { authorization: "Bearer " + token }, payload: { definition, expectedRevision },
-  });
-  for (const [token, definition] of [[appToken, notes], [appToken, archive], [otherToken, otherService]] as const) {
-    expect((await put(token, definition)).statusCode).toBe(200);
-  }
   await context.service.provisionAccount("alice", password);
   await context.service.provisionAccount("bob", password);
   const alice = await createFirstPartySession(context, { username: "alice", password, platform: "mobile" });
   const bob = await createFirstPartySession(context, { username: "bob", password, platform: "mobile" });
-  const registry = new ServiceRegistryRepository(context.db);
-  const catalog = async (token: string) => {
-    const response = await context.app.inject({ method: "GET", url: "/v1/services", headers: { authorization: "Bearer " + token } });
-    expect(response.statusCode).toBe(200);
-    return serviceCatalogSchema.parse(response.json()).services;
-  };
-  const authorize = async (username = "alice", appId = clientId, uri = callback) => {
-    const parameters = new URLSearchParams({
-      response_type: "code", client_id: appId, redirect_uri: uri,
-      state: "fixture-state-0123456789abcdef", code_challenge: challenge, code_challenge_method: "S256",
-    });
-    const page = await context.app.inject({ method: "GET", url: "/v1/oauth/authorize?" + parameters.toString() });
-    expect(page.statusCode).toBe(200);
-    if (appId === clientId) {
-      expect(page.body).toContain("Fixture &lt;Cloud&gt;");
-      expect(page.body).not.toContain("Fixture <Cloud>");
-    }
-    const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
-    parameters.set("csrf_token", cookie.split("=")[1]!);
-    parameters.set("username", username);
-    parameters.set("password", password);
-    const authorized = await context.app.inject({
-      method: "POST", url: "/v1/oauth/authorize", headers: { cookie, "content-type": "application/x-www-form-urlencoded" },
-      payload: parameters.toString(),
-    });
-    expect(authorized.statusCode).toBe(303);
-    const code = new URL(String(authorized.headers.location)).searchParams.get("code");
-    expect(code).toBeTruthy();
-    return code!;
-  };
-  const exchange = (code: string, appId = clientId, uri = callback, overrides = {}) => context.app.inject({
-    method: "POST", url: "/v1/oauth/token",
-    payload: { grant_type: "authorization_code", client_id: appId, code,
-      redirect_uri: uri, code_verifier: verifier, installation_id: randomUUID(), platform: "web", ...overrides },
+  const manifests = new Map([appA, appB].map(id => [origin(id), declaration(id)]));
+  const instances = new ApplicationInstanceService(context.db, {
+    get: async url => ({ status: 200, body: manifests.get(new URL(url).origin) }),
+    post: async (url, body) => {
+      const manifest = manifests.get(new URL(url).origin);
+      const input = body as { appId: string; appSecret: string };
+      return manifest && input.appId === manifest.appId && input.appSecret === secret
+        ? { status: 200, body: { ok: true, appId: input.appId } }
+        : { status: 403, body: { ok: false } };
+    },
   });
-  return { context, registry, management, appToken, otherToken, put, alice, bob, catalog, authorize, exchange };
+  for (const id of [appA, appB]) {
+    await instances.register(bob.account.id, { origin: origin(id), appId: id, appSecret: secret });
+  }
+  const authorize = async (id = appA, username = "alice") => {
+    const fields = new URLSearchParams({ response_type: "code", client_id: clientId(id),
+      redirect_uri: callback(id), state, code_challenge: challenge, code_challenge_method: "S256" });
+    const page = await context.app.inject({ method: "GET", url: "/v1/oauth/authorize?" + fields });
+    expect(page.statusCode).toBe(200);
+    expect(page.body).toContain("Fixture &lt;Mail&gt;");
+    expect(page.body).toContain(origin(id));
+    const cookie = String(page.headers["set-cookie"]).split(";")[0]!;
+    fields.set("csrf_token", cookie.split("=")[1]!);
+    fields.set("manifest_revision", String(manifests.get(origin(id))!.manifestRevision));
+    fields.set("username", username);
+    fields.set("password", password);
+    const response = await context.app.inject({ method: "POST", url: "/v1/oauth/authorize",
+      headers: { cookie, "content-type": "application/x-www-form-urlencoded" }, payload: fields.toString() });
+    expect(response.statusCode).toBe(303);
+    const returned = new URL(String(response.headers.location));
+    expect(returned.searchParams.get("state")).toBe(state);
+    return returned.searchParams.get("code")!;
+  };
+  const exchange = (code: string, id = appA, extra: Record<string, unknown> = {}) => context.app.inject({
+    method: "POST", url: "/v1/oauth/token", payload: {
+      grant_type: "authorization_code", client_id: clientId(id), redirect_uri: callback(id), code,
+      code_verifier: verifier, ...extra,
+    },
+  });
+  const catalog = async (token = alice.sessionToken) => {
+    const response = await context.app.inject({ method: "GET", url: "/v1/application-services", headers: bearer(token) });
+    expect(response.statusCode).toBe(200);
+    return applicationServiceCatalogSchema.parse(response.json()).services;
+  };
+  const credential = (id = appA, revision = 1, token = alice.sessionToken) => context.app.inject({
+    method: "POST", url: "/v1/application-services/" + id + "/mail/credential",
+    headers: bearer(token), payload: { resource: resource(id), expectedRevision: revision },
+  });
+  const appSession = (token: string) => context.app.inject({
+    method: "GET", url: "/v1/oauth/application-session", headers: bearer(token),
+  });
+  const count = (table: "sessions" | "devices" | "application_oauth_sessions" | "application_service_grants") =>
+    Number((context.db.prepare("SELECT COUNT(*) AS n FROM " + table).get() as { n: number }).n);
+  const status = (disabled: boolean, token = bob.sessionToken) => context.app.inject({
+    method: "POST", url: "/v1/account/applications/" + appA + "/status",
+    headers: bearer(token), payload: { disabled },
+  });
+  return { context, alice, bob, authorize, exchange, catalog, credential, appSession, count, status, instances, manifests };
 }
 
-describe("OAuth application service grants", () => {
-  it("grants only the actively logged-in application, atomically at successful exchange, and issues a real signed credential", async () => {
-    const { context, alice, bob, catalog, authorize, exchange } = await setup();
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    const code = await authorize();
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    expect((await exchange(code, otherClient, otherCallback)).statusCode).toBe(400);
-    expect((await exchange(code, clientId, callback, { code_verifier: "x".repeat(43) })).statusCode).toBe(400);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    const successful = await exchange(code);
-    expect(successful.statusCode).toBe(200);
-    const web = issuedCloudSessionSchema.parse(successful.json());
-    expect(web.account.id).toBe(alice.account.id);
-    expect((await catalog(alice.sessionToken)).map(s => [s.definition.serviceId, s.revision])).toEqual([["archive", 1], ["notes", 1]]);
-    expect(await catalog(bob.sessionToken)).toEqual([]);
-    expect((await exchange(code)).statusCode).toBe(400);
-    const tokenResponse = await context.app.inject({
-      method: "POST", url: "/v1/services/notes/credential",
-      headers: { authorization: "Bearer " + alice.sessionToken }, payload: { expectedRevision: 1 },
+describe("V1 registered application OAuth and instance service grants", () => {
+  it("uses real browser authorization and atomic exchange without native session or device creation", async () => {
+    const s = await setup();
+    expect(await s.catalog()).toEqual([]);
+    const nativeSessions = s.count("sessions"), nativeDevices = s.count("devices");
+    const code = await s.authorize();
+    expect(await s.catalog()).toEqual([]);
+    for (const response of [
+      await s.exchange(code, appB),
+      await s.exchange(code, appA, { code_verifier: "x".repeat(43) }),
+      await s.exchange(code, appA, { redirect_uri: callback(appB) }),
+      await s.exchange(code, appA, { client_secret: secret }),
+      await s.exchange(code, appA, { installation_id: "01890f6e-4f3c-4cc8-9dbc-55116c2f", platform: "web" }),
+      await s.exchange(code, appA, { client_id: MIRA_MOBILE_OAUTH_CLIENT_ID, redirect_uri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
+        installation_id: "01890f6e-4f3c-4cc8-9dbc-55116c2f", platform: "mobile" }),
+    ]) expect(response.statusCode).toBe(400);
+    expect(await s.catalog()).toEqual([]);
+    const result = await s.exchange(code);
+    expect(result.statusCode).toBe(200);
+    const issued = applicationOAuthTokenResponseSchema.parse(result.json());
+    expect(issued).toMatchObject({ subject: s.alice.account.id, appId: appA, audience: clientId(appA) });
+    expect(issued).not.toHaveProperty("sessionToken");
+    expect(s.count("sessions")).toBe(nativeSessions);
+    expect(s.count("devices")).toBe(nativeDevices);
+    expect(s.count("application_oauth_sessions")).toBe(1);
+    expect((await s.appSession(issued.access_token)).json()).toMatchObject({ appId: appA, subject: s.alice.account.id });
+    for (const url of ["/v1/auth/session", "/v1/devices", "/v1/account/applications", "/v1/application-services"]) {
+      expect((await s.context.app.inject({ method: "GET", url, headers: bearer(issued.access_token) })).statusCode).toBe(401);
+    }
+    expect((await s.credential(appA, 1, issued.access_token)).statusCode).toBe(401);
+    expect(await s.catalog(s.bob.sessionToken)).toEqual([]);
+    expect((await s.catalog()).map(x => [x.appId, x.serviceId])).toEqual([[appA, "mail"]]);
+    expect((await s.credential(appB)).statusCode).toBe(404);
+    const ticket = applicationServiceCredentialSchema.parse((await s.credential()).json());
+    expect(verifyApplicationServiceCredential(ticket.token, {
+      issuer: SERVICE_CREDENTIAL_ISSUER, expectedApplication: { appId: appA, serviceId: "mail", resource: resource(appA) },
+      publicKeys: trustedServiceCredentialKeys(s.context),
+    }).claims.sub).toBe(s.alice.account.id);
+    expect((await s.exchange(code)).statusCode).toBe(400);
+    expect((await s.exchange(await s.authorize(appB), appB)).statusCode).toBe(200);
+    expect((await s.catalog()).map(x => x.appId)).toEqual([appA, appB]);
+  });
+
+  it("keeps logout separate from authorization; app revoke invalidates sessions and pending codes", async () => {
+    const s = await setup();
+    const first = applicationOAuthTokenResponseSchema.parse((await s.exchange(await s.authorize())).json());
+    expect((await s.context.app.inject({ method: "POST", url: "/v1/oauth/application-session/logout", headers: bearer(first.access_token) })).statusCode).toBe(204);
+    expect((await s.appSession(first.access_token)).statusCode).toBe(401);
+    expect(await s.catalog()).toHaveLength(1);
+    const second = applicationOAuthTokenResponseSchema.parse((await s.exchange(await s.authorize())).json());
+    const pending = await s.authorize();
+    expect((await s.context.app.inject({ method: "POST", url: "/v1/account/application-authorizations/" + appA + "/revoke", headers: bearer(s.alice.sessionToken) })).statusCode).toBe(204);
+    expect((await s.appSession(second.access_token)).statusCode).toBe(401);
+    expect((await s.exchange(pending)).statusCode).toBe(400);
+    expect(await s.catalog()).toEqual([]);
+    expect((await s.credential()).statusCode).toBe(404);
+    expect((await s.exchange(await s.authorize())).statusCode).toBe(200);
+    expect((await s.catalog())[0]?.revision).toBe(3);
+  });
+
+  it("owner disable invalidates all prior sessions, codes and grants; enabling never restores them", async () => {
+    const s = await setup();
+    const first = applicationOAuthTokenResponseSchema.parse((await s.exchange(await s.authorize())).json());
+    const pending = await s.authorize();
+    expect((await s.status(true, s.alice.sessionToken)).statusCode).toBe(400);
+    expect((await s.status(true)).statusCode).toBe(204);
+    expect((await s.appSession(first.access_token)).statusCode).toBe(401);
+    expect(await s.catalog()).toEqual([]);
+    expect((await s.credential()).statusCode).toBe(404);
+    expect((await s.exchange(pending)).statusCode).toBe(400);
+    expect((await s.status(false)).statusCode).toBe(204);
+    expect((await s.exchange(pending)).statusCode).toBe(400);
+    expect(await s.catalog()).toEqual([]);
+    expect((await s.exchange(await s.authorize())).statusCode).toBe(200);
+  });
+
+  it("a service-specific revoke also invalidates pre-revoke OAuth codes", async () => {
+    const s = await setup();
+    await s.exchange(await s.authorize());
+    const pending = await s.authorize();
+    expect((await s.context.app.inject({ method: "POST", url: "/v1/application-services/" + appA + "/mail/revoke",
+      headers: bearer(s.alice.sessionToken), payload: { resource: resource(appA), expectedRevision: 1 } })).statusCode).toBe(200);
+    expect((await s.exchange(pending)).statusCode).toBe(400);
+    expect(await s.catalog()).toEqual([]);
+    expect((await s.exchange(await s.authorize())).statusCode).toBe(200);
+  });
+
+  it("manifest change invalidates pending grants and sessions even if an earlier declaration returns", async () => {
+    const s = await setup();
+    const first = applicationOAuthTokenResponseSchema.parse((await s.exchange(await s.authorize())).json());
+    const pending = await s.authorize();
+    for (const revision of [2, 3]) {
+      s.manifests.set(origin(appA), declaration(appA, revision, revision === 2 ? ["mail.read", "mail.write"] : ["mail.read"]));
+      await s.instances.register(s.bob.account.id, { origin: origin(appA), appId: appA, appSecret: secret });
+    }
+    expect(await s.catalog()).toEqual([]);
+    expect((await s.exchange(pending)).statusCode).toBe(400);
+    expect((await s.appSession(first.access_token)).statusCode).toBe(401);
+    expect((await s.exchange(await s.authorize())).statusCode).toBe(200);
+    expect((await s.catalog())[0]).toMatchObject({ manifestRevision: 3, revision: 2, scopes: ["mail.read"] });
+  });
+
+  it("rolls back code consumption, grant and session on a failed write", async () => {
+    const s = await setup();
+    const code = await s.authorize();
+    s.context.db.exec("CREATE TRIGGER fail_app_session BEFORE INSERT ON application_oauth_sessions BEGIN SELECT RAISE(ABORT, 'fixture rollback'); END;");
+    expect((await s.exchange(code)).statusCode).toBe(500);
+    expect(s.count("application_oauth_sessions")).toBe(0);
+    expect(s.count("application_service_grants")).toBe(0);
+    s.context.db.exec("DROP TRIGGER fail_app_session");
+    expect((await s.exchange(code)).statusCode).toBe(200);
+    expect((await s.exchange(code)).statusCode).toBe(400);
+  });
+
+  it("rejects V0 trusted application OAuth even when the old enrollment exists", async () => {
+    const s = await setup();
+    new TrustedApplicationManagement(s.context.db).enroll("legacy-web", {
+      projectId: "legacy", displayName: "Legacy", redirectUri: "https://legacy.example/callback",
+      endpointOrigins: ["https://legacy.example"],
     });
-    expect(tokenResponse.statusCode).toBe(200);
-    const ticket = registeredServiceCredentialSchema.parse(tokenResponse.json());
-    expect(verifyServiceCredential(ticket.token, {
-      issuer: SERVICE_CREDENTIAL_ISSUER, audience: notes.audience,
-      publicKeys: trustedServiceCredentialKeys(context),
-    }).claims.sub).toBe(alice.account.id);
-    const second = await exchange(await authorize());
-    expect(second.statusCode).toBe(200);
-    expect((await catalog(alice.sessionToken)).map(s => s.revision)).toEqual([1, 1]);
-    expect((await context.app.inject({ method: "POST", url: "/v1/auth/logout", headers: { authorization: "Bearer " + web.sessionToken } })).statusCode).toBe(204);
-    expect((await catalog(alice.sessionToken)).map(s => s.definition.serviceId)).toEqual(["archive", "notes"]);
-    expect((await exchange(await authorize("bob", otherClient, otherCallback), otherClient, otherCallback)).statusCode).toBe(200);
-    expect((await catalog(bob.sessionToken)).map(s => s.definition.serviceId)).toEqual(["other"]);
-  });
-
-  it("isolates application administration, protects scope/origin, rotates keys and propagates revisions", async () => {
-    const { context, management, appToken, otherToken, put, alice, bob, catalog, authorize, exchange } = await setup();
-    expect((await put(alice.sessionToken, notes, 1)).statusCode).toBe(401);
-    expect((await context.app.inject({method:"GET",url:"/v1/services",headers:{authorization:"Bearer "+appToken}})).statusCode).toBe(401);
-    const ownDeclarations = await context.app.inject({method:"GET",url:"/v1/application/services",headers:{authorization:"Bearer "+appToken}});
-    expect(ownDeclarations.statusCode).toBe(200);
-    expect(ownDeclarations.json().services.map((s:{definition:ServiceDefinition})=>s.definition.serviceId)).toEqual(["archive","notes"]);
-    expect((await put(otherToken, notes, 1)).statusCode).toBe(403);
-    expect((await put(appToken, {...notes, protocol:{...notes.protocol, endpoint:"https://untrusted.example/mcp"}}, 1)).statusCode).toBe(403);
-    expect((await put(appToken, {...notes, scopes:[...notes.scopes,"service:notes:write"]}, 1)).statusCode).toBe(409);
-    expect((await put(appToken, notes, 1)).json()).toMatchObject({revision:1,retired:false});
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    const rotated = management.rotate(clientId).managementToken;
-    expect((await put(appToken, notes, 1)).statusCode).toBe(401);
-    const updated = {...notes, protocol:{...notes.protocol, endpoint:"https://fixture.example/mcp2"}};
-    expect((await put(rotated, updated, 1)).json()).toMatchObject({revision:2,definition:updated});
-    expect((await catalog(alice.sessionToken)).find(s=>s.definition.serviceId==="notes")).toEqual({definition:updated,revision:2});
-    expect(await catalog(bob.sessionToken)).toEqual([]);
-    expect((await put(rotated, notes, 1)).statusCode).toBe(409);
-    expect(context.db.prepare("SELECT management_key_hash FROM oauth_cloud_applications WHERE client_id = ?").get(clientId)).not.toMatchObject({management_key_hash:rotated});
-    const credential = (revision:number) => context.app.inject({method:"POST",url:"/v1/services/notes/credential",headers:{authorization:"Bearer "+alice.sessionToken},payload:{expectedRevision:revision}});
-    expect((await credential(1)).statusCode).toBe(409);
-    expect((await credential(2)).statusCode).toBe(200);
-  });
-
-  it("retirement and disable durably revoke grants; reactivation needs a new login", async () => {
-    const { context, management, appToken, put, alice, catalog, authorize, exchange } = await setup();
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    const beforeRetire = await authorize();
-    const retire = await context.app.inject({method:"POST",url:"/v1/application/services/notes/retire",headers:{authorization:"Bearer "+appToken},payload:{expectedRevision:1}});
-    expect(retire.json()).toMatchObject({revision:2,retired:true});
-    expect((await put(appToken,notes,2)).json()).toMatchObject({revision:3,retired:false});
-    expect((await catalog(alice.sessionToken)).map(s=>s.definition.serviceId)).toEqual(["archive"]);
-    expect((await exchange(beforeRetire)).statusCode).toBe(400);
-    await new Promise(resolve=>setTimeout(resolve,5));
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    expect((await catalog(alice.sessionToken)).find(s=>s.definition.serviceId==="notes")?.revision).toBe(3);
-    const beforeDisable = await authorize();
-    management.disable(clientId);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    expect((await put(appToken,notes,3)).statusCode).toBe(401);
-    const replacement = management.enable(clientId).managementToken;
-    expect((await put(appToken,notes,3)).statusCode).toBe(401);
-    expect((await put(replacement,notes,3)).statusCode).toBe(200);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    expect((await exchange(beforeDisable)).statusCode).toBe(400);
-    await new Promise(resolve=>setTimeout(resolve,5));
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    const revoke = await context.app.inject({method:"POST",url:"/v1/services/notes/revoke",headers:{authorization:"Bearer "+alice.sessionToken},payload:{expectedRevision:5}});
-    expect(revoke.json()).toEqual({revision:6});
-    expect((await catalog(alice.sessionToken)).map(s=>s.definition.serviceId)).toEqual(["archive"]);
-  });
-
-  it("keeps Who You legacy behavior before managed enrollment and prevents legacy issuance from bypassing revoke afterwards", async () => {
-    const { context, management, put, alice, bob, catalog, authorize, exchange } = await setup();
-    const legacy = (token: string, scopes: string[] = ["whoyou.read"]) => context.app.inject({
-      method:"POST",url:"/v1/service-credentials",headers:{authorization:"Bearer "+token},payload:{audience:CLOUD_WHO_YOU_AUDIENCE,scopes},
-    });
-    expect((await legacy(alice.sessionToken)).statusCode).toBe(200);
-    const who = management.enroll(WHO_YOU_WEB_OAUTH_CLIENT_ID,{
-      projectId:"who-you",displayName:"Who You",redirectUri:WHO_YOU_WEB_OAUTH_REDIRECT_URI,
-      endpointOrigins:["https://who-you.tomz.io"],
-    });
-    const declaration:ServiceDefinition = {serviceId:"who-you",projectId:"who-you",displayName:"Who You",protocol:{name:"mcp",version:"2025-11-25",endpoint:"https://who-you.tomz.io/mcp"},audience:"mira:who-you",scopes:["whoyou.read"]};
-    expect((await put(who.managementToken,declaration)).statusCode).toBe(200);
-    expect((await legacy(alice.sessionToken)).statusCode).toBe(409);
-    const code = await authorize("alice",WHO_YOU_WEB_OAUTH_CLIENT_ID,WHO_YOU_WEB_OAUTH_REDIRECT_URI);
-    const response = await exchange(code,WHO_YOU_WEB_OAUTH_CLIENT_ID,WHO_YOU_WEB_OAUTH_REDIRECT_URI);
-    expect(response.statusCode).toBe(200);
-    const web = issuedCloudSessionSchema.parse(response.json());
-    expect((await catalog(alice.sessionToken)).map(s=>s.definition.serviceId)).toEqual(["who-you"]);
-    expect(await catalog(bob.sessionToken)).toEqual([]);
-    expect((await legacy(web.sessionToken,["whoyou.read","whoyou.mail.write"])).statusCode).toBe(200);
-    const confirmation = { actor:"user",draft_id:"dr_0123456789abcdef",draft_version:7,content_hash:"a".repeat(64),nonce:"nonce-0123456789abcdef" };
-    const confirm = () => context.app.inject({method:"POST",url:"/v1/service-credentials",headers:{authorization:"Bearer "+web.sessionToken},payload:{audience:CLOUD_WHO_YOU_AUDIENCE,confirmation}});
-    const confirmed = await confirm();
-    expect(confirmed.statusCode).toBe(200);
-    expect(verifyServiceCredential(confirmed.json().token,{
-      issuer:SERVICE_CREDENTIAL_ISSUER,audience:CLOUD_WHO_YOU_AUDIENCE,publicKeys:trustedServiceCredentialKeys(context),
-    }).claims).toMatchObject({scope:["whoyou.mail.send"],confirmation});
-    expect((await legacy(alice.sessionToken)).statusCode).toBe(200);
-    expect((await legacy(bob.sessionToken)).statusCode).toBe(409);
-    const revoke = await context.app.inject({method:"POST",url:"/v1/services/who-you/revoke",headers:{authorization:"Bearer "+alice.sessionToken},payload:{expectedRevision:1}});
-    expect(revoke.statusCode).toBe(200);
-    expect((await legacy(alice.sessionToken)).statusCode).toBe(409);
-    expect((await legacy(web.sessionToken,["whoyou.read","whoyou.mail.write"])).statusCode).toBe(409);
-    expect((await confirm()).statusCode).toBe(409);
-  });
-
-  it("rejects unknown or disabled applications and a changed declaration between authorization and exchange", async () => {
-    const { context, alice, catalog, authorize, exchange } = await setup();
-    const untrusted = await context.app.inject({ method: "GET", url: "/v1/oauth/authorize?" + new URLSearchParams({
-      response_type: "code", client_id: "unknown-web", redirect_uri: "https://unknown.example/callback",
-      state: "fixture-state-0123456789abcdef", code_challenge: challenge, code_challenge_method: "S256",
-    }).toString() });
-    expect(untrusted.statusCode).toBe(400);
-    expect(untrusted.headers.location).toBeUndefined();
-    const code = await authorize();
-    context.db.prepare("UPDATE oauth_cloud_application_services SET definition_json = ? WHERE service_id = ?")
-      .run(JSON.stringify({ ...notes, protocol: { ...notes.protocol, version: "2026-07-28" } }), notes.serviceId);
-    expect((await exchange(code)).statusCode).toBe(400);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    const next = await authorize();
-    context.db.prepare("UPDATE oauth_cloud_applications SET disabled_at = ? WHERE client_id = ?").run(new Date().toISOString(), clientId);
-    expect((await exchange(next)).statusCode).toBe(400);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-  });
-
-  it("fails closed for existing grants when a managed declaration is retired or its application disabled", async () => {
-    const { context, alice, catalog, authorize, exchange } = await setup();
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    const credential = (id: string) => context.app.inject({
-      method: "POST", url: "/v1/services/" + id + "/credential",
-      headers: { authorization: "Bearer " + alice.sessionToken }, payload: { expectedRevision: 1 },
-    });
-    const now = new Date().toISOString();
-    context.db.prepare("UPDATE oauth_cloud_application_services SET retired_at = ? WHERE service_id = ?").run(now, "notes");
-    expect((await catalog(alice.sessionToken)).map(s => s.definition.serviceId)).toEqual(["archive"]);
-    expect((await credential("notes")).statusCode).toBe(404);
-    expect((await credential("archive")).statusCode).toBe(200);
-    context.db.prepare("UPDATE oauth_cloud_applications SET disabled_at = ? WHERE client_id = ?").run(now, clientId);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    expect((await credential("archive")).statusCode).toBe(404);
-  });
-
-  it("rolls back session, device, code consumption and all grants if one grant conflicts", async () => {
-    const { context, registry, alice, bob, catalog, authorize, exchange } = await setup();
-    // Simulate a preexisting corrupt legacy row, which the new management API
-    // itself refuses to create; the exchange must still roll back atomically.
-    context.db.prepare("INSERT INTO service_registrations(account_id,service_id,definition_json,revision) VALUES (?,?,?,1)")
-      .run(bob.account.id, notes.serviceId, JSON.stringify({ ...notes, projectId: "conflicting-project" }));
-    const code = await authorize();
-    const before = context.db.prepare("SELECT COUNT(*) AS n FROM sessions").get();
-    const beforeDevices = context.db.prepare("SELECT COUNT(*) AS n FROM devices").get();
-    const result = await exchange(code);
-    expect(result.statusCode).toBe(400);
-    expect(await catalog(alice.sessionToken)).toEqual([]);
-    expect(context.db.prepare("SELECT COUNT(*) AS n FROM sessions").get()).toEqual(before);
-    expect(context.db.prepare("SELECT COUNT(*) AS n FROM devices").get()).toEqual(beforeDevices);
-    expect(context.oauthRepository.findAuthorizationCode(parseAuthorizationCode(code)!.id)?.consumedAt).toBeNull();
-  });
-
-  it("does not silently widen an existing grant, and only a later explicit login restores a revoked grant", async () => {
-    const { context, registry, alice, catalog, authorize, exchange } = await setup();
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    const preRevokeCode = await authorize();
-    expect(registry.revoke(alice.account.id, "notes", 1)).toBe(2);
-    expect((await exchange(preRevokeCode)).statusCode).toBe(400);
-    expect((await catalog(alice.sessionToken)).map(s => s.definition.serviceId)).toEqual(["archive"]);
-    // Later active sign-in can reauthorize. Distinguish equal millisecond timestamps.
-    await new Promise(resolve => setTimeout(resolve, 5));
-    expect((await exchange(await authorize())).statusCode).toBe(200);
-    expect((await catalog(alice.sessionToken)).find(s => s.definition.serviceId === "notes")?.revision).toBe(3);
-    const expanded = { ...notes, scopes: [...notes.scopes, "service:notes:write"] };
-    context.db.prepare("UPDATE oauth_cloud_application_services SET definition_json = ? WHERE service_id = ?").run(JSON.stringify(expanded), notes.serviceId);
-    expect((await exchange(await authorize())).statusCode).toBe(400);
-    expect((await catalog(alice.sessionToken)).find(s => s.definition.serviceId === "notes")?.definition.scopes).toEqual(notes.scopes);
+    const query = new URLSearchParams({ response_type: "code", client_id: "legacy-web",
+      redirect_uri: "https://legacy.example/callback", state, code_challenge: challenge, code_challenge_method: "S256" });
+    expect((await s.context.app.inject({ method: "GET", url: "/v1/oauth/authorize?" + query })).statusCode).toBe(400);
+    expect(await s.catalog()).toEqual([]);
   });
 });

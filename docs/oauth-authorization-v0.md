@@ -1,6 +1,6 @@
 # Mira Cloud Auth OAuth Authorization Code + Token Exchange V0 (OPS-016/OPS-017)
 
-> This is the first-party V0 contract. For OPS-049 dynamic administrator-managed applications see [service registry V0](service-registry-v0.md). The [Open Platform V1 design](open-platform-protocol-v1.md) considers independent deployment identity and an application-specific login credential instead of exposing the native Cloud Session; it is not yet implemented. The static registry section below is the historical OPS-016/017 baseline, not the complete current application admission path.
+> Native Desktop/Mobile OAuth remains on this contract. The historical open-application and Who You Web Cloud Session behavior is retired by [Application OAuth V1](application-oauth-v1.md); previously issued open-application sessions are revoked by migration 015. Historical sections below document V0 only; they are not supported open-application login instructions.
 
 This document specifies the first-party OAuth 2.0 Authorization Code + PKCE S256
 authorization boundary implemented by OPS-016 and the one-time token exchange
@@ -11,13 +11,13 @@ Tool, Relay, or other business authorization.
 
 ## First-party client registry
 
-The current static, reviewed first-party client registry accepts exactly these clients (as of 2026-11-21):
+Historical first-party registry (2026-11-21); only Desktop and Mobile remain admitted for native OAuth:
 
 | Client id | Platform | Exact registered redirect URI |
 | --- | --- | --- |
 | `mira-desktop` | Desktop | `mira-desktop://oauth/callback` |
 | `mira-mobile` | Mobile | `mira-mobile://oauth/callback` |
-| `who-you-web` | Web | `https://who-you.tomz.io/auth/callback` |
+| `who-you-web` (retired) | Web | `https://who-you.tomz.io/auth/callback` |
 
 The shared literals live in
 `packages/contracts/src/oauth.ts` and are exported from

@@ -1,10 +1,12 @@
 import {
   applicationInstanceCatalogSchema,
+  applicationServiceCatalogSchema,
+  type ApplicationServiceCatalogEntry,
   applicationOwnershipRemovalResponseSchema,
   applicationRegistrationRequestSchema,
   applicationRegistrationResponseSchema,
 } from "@uichat-mira/cloud-auth-contracts";
-import type { z } from "zod";
+import { z } from "zod";
 import { bearerHeaders, createHttpTransport } from "@/lib/http/transport";
 
 export type ApplicationCatalog = z.infer<typeof applicationInstanceCatalogSchema>;
@@ -35,6 +37,33 @@ export function createApplicationClient() {
   });
   const route = "/v1/account/applications";
   return {
+    services: (token: string) =>
+      transport.json(
+        "/v1/application-services",
+        { method: "GET", headers: bearerHeaders(token), cache: "no-store" },
+        applicationServiceCatalogSchema,
+      ),
+    revokeService: (token: string, service: ApplicationServiceCatalogEntry) =>
+      transport.json(
+        "/v1/application-services/" +
+          encodeURIComponent(service.appId) +
+          "/" +
+          encodeURIComponent(service.serviceId) +
+          "/revoke",
+        {
+          method: "POST",
+          headers: { ...bearerHeaders(token), "content-type": "application/json" },
+          body: JSON.stringify({ resource: service.resource, expectedRevision: service.revision }),
+          cache: "no-store",
+        },
+        z.object({ revision: z.number().int().positive() }).strict(),
+      ),
+    revokeApplication: (token: string, appId: string) =>
+      transport.empty(
+        "/v1/account/application-authorizations/" + encodeURIComponent(appId) + "/revoke",
+        { method: "POST", headers: bearerHeaders(token), cache: "no-store" },
+        204,
+      ),
     list: (token: string) =>
       transport.json(
         route,
@@ -51,6 +80,17 @@ export function createApplicationClient() {
           cache: "no-store",
         },
         applicationRegistrationResponseSchema,
+      ),
+    setDisabled: (token: string, appId: string, disabled: boolean) =>
+      transport.empty(
+        route + "/" + encodeURIComponent(appId) + "/status",
+        {
+          method: "POST",
+          headers: { ...bearerHeaders(token), "content-type": "application/json" },
+          body: JSON.stringify({ disabled }),
+          cache: "no-store",
+        },
+        204,
       ),
     remove: (token: string, appId: string) =>
       transport.json(

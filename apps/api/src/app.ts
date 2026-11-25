@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { DatabaseSync } from "node:sqlite";
 import type { AuthService } from "./auth/auth-service.js";
 import { registerAuthRoutes } from "./auth/routes.js";
+import { registerApplicationOAuthRoutes } from "./application-oauth/routes.js";
 import type { DeviceService } from "./devices/device-service.js";
 import { registerDeviceRoutes } from "./devices/routes.js";
 import type { HostGrantService } from "./grants/host-grant-service.js";
@@ -14,6 +15,9 @@ import { registerServiceCredentialRoutes } from "./service-credentials/routes.js
 import type { ServiceCredentialService } from "./service-credentials/service.js";
 import { ServiceRegistryRepository } from "./service-registry/repository.js";
 import { registerServiceRegistryRoutes } from "./service-registry/routes.js";
+import { ApplicationServiceRepository } from "./application-services/repository.js";
+import { ApplicationServiceService } from "./application-services/service.js";
+import { registerApplicationServiceRoutes } from "./application-services/routes.js";
 import { ApplicationInstanceService } from "./application-instances/service.js";
 import { registerApplicationInstanceRoutes } from "./application-instances/routes.js";
 import {
@@ -60,7 +64,16 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
 
   if (options.authService) {
     registerAuthRoutes(app, options.authService);
+    registerApplicationOAuthRoutes(app, options.db, options.authService);
     registerServiceRegistryRoutes(app, options.authService, new ServiceRegistryRepository(options.db), options.serviceCredentialService);
+    registerApplicationServiceRoutes(
+      app,
+      options.authService,
+      new ApplicationServiceService(
+        new ApplicationServiceRepository(options.db),
+        options.serviceCredentialService,
+      ),
+    );
     registerApplicationInstanceRoutes(
       app,
       options.authService,

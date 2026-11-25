@@ -10,6 +10,7 @@ const application = {
   origin,
   createdAt: "2026-11-25T00:00:00.000Z",
   updatedAt: "2026-11-25T00:00:00.000Z",
+  disabledAt: null,
   manifest: {
     schemaVersion: "1",
     appId,
@@ -101,6 +102,28 @@ describe("Mira ID application instance portal", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "验证并登记" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("AppSecret 验证失败。");
     expect(within(dialog).getByLabelText("AppSecret")).toHaveValue("");
+  });
+
+  it("lets the owner disable and enable the instance without re-registering", async () => {
+    let disabledAt: string | null = null;
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          expect(url).toBe("/v1/account/applications/" + appId + "/status");
+          disabledAt = JSON.parse(String(init.body)).disabled ? "2026-11-25T00:00:00.000Z" : null;
+          return new Response(null, { status: 204 });
+        }
+        return json({ applications: [{ ...application, disabledAt }] });
+      }),
+    );
+    mountPortal({ path: "/account/applications", session: storedSession });
+    fireEvent.click(await screen.findByRole("button", { name: "停用" }));
+    expect(await screen.findByText("应用已停用。")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "启用" }));
+    expect(await screen.findByText("应用已启用。")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "停用" })).toBeInTheDocument();
   });
 
   it("removes only the management relationship", async () => {

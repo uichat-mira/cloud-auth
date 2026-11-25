@@ -69,6 +69,7 @@ describe("application instance V1 contract", () => {
   });
 
   it("preserves unknown risk hints and rejects duplicate service identity", () => {
+    expect(applicationManifestSchema.safeParse({ ...manifest, services: [{ ...service, scopes: ["mail.read", "mail.read"] }] }).success).toBe(false);
     const parsed = applicationManifestSchema.parse(manifest);
     expect(parsed.services[0]?.capabilities?.[0]?.id).toBe("mail.read");
     expect(parsed.services[0]?.toolGovernance?.[0]?.riskHints).toEqual([

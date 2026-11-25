@@ -1,10 +1,14 @@
 import { KeyObject, createPrivateKey, sign } from "node:crypto";
 import {
   SERVICE_CREDENTIAL_ISSUER,
+  applicationServiceClaimsSchema,
+  applicationServiceScopeSchema,
   relayTicketContextSchema,
   serviceCredentialClaimsSchema,
   serviceCredentialJwtHeaderSchema,
   whoYouUserConfirmationSchema,
+  type ApplicationServiceResource,
+  type ApplicationServiceScope,
   type RelayTicketContext,
   type ServiceCredentialAudience,
   type ServiceCredentialScope,
@@ -32,9 +36,18 @@ export interface ServiceCredentialSignerConfig {
 export interface IssueServiceCredentialInput {
   accountId: string;
   deviceId: string;
-  audience: ServiceCredentialAudience;
-  scope: readonly ServiceCredentialScope[];
+  audience: ServiceCredentialAudience | ApplicationServiceResource;
+  scope: readonly (ServiceCredentialScope | ApplicationServiceScope)[];
   relay?: RelayTicketContext;
+  /**
+   * Canonical instance-scoped service identity. When present, `audience` must
+   * equal `resource` and the credential carries app_id/service_id/resource.
+   */
+  application?: {
+    appId: string;
+    serviceId: string;
+    resource: string;
+  };
   /**
    * Stable Guanlan consumer identity, derived server-side from the verified
    * Cloud Session. Required for the Guanlan audience and rejected for others
@@ -113,12 +126,32 @@ export function issueServiceCredential(
     }
   }
 
+  if (input.application !== undefined) {
+    if (
+      input.relay !== undefined ||
+      input.consumerId !== undefined ||
+      input.confirmation !== undefined ||
+      input.audience !== input.application.resource
+    ) {
+      throw new ServiceCredentialIssuanceError(
+        "INVALID_INPUT",
+        "Application service credentials cannot carry another audience context",
+      );
+    }
+    if (!input.scope.every((scope) => applicationServiceScopeSchema.safeParse(scope).success)) {
+      throw new ServiceCredentialIssuanceError(
+        "INVALID_INPUT",
+        "Application service scopes are malformed",
+      );
+    }
+  }
+
   const issuedAt = Math.floor((config.now?.() ?? new Date()).getTime() / 1000);
-  const claimsResult = serviceCredentialClaimsSchema.safeParse({
+  const claims = {
     iss: SERVICE_CREDENTIAL_ISSUER,
     sub: input.accountId,
     device_id: input.deviceId,
-    aud: input.audience,
+    aud: input.application?.resource ?? input.audience,
     scope: [...input.scope],
     iat: issuedAt,
     nbf: issuedAt,
@@ -126,7 +159,17 @@ export function issueServiceCredential(
     ...(input.relay === undefined ? {} : { relay: input.relay }),
     ...(input.consumerId === undefined ? {} : { consumer_id: input.consumerId }),
     ...(input.confirmation === undefined ? {} : { confirmation: input.confirmation }),
-  });
+    ...(input.application === undefined
+      ? {}
+      : {
+          app_id: input.application.appId,
+          service_id: input.application.serviceId,
+          resource: input.application.resource,
+        }),
+  };
+  const claimsResult = input.application === undefined
+    ? serviceCredentialClaimsSchema.safeParse(claims)
+    : applicationServiceClaimsSchema.safeParse(claims);
   if (!claimsResult.success) {
     throw new ServiceCredentialIssuanceError(
       "INVALID_INPUT",

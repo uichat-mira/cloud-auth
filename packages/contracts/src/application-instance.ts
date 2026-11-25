@@ -23,6 +23,14 @@ export const applicationOriginSchema = safeHttpsUrl.refine(
   "Expected an HTTPS origin without path, query or fragment",
 );
 
+/**
+ * Exact resource URI a declared service protects. It is part of the canonical
+ * service identity and of the issued credential audience; it is never derived
+ * from a caller-supplied serviceId or projectId.
+ */
+export const applicationServiceResourceSchema = safeHttpsUrl;
+export type ApplicationServiceResource = z.infer<typeof applicationServiceResourceSchema>;
+
 export const applicationIdSchema = z.string()
   .min(8)
   .max(160)
@@ -74,7 +82,7 @@ export const applicationDeclaredServiceSchema = z.object({
     endpoint: safeHttpsUrl,
   }).strict(),
   resource: safeHttpsUrl,
-  scopes: z.array(z.string().min(1).max(140)).max(32).default([]),
+  scopes: z.array(z.string().min(1).max(140)).max(32).refine(scopes => new Set(scopes).size === scopes.length, "Duplicate service scope").default([]),
   targets: z.array(z.enum(["mobile", "desktop"])).max(2).optional(),
   capabilities: z.array(applicationCapabilitySchema).max(128).optional(),
   toolGovernance: z.array(applicationToolGovernanceSchema).max(256).optional(),
@@ -113,6 +121,7 @@ export const ownedApplicationInstanceSchema = z.object({
   appId: applicationIdSchema,
   origin: applicationOriginSchema,
   manifest: applicationManifestSchema,
+  disabledAt: z.iso.datetime().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 }).strict();
