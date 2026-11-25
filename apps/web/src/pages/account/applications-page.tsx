@@ -34,6 +34,7 @@ function ApplicationsForAccount() {
   const [client] = useState(createApplicationClient);
   const [catalog, setCatalog] = useState<ApplicationCatalog | null>(null);
   const [error, setError] = useState("");
+  const [registrationError, setRegistrationError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [origin, setOrigin] = useState("");
@@ -93,6 +94,7 @@ function ApplicationsForAccount() {
   }
 
   function openRegister() {
+    setRegistrationError("");
     setOrigin("");
     setAppId("");
     setAppSecret("");
@@ -119,7 +121,7 @@ function ApplicationsForAccount() {
     if (!token) return;
     const secret = appSecret;
     setBusy(true);
-    setError("");
+    setRegistrationError("");
     setNotice("");
     setAppSecret("");
     try {
@@ -137,7 +139,7 @@ function ApplicationsForAccount() {
       if (failure instanceof ApplicationRequestError && failure.status === 401) {
         invalidateSession(token);
       }
-      setError(errorMessage(failure));
+      setRegistrationError(errorMessage(failure));
     } finally {
       if (mounted.current) setBusy(false);
     }
@@ -306,6 +308,11 @@ function ApplicationsForAccount() {
           </div>
         </div>
         <form onSubmit={(event) => void submit(event)} className="cloud-dialog-form">
+          {registrationError ? (
+            <p role="alert" className="cloud-notice">
+              {registrationError}
+            </p>
+          ) : null}
           <div className="cloud-field">
             <label htmlFor="application-origin">应用地址</label>
             <Input
