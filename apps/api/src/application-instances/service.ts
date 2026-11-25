@@ -176,6 +176,7 @@ export class ApplicationInstanceService {
 
   private transportFailure(error: unknown): ApplicationInstanceError {
     if (error instanceof ApplicationTransportError) {
+      if (error.code === "BUSY") return failure("APPLICATION_REGISTRATION_BUSY", 503);
       if (error.code === "UNSAFE_TARGET" || error.code === "INVALID_TARGET") {
         return failure("APPLICATION_UNSAFE_ORIGIN", 400);
       }
