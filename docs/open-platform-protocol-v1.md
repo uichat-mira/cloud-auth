@@ -13,8 +13,8 @@
 3. 每个部署实例自行生成稳定 APP_ID 与 AppSecret。开发者登录自己的 Mira ID，在「我的应用」输入应用地址和凭据完成登记；Mira ID 从实例发现名称、回调、服务等信息。正常登记不依赖人工运维 CLI、修改静态客户端名单或联动发包。
 4. 「我的应用」表示应用实例的管理关系；「关联服务」表示账号的使用授权。两者独立；自己的实例可以同时出现在两个栏目。也可以通过 OAuth 主动登录别人部署的实例，取得使用权，但不获得所有权。
 5. 成功主动 OAuth 登录某实例所取得的账号级服务授权，可被该账号下全部已登记、有效且支持相应服务的 Mira 终端消费，无须每个终端配置 AppSecret 或重复登录应用。仅登录 Mira ID 不授予所有实例。
-6. MCP 是第一种服务类型，不是开放平台的定义。应用可声明多个服务、不同类型与协议；其他服务类型尚未决定。Mira ID 负责身份、声明、授权与发现，不承担各类服务的业务逻辑。
-7. 声明能表达终端适用范围和建议权重。建议权重是消费端的提示，不代表权限或强制 Agent 调用；具体尺度、调度规则暂不决定。
+6. MCP 是现阶段重点接入的第一种服务类型，不是开放平台的定义。子应用提供完整、符合最新稳定官方规范的标准 MCP 服务，Mira 终端使用标准 MCP Client。开放平台包含 MCP，不定义 Mira 版 MCP，不裁剪或修改协议，不要求私有 MCP 字段或协商。应用可声明多个服务、不同类型与协议；其他服务类型保留扩展空间，暂不设计。Mira ID 负责身份、声明、授权与发现，不承担各类服务的业务逻辑。
+7. Mira 外层应用服务声明可表达终端适用范围、能力分组、工具操作风险及建议权重等治理信息，不是 MCP 私有协议字段。治理提示不代表权限或强制 Agent 调用；具体风险分级、工具关联方式、权重尺度与调度规则暂不决定。
 
 上述决策改变 OPS-049 管理员登记模式及 OPS-050 原方案的目标边界。它们与旧代码不是同一件事。保留历史证据，待新合同获确认后再重定实施任务。Local/Direct/Tailscale、Host Grant、Relay 及各应用业务授权边界不变。
 
@@ -77,7 +77,7 @@ Accept: application/json
       "type": "mcp",
       "protocol": {
         "name": "mcp",
-        "version": "2025-11-25",
+        "version": "2026-07-28",
         "endpoint": "https://mail-a.example/mcp"
       },
       "resource": "https://mail-a.example/mcp",
@@ -90,9 +90,9 @@ Accept: application/json
 }
 ```
 
-- schemaVersion 是 Mira 应用声明协议版本；manifestRevision 是实例声明修订；protocol.version 是对应服务协议的版本，不能混用。MCP 示例版本取自现有狐邮消费合同，不要求以后所有实例使用该版本。
+- schemaVersion 是 Mira 应用声明协议版本；manifestRevision 是实例声明修订；protocol.version 是对应服务协议的版本，不能混用。MCP 示例采用截至 2026-11-25 的最新稳定官方版本 2026-07-28；新接入随官方稳定版本演进，既有 2025-11-25 消费链路仅属迁移兼容，不是新接入目标。
 - APP_ID 是 Mira 应用实例身份；OAuth client_id 是 OAuth 客户端身份，两者可以不同，必须由经过验证的登记记录建立唯一绑定。使用 HTTPS client_id URL 是 CIMD 候选，非现行 V0 支持项。
-- type 指服务类型；protocol 描述连接协议。类型专属字段放 extensions，由相应消费者理解。MCP 工具名、参数 schema、分页与能力协商以实际协议为准，不把它们复制到 Mira ID。能力描述及建议权重是可选元数据；权重数值范围与调度解释未定，示例不假定尺度。
+- type 指服务类型；protocol 描述标准连接协议。此处 hints、extensions 是 Mira 外层声明字段，与 MCP 官方 capabilities.extensions、_meta 无关，不注入或改写 MCP 消息。工具名、参数 schema、分页与能力发现以标准协议及服务实际响应为准，不在 Mira ID 复制工具 schema。外层治理信息见 §5.2。
 - targets 只是实例声明的适用环境；消费端按支持的类型、协议版本、授权和本地能力治理取交集。未知类型可以显示元数据，不自动调用、不被当作 MCP。不要为尚未出现的类型规定实现。
 - 同一项目的第二个实例具有不同 origin、APP_ID、OAuth client_id、资源地址；服务的 local serviceId 可以相同。
 
@@ -144,7 +144,31 @@ Mira ID -> 终端: 仅对该资源与授权范围有效的凭据
 
 资源隔离优先参考 RFC 8707 与 RFC 9728。应用 A 与 B 即使同名同项目，凭据也不能互相使用；服务应验证可信 issuer、签名或认可的 introspection、精确 audience/resource、有效期、scope 及业务 subject，不接受仅凭 projectId 或全局 whoyou.read 推断实例授权。短期访问凭据的受众、实例和资源映射必须唯一，避免同源多个资源间混用；终端不可直接使用 AppSecret 或将原始 Cloud Session 传给服务。缓存绑定账号、终端、实例、服务、资源、声明/授权修订和有效期，变化时重新发现，不因缓存继续扩大权限。
 
-MCP profile：使用与已实现消费者兼容的 MCP HTTP transport、初始化/版本协商、RFC 9728 resource metadata、工具发现与权限校验；实际工具通过 tools/list（含分页/变化通知）获得，工具执行仍经过 Mira 自身治理、必要用户确认及服务端业务校验。MCP 资源、提示词等特性按协议能力处理，不定义成所有服务的必备字段。其他类型只在真实需求出现时另定 profile。
+### 5.1 标准 MCP：现阶段接入重点
+
+MCP 是完整独立的官方协议，不是 Mira 自定义传输或子集。新应用和 Mira 消费端以 [最新稳定 MCP 规范](https://modelcontextprotocol.io/specification/latest) 为准（2026-11-25 核对：2026-07-28）。满足全部适用的规范要求；官方可选能力及扩展按实际支持情况声明，依官方协商规则使用，不假装支持未实现的能力。
+
+- 应用发现：Mira ID 读取外层应用声明，识别实例、资源、授权关系与端点。
+- 服务发现：标准 MCP Client 直接访问该实例的 MCP endpoint；受保护 HTTP 服务遵守官方 MCP Authorization、RFC 9728 资源及授权服务器发现、标准授权服务器元数据、客户端身份和资源绑定等要求。Mira ID 作为授权中心必须兼容这些要求；既有账号级授权可以简化凭据获取，但不能替代或破坏标准授权协议。
+- 能力发现：2026-07-28 使用无状态、逐请求版本与能力元数据，服务端实现标准 server/discover；不以旧版 initialize 握手为新协议前置条件。通过标准 tools/list、tools/call 消费工具，遵守适用的分页、缓存、变化通知、JSON Schema、错误语义和传输要求；resources、prompts、官方可选扩展按官方规范和实际支持能力使用。
+- 标准互操作：非 Mira 标准 MCP Client 在满足标准认证及业务授权前提下，可以直接使用该服务，不需要理解 Mira 应用声明、私有工具字段或私有能力协商；Mira Client 同样不要求 MCP 服务修改 wire protocol。
+
+既有 2025-11-25 实现按官方兼容规则迁移；不将旧会话、旧握手或旧 SDK 限制带入 V1 目标合同。具体 SDK 与跨仓迁移另行验证；本文不宣称当前代码已经符合最新版本。
+
+### 5.2 Mira 外层服务声明与治理信息（待完善）
+
+Mira 扩展应用/服务的描述维度，而不是 MCP 协议。Mira ID 目录识别实例、服务与授权；实际工具与 schema 由标准 MCP Server 提供。Mira 消费端可将外层声明与实际能力关联，用于环境 → 能力 → 工具三层披露及本地治理。
+
+| 可描述信息 | 用途 | 当前边界 |
+| --- | --- | --- |
+| 适用终端 | 提示适合的消费环境 | 不替代授权及实际支持能力 |
+| 能力分组 | 辅助能力发现、三层披露 | 不改变 MCP 工具名称、schema 或调用语义 |
+| 工具操作风险 | 区分敏感读取、数据修改、外部副作用等 | 风险分级、字段和工具映射暂未冻结 |
+| 建议权重 | 辅助 Agent 调度 | 不等于权限，不强制执行 |
+
+标准 MCP ToolAnnotations（如 readOnlyHint、destructiveHint、idempotentHint、openWorldHint）按官方定义使用，原样保留；应用风险提示与 annotations 都不是安全证明。只读并不必然低风险。Mira 消费端可结合本地策略、授权上下文与具体调用参数判断实际风险，服务端仍负责业务权限。外层治理元数据缺失不改变标准 MCP 互操作性，也不意味着工具自动获准执行；不允许自报低风险绕过既有治理。
+
+工具级治理信息如何引用标准工具（实例、服务与工具名的绑定、版本变化等）、风险等级和声明格式属于后续设计。本轮不冻结 R0–R4 等枚举，不在 MCP ToolAnnotations、_meta 或 capabilities 中规定 Mira 私有扩展，不建立工具 schema 的第二份目录。其他服务类型仅保留扩展空间。
 
 ## 6. 参考标准与边界
 
@@ -157,15 +181,16 @@ MCP profile：使用与已实现消费者兼容的 MCP HTTP transport、初始�
 | [RFC 6749](https://www.rfc-editor.org/rfc/rfc6749.html)、[RFC 7636](https://www.rfc-editor.org/rfc/rfc7636.html)、[RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html) | OAuth 授权码、PKCE、安全最佳实践；非新业务授权模型 |
 | [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414.html)、[RFC 9728](https://www.rfc-editor.org/rfc/rfc9728.html)、[RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html) | 授权服务器/受保护资源发现与资源级访问凭据 |
 | [RFC 7638](https://www.rfc-editor.org/rfc/rfc7638.html)、[RFC 7523](https://www.rfc-editor.org/rfc/rfc7523.html) | 公钥指纹与 JWT 证明；与实例身份、管理凭据分离 |
-| [MCP authorization (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)、[tools](https://modelcontextprotocol.io/specification/2025-11-25/server/tools)、[MCP Registry](https://registry.modelcontextprotocol.io/) | 首种服务 profile 的发现、连接与工具；不是 Mira 通用应用登记协议 |
+| [MCP 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28)、[版本与兼容性](https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning)、[Authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)、[Tools](https://modelcontextprotocol.io/specification/2026-07-28/server/tools)、[MCP Registry](https://registry.modelcontextprotocol.io/) | 首种服务的完整标准协议；外层应用登记不属于 MCP 规范 |
+| [MCP 官方 Tool Annotations 风险研究](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/) | 区分行为提示、风险信息与授权；研究文章不等于规范，Mira 治理声明不改变 MCP |
 
 Mira 自定义部分：应用实例所有权登记、跨实例账号使用授权、账号向有效终端传播授权目录、通用多类型声明、端适用性及 Agent 建议权重。OAuth 认证不是自动信任应用内容或自动批准工具执行；外部应用不得读取超出其资源范围的账号数据。
 
 ## 7. 实施前的未决问题与验收证据
 
-本文没有裁定以下产品/信任取舍：应用对其他账号的开放/邀请准入；共同所有者与转移、移除、恢复；声明新增服务/扩大 scope 是否需要重新授权与其交互；是否支持跨域托管、域名迁移；精确客户端认证方法、登录票据与凭据 API、权重范围；服务端错误/缓存和密钥生命周期。具体发现技术可在不改变产品目标的前提下完善；未确认的产品策略不能由施工自行变成资格审核、全局保留项目或固定域名制度。
+本文没有裁定以下产品/信任取舍：应用对其他账号的开放/邀请准入；共同所有者与转移、移除、恢复；声明新增服务/扩大 scope 是否需要重新授权与其交互；是否支持跨域托管、域名迁移；精确客户端认证方法、登录票据与凭据 API、权重范围、风险分级及外层治理信息与标准工具的关联；服务端错误/缓存和密钥生命周期。具体发现技术可在不改变产品目标的前提下完善；未确认的产品策略不能由施工自行变成资格审核、全局保留项目或固定域名制度。
 
-验证应覆盖：两个独立部署同项目同 serviceId，不同 APP_ID/资源/密钥；任意有效账号可登记自己的实例；错误凭据、重放、跨账号抢占、伪造来源或回调失败；其他账号主动登录对方实例，仅关联不成为所有者；同账号两台有效终端无需重复应用授权，分别拿到实例限定凭据；未知服务类型不被当作 MCP；撤权、错误实例票据、声明变更不越权；现有第一方登录与本地路径不破坏。应使用真实运行链路与隔离实例验证，非仅 UI、mock 或 CI。
+验证应覆盖：两个独立部署同项目同 serviceId，不同 APP_ID/资源/密钥；任意有效账号可登记自己的实例；错误凭据、重放、跨账号抢占、伪造来源或回调失败；其他账号主动登录对方实例，仅关联不成为所有者；同账号两台有效终端无需重复应用授权，分别拿到实例限定凭据；未知服务类型不被当作 MCP；撤权、错误实例票据、声明变更不越权；现有第一方登录与本地路径不破坏。另须验证非 Mira 标准 MCP Client 在合法授权下直连服务，Mira Client 按最新官方协议发现及调用，缺少外层治理声明仍保持标准互操作且不绕过本地治理。应使用真实运行链路与隔离实例验证，非仅 UI、mock 或 CI。
 
 ## 8. 迁移边界
 
