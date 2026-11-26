@@ -1,9 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ApplicationServiceCatalogEntry } from "@uichat-mira/cloud-auth-contracts";
 import { useAuthSession } from "@/lib/auth/context";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { Section, SectionHead } from "@/components/ui/section";
 import { ApplicationRequestError, createApplicationClient } from "@/lib/applications/client";
+import { useInstanceServices } from "@/lib/applications/use-instance-services";
 
+/**
+ * The account's real service authorizations, read from `GET /v1/application-services`.
+ * This list is the only source of truth for 关联服务: a service appears because a
+ * successful application OAuth login produced an account grant, and disappears when
+ * the grant is revoked. Nothing here is derived from ownership or a static list.
+ */
 export function InstanceServices() {
   const { account } = useAuthSession();
   return <InstanceServicesForAccount key={account?.id ?? "none"} />;
@@ -11,53 +20,13 @@ export function InstanceServices() {
 
 function InstanceServicesForAccount() {
   const { getSessionToken, invalidateSession } = useAuthSession();
+  const { services, error: readError, refresh } = useInstanceServices();
   const [client] = useState(createApplicationClient);
-  const [services, setServices] = useState<ApplicationServiceCatalogEntry[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const mounted = useRef(false);
-  const generation = useRef(0);
 
-  useEffect(() => {
-    mounted.current = true;
-    const token = getSessionToken();
-    const id = ++generation.current;
-    if (token)
-      void client
-        .services(token)
-        .then((result) => {
-          if (mounted.current && id === generation.current && token === getSessionToken())
-            setServices(result.services);
-        })
-        .catch((failure) => {
-          if (!mounted.current || id !== generation.current || token !== getSessionToken()) return;
-          if (failure instanceof ApplicationRequestError && failure.status === 401)
-            invalidateSession(token);
-          setError("无法读取已授权的应用服务。");
-        });
-    return () => {
-      mounted.current = false;
-      generation.current++;
-    };
-  }, [client, getSessionToken, invalidateSession]);
-
-  async function refresh() {
-    const token = getSessionToken();
-    if (!token) return;
-    const id = ++generation.current;
-    setError("");
-    try {
-      const result = await client.services(token);
-      if (mounted.current && id === generation.current && token === getSessionToken())
-        setServices(result.services);
-    } catch (failure) {
-      if (!mounted.current || id !== generation.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401)
-        invalidateSession(token);
-      setError("无法读取已授权的应用服务。");
-    }
-  }
+  const failure = error || readError;
 
   async function revoke(service: ApplicationServiceCatalogEntry, wholeApp: boolean) {
     if (
@@ -77,39 +46,39 @@ function InstanceServicesForAccount() {
     try {
       if (wholeApp) await client.revokeApplication(token, service.appId);
       else await client.revokeService(token, service);
-      if (!mounted.current || token !== getSessionToken()) return;
+      if (token !== getSessionToken()) return;
       setNotice(wholeApp ? "应用授权已解除。" : "服务授权已撤销。");
       await refresh();
     } catch (failure) {
-      if (!mounted.current || token !== getSessionToken()) return;
+      if (token !== getSessionToken()) return;
       if (failure instanceof ApplicationRequestError && failure.status === 401)
         invalidateSession(token);
       await refresh();
-      if (mounted.current && token === getSessionToken())
-        setError("撤权未确认成功，请核对最新授权状态。");
+      if (token === getSessionToken()) setError("撤权未确认成功，请核对最新授权状态。");
     } finally {
-      if (mounted.current) setBusy(false);
+      setBusy(false);
     }
   }
 
   return (
-    <section className="console-section" aria-label="已授权应用服务">
-      <div className="console-section-head">
-        <div>
-          <h2 className="font-semibold">已授权应用服务</h2>
-          <p className="console-section-caption">
-            来自你主动登录的应用实例，与应用所有权分开管理。
-          </p>
-        </div>
-        <Button variant="outline" disabled={busy} onClick={() => void refresh()}>
-          刷新授权
-        </Button>
-      </div>
-      {error && <p role="alert">{error}</p>}
-      {notice && <p role="status">{notice}</p>}
-      {services === null && !error && <p className="console-section-caption">正在读取授权…</p>}
-      {services?.length === 0 && !error && (
-        <p className="console-section-caption">尚无已授权应用服务。</p>
+    <Section labelledBy="authorized-services">
+      <SectionHead
+        id="authorized-services"
+        title="已授权应用服务"
+        caption="来自你主动登录的应用实例，与应用所有权分开管理。撤销后不再出现在这里。"
+        action={
+          <Button variant="outline" disabled={busy} onClick={() => void refresh()}>
+            刷新授权
+          </Button>
+        }
+      />
+      {failure && <Notice tone="danger">{failure}</Notice>}
+      {notice && <Notice tone="success">{notice}</Notice>}
+      {services === null && !failure && <p className="console-section-caption">正在读取授权…</p>}
+      {services?.length === 0 && !failure && (
+        <p className="console-section-caption">
+          尚无已授权应用服务。在你的应用里主动 OAuth 登录 Mira ID 后，授权会出现在这里。
+        </p>
       )}
       {services?.map((service, index) => (
         <div
@@ -135,6 +104,6 @@ function InstanceServicesForAccount() {
           </div>
         </div>
       ))}
-    </section>
+    </Section>
   );
 }

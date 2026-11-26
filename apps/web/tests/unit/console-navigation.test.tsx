@@ -110,16 +110,32 @@ describe("console section navigation", () => {
     },
   );
 
-  it("shows one logout action only inside the header account dropdown", async () => {
+  it("sends the header brand to the public home when signed in", async () => {
     mountConsole({ path: "/account", status: "authenticated" });
     await screen.findByRole("heading", { level: 1, name: "我的账户" });
+
+    expect(screen.getByRole("link", { name: "Mira ID" })).toHaveAttribute("href", "/");
+  });
+
+  it("shows the console entry and one logout action only inside the header dropdown", async () => {
+    mountConsole({ path: "/account", status: "authenticated" });
+    await screen.findByRole("heading", { level: 1, name: "我的账户" });
+
+    expect(screen.getByText("开放平台")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
+    expect(screen.queryByRole("link", { name: "开放平台" })).not.toBeInTheDocument();
 
     const trigger = screen.getByRole("button", { name: "账户菜单" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("button", { name: "退出登录" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "控制台" })).not.toBeInTheDocument();
     fireEvent.click(trigger);
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     const actions = screen.getByRole("group", { name: "账户操作" });
+    expect(within(actions).getByRole("link", { name: "控制台" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
     expect(within(actions).getAllByRole("button", { name: "退出登录" })).toHaveLength(1);
     expect(screen.getByRole("navigation", { name: "账户分区" })).not.toContainElement(actions);
   });

@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { HeaderLinks } from "@/components/header-links";
+import { SessionBlock } from "@/components/session-block";
 import { useAuthSession } from "@/lib/auth/context";
-import { getAccountEntry } from "@/lib/auth/account-entry";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,7 +12,8 @@ import { cn } from "@/lib/utils";
  */
 export function PortalShell({ children }: { children: ReactNode }) {
   const { status } = useAuthSession();
-  const { checking, destination, label } = getAccountEntry(status);
+  const checking = status === "idle" || status === "restoring";
+  const authenticated = status === "authenticated";
 
   return (
     <div className="cloud-shell flex min-h-dvh flex-col">
@@ -29,16 +31,19 @@ export function PortalShell({ children }: { children: ReactNode }) {
             </span>
           </Link>
           <nav aria-label="主导航" className="cloud-navigation">
+            <HeaderLinks />
             {checking ? (
               <span role="status" className="text-xs text-muted-foreground">
                 正在检查登录状态…
               </span>
+            ) : authenticated ? (
+              <SessionBlock />
             ) : (
               <NavLink
-                to={destination}
+                to="/login"
                 className={({ isActive }) => cn("cloud-nav-link", isActive && "cloud-nav-active")}
               >
-                {label}
+                登录
               </NavLink>
             )}
           </nav>

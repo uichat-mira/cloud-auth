@@ -2,8 +2,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
- * Card — Mira Console "panel": an inset surface (#fafafa) separated from the white
- * page canvas by a translucent hairline, never by a 1px solid border.
+ * Card — Mira Console "panel": an inset surface (--mc-surface-1) separated from
+ * the white page canvas by a translucent hairline, never by a 1px border.
  */
 function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (

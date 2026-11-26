@@ -1,7 +1,13 @@
 # Console IA contract (implementation source of truth)
 
+> Status: historical build contract for the round-2 restructure. The route tree and component
+> structure have since gained `/account/services/dc`, `/account/services/cloud-agent` and the
+> `components/ui` primitives. Runtime code plus
+> [`design-system-reference.md`](./design-system-reference.md) are authoritative where this
+> document differs; the copy, heading ids and accessible names below remain binding.
+
 This is the build contract for the account-console restructure. The design rationale is in
-`mira-redesign-spec.md` § Information architecture; this file pins the *names* so parallel
+`mira-redesign-spec.md` § Information architecture; this file pins the _names_ so parallel
 work stays compatible. Do not rename routes, exports, ids, copy or CSS classes listed here.
 
 ## 1. Route tree
@@ -9,19 +15,28 @@ work stays compatible. Do not rename routes, exports, ids, copy or CSS classes l
 ```tsx
 // src/app/routes.tsx
 [
-  { element: <PublicLayout />, errorElement: <RouteErrorPage />, children: [
-      { index: true, element: <PortalHome /> },        // redirects by auth status
+  {
+    element: <PublicLayout />,
+    errorElement: <RouteErrorPage />,
+    children: [
+      { index: true, element: <PortalHome /> }, // redirects by auth status
       { path: "login", element: <LoginPage /> },
       { path: "*", element: <NotFoundPage /> },
-  ]},
-  { path: "account", element: <AccountLayout />, errorElement: <RouteErrorPage />, children: [
-      { index: true, element: <OverviewPage /> },      // /account
-      { path: "devices", element: <DevicesPage /> },   // /account/devices
+    ],
+  },
+  {
+    path: "account",
+    element: <AccountLayout />,
+    errorElement: <RouteErrorPage />,
+    children: [
+      { index: true, element: <OverviewPage /> }, // /account
+      { path: "devices", element: <DevicesPage /> }, // /account/devices
       { path: "security", element: <SecurityPage /> }, // /account/security
       { path: "services", element: <ServicesPage /> }, // /account/services
-      { path: "*", element: <NotFoundPage /> },        // inside the console shell
-  ]},
-]
+      { path: "*", element: <NotFoundPage /> }, // inside the console shell
+    ],
+  },
+];
 ```
 
 `PublicLayout` lives in `src/app/root-layout.tsx` (keeps exporting `PortalShell` for the
@@ -29,17 +44,17 @@ existing test that mounts it directly). `AccountLayout` lives in `src/app/accoun
 
 ## 2. Page exports (each default-free, named)
 
-| Module | Export |
-| --- | --- |
-| `@/pages/account/overview-page` | `OverviewPage` |
-| `@/pages/account/devices-page` | `DevicesPage` |
-| `@/pages/account/security-page` | `SecurityPage` |
-| `@/pages/account/services-page` | `ServicesPage` |
-| `@/app/account-layout` | `AccountLayout` |
-| `@/app/root-layout` | `PortalShell`, `PublicLayout` |
-| `@/components/console-nav` | `ConsoleNav`, `consoleSections` |
-| `@/components/session-block` | `SessionBlock` |
-| `@/components/session-recovery` | `SessionRecovery` |
+| Module                          | Export                          |
+| ------------------------------- | ------------------------------- |
+| `@/pages/account/overview-page` | `OverviewPage`                  |
+| `@/pages/account/devices-page`  | `DevicesPage`                   |
+| `@/pages/account/security-page` | `SecurityPage`                  |
+| `@/pages/account/services-page` | `ServicesPage`                  |
+| `@/app/account-layout`          | `AccountLayout`                 |
+| `@/app/root-layout`             | `PortalShell`, `PublicLayout`   |
+| `@/components/console-nav`      | `ConsoleNav`, `consoleSections` |
+| `@/components/session-block`    | `SessionBlock`                  |
+| `@/components/session-recovery` | `SessionRecovery`               |
 
 Shared labels: `@/lib/auth/session-labels` exports `sessionLabels`.
 
@@ -49,37 +64,51 @@ Shared labels: `@/lib/auth/session-labels` exports `sessionLabels`.
 <div className="console-shell">
   <header className="console-header">
     <div className="console-container console-header-inner">
-      <Link className="console-brand" to={authenticated ? "/account" : "/login"}>…brand…</Link>
-      {authenticated ? <div className="console-identity">avatar + username + status dot + 已登录</div>
-                     : <Link className="console-header-action" to="/login">登录</Link>}
+      <Link
+        className="console-brand"
+        to={authenticated ? "/account" : "/login"}
+      >
+        …brand…
+      </Link>
+      {authenticated ? (
+        <div className="console-identity">
+          avatar + username + status dot + 已登录
+        </div>
+      ) : (
+        <Link className="console-header-action" to="/login">
+          登录
+        </Link>
+      )}
     </div>
   </header>
   <div className="console-container console-body">
     <aside className="console-rail">
-      <ConsoleNav />                    {/* authenticated: 4 links, else zero links */}
-      <SessionBlock />                  {/* authenticated only: 状态 · 到期 + 退出登录 */}
+      <ConsoleNav /> {/* authenticated: 4 links, else zero links */}
+      <SessionBlock /> {/* authenticated only: 状态 · 到期 + 退出登录 */}
     </aside>
     <main className="console-main">
-      <Outlet />                        {/* or <SessionRecovery /> when not authenticated */}
-      <p className="console-note">Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用</p>
+      <Outlet /> {/* or <SessionRecovery /> when not authenticated */}
+      <p className="console-note">
+        Mira Cloud Account · 独立云身份 · 本地 Mira 依然可用
+      </p>
     </main>
   </div>
 </div>
 ```
 
-* `ConsoleNav` — `<nav aria-label="账户分区" className="console-nav">`, one `NavLink` per
+- `ConsoleNav` — `<nav aria-label="账户分区" className="console-nav">`, one `NavLink` per
   section, `aria-current` from NavLink automatically. Items (`consoleSections`):
   `/account` 概览 (`end`), `/account/devices` 设备与授权, `/account/security` 账户安全,
   `/account/services` 关联服务. When status is not `authenticated`, render `<nav>` with no
   links (or a 12px muted line).
-* `SessionBlock` — single instance: `状态 · 到期 {formatExpiry} · 退出登录`（Button variant
+- `SessionBlock` — single instance: `状态 · 到期 {formatExpiry} · 退出登录`（Button variant
   ghost size sm, text exactly `退出登录`, `disabled` when pending). This is the **only**
   退出登录 control in the app.
-* Notices live in `AccountLayout` (above `<Outlet/>`): `AuthFailureAlert` + the
+- Notices live in `AccountLayout` (above `<Outlet/>`): `AuthFailureAlert` + the
   `session_renewed` / `password_changed` `role="status"` paragraphs, unchanged copy.
-* Gate: `idle|restoring` → skeleton (no nav links); `unauthenticated|unavailable` →
+- Gate: `idle|restoring` → skeleton (no nav links); `unauthenticated|unavailable` →
   page head `我的账户` + `SessionRecovery`; never fetch grants in those states.
-* Route change: `window.scrollTo({ top: 0 })` and focus the page `h1` (`tabIndex={-1}`),
+- Route change: `window.scrollTo({ top: 0 })` and focus the page `h1` (`tabIndex={-1}`),
   both feature-guarded (`scrollIntoView?.`, `typeof window !== "undefined"`), skip first render.
 
 ## 4. Page markup + copy (authoritative)
@@ -88,6 +117,7 @@ Every page root: `<section className="console-page">` with
 `<header className="console-page-head"><h1 id=…>…</h1><p className="console-page-caption">…</p></header>`.
 
 ### /account — `我的账户`
+
 ```tsx
 <h1 id="overview-title">我的账户</h1>
 <p>{account.username} · Mira Cloud Account · {sessionLabels[status]}</p>
@@ -124,6 +154,7 @@ Every page root: `<section className="console-page">` with
 ```
 
 ### /account/devices — `设备与授权`
+
 ```tsx
 <h1 id="device-grants-heading">设备与授权</h1>
 <p>云端保存的授权状态；刷新只读取云端快照，不会强制 Desktop 立即同步。</p>
@@ -132,6 +163,7 @@ Every page root: `<section className="console-page">` with
 ```
 
 ### /account/security — `账户安全`
+
 ```tsx
 <h1 id="account-security-heading">账户安全</h1>
 <p>密码与此浏览器的云端会话。</p>
@@ -150,9 +182,11 @@ Every page root: `<section className="console-page">` with
 </section>
 <ChangePasswordDialog … />
 ```
+
 `续期 Session` must be visible without expanding anything.
 
 ### /account/services — `关联服务`
+
 ```tsx
 <h1 id="future-services-heading">关联服务</h1>
 <p>以下能力尚未接入此 Portal，不影响当前账号及设备授权。</p>
@@ -161,26 +195,26 @@ Every page root: `<section className="console-page">` with
 
 ## 5. Component changes
 
-* `device-grants-card.tsx` — no `<section aria-labelledby>` header, no h2; keeps 刷新列表,
+- `device-grants-card.tsx` — no `<section aria-labelledby>` header, no h2; keeps 刷新列表,
   summary strip, host records, empty/loading/failure, footnote. Its copy that tests rely on:
   `没有可管理的 Desktop Host`, `刷新列表`, `重新读取`, `云端版本 {revision}`, `最近在线`, `离线`.
-* `host-grant-card.tsx` — drop `查看授权细节` `<details>`; `云端版本 {n}` becomes part of the
+- `host-grant-card.tsx` — drop `查看授权细节` `<details>`; `云端版本 {n}` becomes part of the
   host header row; the prose description becomes a facts row (`最近在线 …` / `在线租约至 …` /
   `未观察到在线`); the long disclaimer moves out to the devices page footer note.
-* `future-services.tsx` — rows only (name + `尚未接入` pill + description + detail).
-* `mobile-grant-row.tsx` — keep aria-labels exactly: `调整范围`, `撤销授权`, `确认撤销`.
-* `change-password-dialog.tsx`, `auth-failure-alert.tsx` — untouched.
+- `future-services.tsx` — rows only (name + `尚未接入` pill + description + detail).
+- `mobile-grant-row.tsx` — keep aria-labels exactly: `调整范围`, `撤销授权`, `确认撤销`.
+- `change-password-dialog.tsx`, `auth-failure-alert.tsx` — untouched.
 
 ## 6. CSS contract (`src/styles/console.css`, new)
 
 Load order in `src/main.tsx`: `globals → cloud-shell → console → cloud-pages → cloud-grants`.
-Console classes: `.console-shell`, `.console-container` (max 1120, 24px gutters),
+Console classes: `.console-shell`, `.console-container` (max 1280, 24px gutters),
 `.console-header`, `.console-header-inner`, `.console-brand`, `.console-header-action`,
 `.console-identity`, `.console-identity-copy`, `.console-status-dot`,
 `.console-body` (grid `212px minmax(0,1fr)`, gap 40; ≤1023: block),
 `.console-rail` (sticky, 24px top), `.console-nav`, `.console-nav-link`,
 `.console-nav-link[aria-current="page"]`, `.console-session`, `.console-session-copy`,
-`.console-session-expiry`, `.console-main` (max-width 960), `.console-page`,
+`.console-session-expiry`, `.console-main` (max-width 1040), `.console-page`,
 `.console-page-head`, `.console-page-caption`, `.console-page-action`, `.console-section`,
 `.console-section-head`, `.console-section-title`, `.console-section-caption`,
 `.console-section-link`, `.console-facts` / `.console-facts > div` / `dt` / `dd`,
@@ -195,22 +229,23 @@ mobile tabs 40px min-height and horizontally scrollable (`overflow-x:auto`,
 
 ## 7. File ownership (avoid concurrent writes)
 
-| Owner | Files |
-| --- | --- |
-| impl-shell | `src/app/routes.tsx`, `src/app/root-layout.tsx`, `src/app/account-layout.tsx`, `src/app/account-shell.tsx` (optional split), `src/components/console-nav.tsx`, `src/components/session-block.tsx`, `src/components/session-recovery.tsx`, `src/styles/console.css`, `src/main.tsx` |
+| Owner              | Files                                                                                                                                                                                                                                                                                   |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| impl-shell         | `src/app/routes.tsx`, `src/app/root-layout.tsx`, `src/app/account-layout.tsx`, `src/app/account-shell.tsx` (optional split), `src/components/console-nav.tsx`, `src/components/session-block.tsx`, `src/components/session-recovery.tsx`, `src/styles/console.css`, `src/main.tsx`      |
 | impl-console-pages | `src/pages/account/*.tsx`, delete `src/pages/account-page.tsx`, `src/components/device-grants-card.tsx`, `src/components/host-grant-card.tsx`, `src/components/future-services.tsx`, `src/components/mobile-grant-row.tsx`, `src/styles/cloud-pages.css`, `src/styles/cloud-grants.css` |
-| impl-tests | `tests/**` |
-| lead | docs, verification, gates |
+| impl-tests         | `tests/**`                                                                                                                                                                                                                                                                              |
+| lead               | docs, verification, gates                                                                                                                                                                                                                                                               |
 
 ## 8. Invariants that must not regress
-* Exactly one `role="status"` and one `role="alert"` per rendered state (existing contract).
-* h1 per route: `我的账户` / `设备与授权` / `账户安全` / `关联服务`; `页面不存在` for 404s.
-* `data-slot` attributes on Button/Input/Card stay.
-* Copy that tests assert stays: `我的账户`, `设备与授权`, `账户安全`, `关联服务`, `密码`,
+
+- Exactly one `role="status"` and one `role="alert"` per rendered state (existing contract).
+- h1 per route: `我的账户` / `设备与授权` / `账户安全` / `关联服务`; `页面不存在` for 404s.
+- `data-slot` attributes on Button/Input/Card stay.
+- Copy that tests assert stays: `我的账户`, `设备与授权`, `账户安全`, `关联服务`, `密码`,
   `当前登录会话`, `续期 Session`, `修改密码`, `退出登录`, `刷新列表`, `重新读取`,
   `调整范围`, `撤销授权`, `确认撤销`, `前往登录`, `重新检查登录状态`,
   `没有可管理的 Desktop Host`, `云端版本`, `最近在线`, `离线`, `尚未接入`.
-* No horizontal overflow at 320 / 375 / 390 / 768 / 1024 / 1280 / 1440.
+- No horizontal overflow at 320 / 375 / 390 / 768 / 1024 / 1280 / 1440.
 
 ## 9. As built — adjudicated deviations from this contract
 
@@ -219,13 +254,15 @@ Recorded after implementation so the next reader does not treat them as drift.
 1. **Rail sticky offset is `top:72px`**, not 24px: with a 56px translucent sticky header a
    24px offset parks the rail underneath it. Headings get `scroll-margin-top:72px`, so the
    route-entry focus jump also clears the header.
-2. **Public shell keeps its `账户中心` link for signed-in visitors.** The console is not reached
-   through the public shell any more, but a signed-in user's `*` 404 still renders there, so the
-   single link stays as the way back. `portal-navigation.test.tsx` covers it.
+2. **The signed-in public header reuses the console account menu.** A signed-in user's `*` 404
+   still renders in the public shell, so the header keeps the same avatar dropdown as
+   `/account/**` (`控制台` → `/account`, `退出登录`) instead of a separate `账户中心` link.
+   Signed-out public pages keep the single `登录` link, and the restore-checking state keeps its
+   status hint without guessing a destination. `portal-navigation.test.tsx` covers all of them.
 3. **Host facts do not include `在线租约至`.** The management ledger exposes only
    id / displayName / clientVersion / availability (no lease timestamps), so each record prints
    an honest observation line instead: `最近在线 · 客户端版本 X · 云端最近观察到此 Host 在线，
-   不代表网络一定可达` or `未观察到在线 · 客户端版本 X · 云端当前没有此 Host 的在线租约`.
+不代表网络一定可达` or `未观察到在线 · 客户端版本 X · 云端当前没有此 Host 的在线租约`.
    The status chip keeps the exact `最近在线` / `离线` text nodes.
 4. **Modal alert arbitration is React state, not CSS.** `components/modal-open-context.tsx`
    (`ModalOpenProvider` / `useModalOpen` / `useRegisterModalOpen`) lets the layout drop its own
@@ -256,3 +293,18 @@ Recorded after implementation so the next reader does not treat them as drift.
     The `SessionBlock` export remains for compatibility, but it renders the header account
     menu rather than a second rail row. The prior rail logout markup in §3 is superseded
     by this intentional mobile usability change.
+
+11. **Header utility entries.** `开放平台` is still plain text (no destination yet), while `文档`
+    is a real `NavLink` to `/docs` and carries `aria-current="page"` on the docs routes. Both sit
+    left of the account control in both shells and are hidden below 640px, where the header keeps
+    only the brand and the account control. `HeaderLinks` owns them in
+    `components/header-links.tsx`.
+
+12. **In-app documentation.** `/docs` redirects to `/docs/open-platform-developer-guide` and
+    `/docs/:docId` renders bundled markdown inside the public shell. `lib/docs/registry.ts` is the
+    allowlist (7 documents in two groups, 开放平台 and 部署与运维) and imports the repository
+    files at build time with `?raw`, so there are no copies to drift. `lib/docs/markdown-links.ts`
+    rewrites `.md` links to `/docs/:id` when the target is bundled and to the GitHub `dev`
+    tree/blob otherwise. The rail is `nav[aria-label="文档目录"]`; after in-docs navigation the
+    article `h1` takes focus, and an unknown id keeps the rail while rendering the `文档不存在`
+    state.

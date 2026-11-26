@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router-dom";
 import { ApplicationsPage } from "@/pages/account/applications-page";
 import { AccountLayout } from "@/app/account-layout";
 import { PublicLayout } from "@/app/root-layout";
+import { DocsPage } from "@/pages/docs-page";
 import { HomePage } from "@/pages/home-page";
 import { DevicesPage } from "@/pages/account/devices-page";
 import { DcControlPage } from "@/pages/account/dc-control-page";
@@ -32,6 +33,14 @@ export const routes: RouteObject[] = [
       {
         path: "login",
         element: <LoginPage />,
+      },
+      {
+        path: "docs",
+        element: <DocsPage />,
+      },
+      {
+        path: "docs/:docId",
+        element: <DocsPage />,
       },
       {
         path: "*",

@@ -7,6 +7,7 @@ import "@/styles/cloud-shell.css";
 import "@/styles/console.css";
 import "@/styles/cloud-pages.css";
 import "@/styles/cloud-home.css";
+import "@/styles/cloud-docs.css";
 import "@/styles/cloud-grants.css";
 import "@/styles/dc-control.css";
 

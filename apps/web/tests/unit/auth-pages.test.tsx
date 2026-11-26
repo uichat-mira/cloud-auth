@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { routes } from "@/app/routes";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { AuthProvider } from "@/lib/auth/context";
@@ -64,6 +64,28 @@ async function findIdentity() {
   return matches[0];
 }
 
+/**
+ * The real service catalog behind 关联服务 is `GET /v1/application-services`.
+ * Stub it so a route render reaches a settled state instead of failing the
+ * unmocked request, and so a test can decide whether the account has a grant.
+ */
+function stubServiceCatalog(services: readonly unknown[]) {
+  const fetcher = vi.fn(async (url: string) => {
+    expect(String(url)).toBe("/v1/application-services");
+    return new Response(JSON.stringify({ services }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  return fetcher;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
+
 describe("auth-backed route components", () => {
   it("submits login through the session store and logs out without touching fetch or tokens", async () => {
     const loginCalls: Array<{ username: string; password: string }> = [];
@@ -105,6 +127,9 @@ describe("auth-backed route components", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/account");
     });
+    // The signed-in public header renders the username until the /account
+    // commit lands, so wait for the console page itself before using its menu.
+    expect(await screen.findByRole("heading", { level: 1, name: "我的账户" })).toBeInTheDocument();
     expect(await findIdentity()).toBeInTheDocument();
     expect(loginCalls).toEqual([{ username: "pilot", password: "correct horse battery staple" }]);
     expect(storage.load()?.sessionToken).toBe("token-1");
@@ -242,7 +267,9 @@ describe("auth-backed route components", () => {
     );
   });
 
-  it("summarises the account, the grant counts and the not-yet-connected services on the overview", async () => {
+  it("summarises the account, the grant counts and the authorised service total on the overview", async () => {
+    stubServiceCatalog([]);
+
     renderWithClient({
       client: createClient(),
       initialSession: { sessionToken: "token-1", expiresAt },
@@ -275,7 +302,7 @@ describe("auth-backed route components", () => {
     expect(within(counts).getByText("有效授权")).toBeInTheDocument();
     expect(within(counts).getAllByRole("listitem")).toHaveLength(3);
 
-    expect(screen.getByText("5 项服务 · 2 项尚未接入")).toBeInTheDocument();
+    expect(await screen.findByText("0 项已授权应用服务")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "关联服务" })).toBeInTheDocument();
   });
 
@@ -320,7 +347,8 @@ describe("auth-backed route components", () => {
     expect(screen.getAllByText(formatExpiry(expiresAt)).length).toBeGreaterThan(0);
   });
 
-  it("lists DC alongside other services without introducing a second login or navigation area", async () => {
+  it("keeps Mira service entry points separate from account authorisations on the services route", async () => {
+    stubServiceCatalog([]);
     renderWithClient({
       client: createClient(),
       initialSession: { sessionToken: "token-1", expiresAt },
@@ -329,28 +357,30 @@ describe("auth-backed route components", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "关联服务" })).toBeInTheDocument();
 
-    const services = screen.getByRole("list");
-    expect(within(services).getAllByRole("listitem")).toHaveLength(5);
-    expect(within(services).getByText("DC 控制台")).toBeInTheDocument();
-    expect(within(services).getByText("Cloud Agent · 烤派")).toBeInTheDocument();
-    expect(within(services).getByRole("link", { name: "进入 Cloud Agent · 烤派" })).toHaveAttribute(
-      "href",
-      "/account/services/cloud-agent",
-    );
-    expect(within(services).getByText("狐邮 Who You")).toBeInTheDocument();
+    // No grant exists, so the authorisation list is empty and no application is
+    // pre-installed in the console: 狐邮 must not appear without a real grant.
+    const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
+    expect(await within(authorised).findByText(/尚无已授权应用服务/)).toBeInTheDocument();
+    expect(within(authorised).queryByText("狐邮 Who You")).not.toBeInTheDocument();
+    expect(screen.queryByText("狐邮 Who You")).not.toBeInTheDocument();
+
+    // Mira's own entry points live in their own section and are not grants.
+    const miraServices = screen.getByRole("region", { name: "Mira 服务" });
+    expect(within(miraServices).getByText(/不代表账号已获得授权/)).toBeInTheDocument();
+    const entries = within(miraServices).getAllByRole("listitem");
+    expect(entries).toHaveLength(4);
+
+    expect(within(miraServices).getByText("DC 控制台")).toBeInTheDocument();
+    expect(within(miraServices).getByText("Cloud Agent · 烤派")).toBeInTheDocument();
     expect(
-      within(services).getByText("使用 Cloud Auth 身份登录狐邮，具体邮箱在狐邮管理。"),
-    ).toBeInTheDocument();
-    const whoYouLink = within(services).getByRole("link", { name: "进入 狐邮 Who You" });
-    expect(whoYouLink).toHaveAttribute("href", "https://who-you.tomz.io/account");
-    expect(whoYouLink).toHaveAttribute("target", "_blank");
-    expect(whoYouLink).toHaveAttribute("rel", "noopener noreferrer");
-    expect(within(services).getByText("Cloud Shiyan")).toBeInTheDocument();
-    expect(within(services).getByText("Hosted Relay")).toBeInTheDocument();
-    expect(within(services).getAllByText("尚未接入")).toHaveLength(2);
+      within(miraServices).getByRole("link", { name: "进入 Cloud Agent · 烤派" }),
+    ).toHaveAttribute("href", "/account/services/cloud-agent");
+    expect(within(miraServices).getByText("Cloud Shiyan")).toBeInTheDocument();
+    expect(within(miraServices).getByText("Hosted Relay")).toBeInTheDocument();
+    expect(within(miraServices).getAllByText("尚未接入")).toHaveLength(2);
 
     // The migrated DC page must stay inside the same account route and session.
-    const dcLink = within(services).getByRole("link", {
+    const dcLink = within(miraServices).getByRole("link", {
       name: "进入 DC 控制台",
     });
     expect(dcLink).toHaveAttribute("href", "/account/services/dc");
@@ -359,6 +389,37 @@ describe("auth-backed route components", () => {
     // The account navigation and page heading remain single instances.
     expect(screen.getAllByRole("navigation", { name: "账户分区" })).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 2, name: "已授权应用服务" })).toBeInTheDocument();
+  });
+
+  it("lists an application only after the authorisation catalog reports it", async () => {
+    stubServiceCatalog([
+      {
+        appId: "app_who_you_fixture_001",
+        projectId: "who-you",
+        serviceId: "mail",
+        name: "狐邮",
+        type: "mcp",
+        protocol: { name: "mcp", version: "2026-07-28", endpoint: "https://who-you.tomz.io/mcp" },
+        resource: "https://who-you.tomz.io/mcp",
+        scopes: ["mail.read"],
+        revision: 1,
+        manifestRevision: 1,
+      },
+    ]);
+    renderWithClient({
+      client: createClient(),
+      initialSession: { sessionToken: "token-1", expiresAt },
+      path: "/account/services",
+    });
+
+    const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
+    expect(await within(authorised).findByText("狐邮")).toBeInTheDocument();
+    expect(within(authorised).getByText(/https:\/\/who-you\.tomz\.io\/mcp/)).toBeInTheDocument();
+    expect(within(authorised).getByRole("button", { name: "撤销服务" })).toBeInTheDocument();
+
+    // A real grant does not make it a Mira-owned entry point.
+    const miraServices = screen.getByRole("region", { name: "Mira 服务" });
+    expect(within(miraServices).queryByText("狐邮")).not.toBeInTheDocument();
   });
 
   it("confirms an explicit session renewal without leaving the security route", async () => {

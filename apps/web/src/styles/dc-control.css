@@ -52,7 +52,7 @@
   min-width: 0;
   padding: 20px;
   border-radius: var(--mc-r-lg);
-  background: var(--mc-surface-0);
+  background: var(--mc-surface-1);
   box-shadow: var(--mc-hairline-muted);
 }
 
@@ -120,11 +120,6 @@
   color: var(--mc-text-faint);
   font-size: 12px;
   line-height: 19px;
-}
-
-.dc-facts > div {
-  grid-template-columns: 1fr auto;
-  gap: 10px;
 }
 
 .dc-facts dd {

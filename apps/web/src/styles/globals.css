@@ -18,38 +18,51 @@
 }
 
 /*
- * Mira Console raw tokens (measured from the OpenCode Console design system).
+ * Mira ID / Mira Console raw tokens. UI surfaces are an achromatic black / white /
+ * gray ramp; actions use the brand navy. Ivory remains a brand-asset colour, not
+ * a UI surface. Values were originally measured from the OpenCode Console
+ * reference and then re-keyed to the Mira ID brand (docs/branding/mira-id).
  * Do not hard-code colors/spacing in page stylesheets — always reference these.
  */
 :root {
-  /* surfaces */
+  /* surfaces — achromatic neutral ramp */
   --mc-surface-0: #ffffff;
   --mc-surface-1: #fafafa;
   --mc-surface-2: #f2f2f2;
-  --mc-surface-3: #eeeeee;
-  --mc-surface-4: #dbdbdb;
+  --mc-surface-3: #e9e9e9;
+  --mc-surface-4: #d8d8d8;
   /* Brand — the logo artwork's own canvas colour; part of the mark, never keyed out. */
   --mc-brand-canvas: #fcecd7;
-  /* Mira ID brand tokens (official asset pack). Used only for the mark's own surfaces. */
+  /* Mira ID brand tokens (official asset pack). */
   --mc-brand-navy: #151a2c;
+  --mc-brand-navy-hover: #232a44;
+  --mc-brand-navy-active: #0d1120;
   --mc-brand-ivory: #fff6ed;
 
   /* text */
-  --mc-text: #161616;
-  --mc-text-secondary: #5c5c5c;
-  /* 5.11:1 on #fafafa — keeps 12px meta labels AA-compliant */
-  --mc-text-faint: #6b6b6b;
+  --mc-text: #1c202c;
+  --mc-text-secondary: #5d6068;
+  /* 4.6:1 on --mc-surface-1 — keeps 12px meta labels AA-compliant */
+  --mc-text-faint: #6f7178;
   --mc-text-disabled: #aeaeae;
   --mc-text-inverse: #ffffff;
-  --mc-accent: #3b5cf6;
-  --mc-accent-hover: #3250df;
+  /* Actions, links and emphasis use the brand navy, not a second accent hue. */
+  --mc-accent: var(--mc-brand-navy);
+  --mc-accent-hover: var(--mc-brand-navy-hover);
+
+  /* Selected state is the same neutral wash as hover; no accent fill. */
+  --mc-selected-bg: var(--mc-overlay-hover);
+  --mc-selected-fg: var(--mc-text);
+  --mc-selected-hairline: rgba(0, 0, 0, 0.08);
+  --mc-selection-bg: var(--mc-surface-3);
+  --mc-selection-fg: var(--mc-text);
 
   /* borders — translucent hairlines, never 1px solid */
-  --mc-border-muted: rgba(0, 0, 0, 0.08);
-  --mc-border: rgba(0, 0, 0, 0.1);
-  --mc-border-strong: rgba(0, 0, 0, 0.2);
-  /* Focus ring colour is measured: 5.0:1 on white (WCAG 2.4.11 needs 3:1). */
-  --mc-border-focus: #3b5cf6;
+  --mc-border-muted: rgba(21, 26, 44, 0.08);
+  --mc-border: rgba(21, 26, 44, 0.1);
+  --mc-border-strong: rgba(21, 26, 44, 0.2);
+  /* Navy focus ring: 17:1 on white, far beyond the 3:1 WCAG 2.4.11 floor. */
+  --mc-border-focus: var(--mc-brand-navy);
 
   /* states */
   --mc-success-fg: #14703a;
@@ -82,15 +95,50 @@
   --mc-el-contrast:
     0 1px 1.5px 0 rgba(0, 0, 0, 0.2), 0 0 0 0.5px #3a3a3a,
     inset 0 1px 2px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 2px 0 rgba(0, 0, 0, 0.06);
+  --mc-el-brand:
+    0 1px 1.5px 0 rgba(21, 26, 44, 0.24), 0 0 0 0.5px rgba(21, 26, 44, 0.9),
+    inset 0 1px 0 0 rgba(255, 246, 237, 0.14);
   --mc-overlay-hover: rgba(0, 0, 0, 0.04);
   --mc-overlay-pressed: rgba(0, 0, 0, 0.08);
+
+  /* type scale — 12 / 13 / 14 / 15 / 18 / display */
+  --mc-text-xs: 12px;
+  --mc-leading-xs: 18px;
+  --mc-text-sm: 13px;
+  --mc-leading-sm: 20px;
+  --mc-text-md: 14px;
+  --mc-leading-md: 22px;
+  --mc-text-lg: 15px;
+  --mc-leading-lg: 22px;
+  --mc-text-xl: 18px;
+  --mc-leading-xl: 26px;
+  --mc-text-display: clamp(22px, 3vw, 26px);
+  --mc-leading-display: 32px;
+  --mc-weight-regular: 450;
+  --mc-weight-medium: 550;
+  --mc-weight-semibold: 600;
+
+  /* spacing — 4px base */
+  --mc-space-1: 4px;
+  --mc-space-2: 8px;
+  --mc-space-3: 12px;
+  --mc-space-4: 16px;
+  --mc-space-5: 20px;
+  --mc-space-6: 24px;
+  --mc-space-8: 32px;
+  --mc-space-10: 40px;
+  --mc-space-12: 48px;
+  --mc-space-16: 64px;
 
   /* geometry + motion */
   --mc-r-xs: 4px;
   --mc-r-sm: 6px;
   --mc-r-md: 8px;
   --mc-r-lg: 12px;
+  --mc-r-xl: 16px;
   --mc-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --mc-duration-fast: 85ms;
+  --mc-duration-base: 120ms;
 }
 
 /* Dark tokens are defined for future use; nothing toggles them yet. */
@@ -104,10 +152,17 @@
   --mc-text-secondary: #aeaeae;
   --mc-text-faint: #808080;
   --mc-text-disabled: #5c5c5c;
+  --mc-accent: #ffffff;
+  --mc-accent-hover: #ffffff;
+  --mc-selected-bg: var(--mc-overlay-hover);
+  --mc-selected-fg: var(--mc-text);
+  --mc-selected-hairline: rgba(255, 255, 255, 0.14);
+  --mc-selection-bg: var(--mc-surface-4);
+  --mc-selection-fg: var(--mc-text);
   --mc-border-muted: rgba(255, 255, 255, 0.08);
   --mc-border: rgba(255, 255, 255, 0.1);
   --mc-border-strong: rgba(255, 255, 255, 0.2);
-  --mc-border-focus: #7698fd;
+  --mc-border-focus: var(--mc-text);
   --mc-hairline: 0 0 0 0.5px var(--mc-border);
   --mc-hairline-muted: 0 0 0 0.5px var(--mc-border-muted);
   --mc-el-control: 0 1px 1.5px 0 rgba(0, 0, 0, 0.4), 0 0 0 0.5px rgba(255, 255, 255, 0.14);
@@ -132,24 +187,27 @@
   --color-card-foreground: var(--mc-text);
   --color-popover: var(--mc-surface-0);
   --color-popover-foreground: var(--mc-text);
-  --color-primary: #242424;
-  --color-primary-foreground: #ffffff;
+  --color-primary: var(--mc-brand-navy);
+  --color-primary-foreground: var(--mc-text-inverse);
   --color-secondary: var(--mc-surface-2);
   --color-secondary-foreground: var(--mc-text);
   --color-muted: var(--mc-surface-2);
   --color-muted-foreground: var(--mc-text-secondary);
-  --color-accent: var(--mc-surface-2);
-  --color-accent-foreground: var(--mc-text);
+  --color-accent: var(--mc-selected-bg);
+  --color-accent-foreground: var(--mc-selected-fg);
   --color-destructive: var(--mc-danger-fg);
   --color-destructive-foreground: #ffffff;
   --color-border: var(--mc-border);
   --color-input: var(--mc-border-strong);
   --color-ring: var(--mc-border-focus);
+  --color-brand: var(--mc-brand-navy);
+  --color-brand-foreground: var(--mc-text-inverse);
 
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
+  --radius-2xl: 16px;
 }
 
 @layer base {
@@ -165,20 +223,21 @@
 
   body {
     @apply min-h-dvh bg-background text-foreground antialiased;
-    font-size: 14px;
-    line-height: 22px;
-    font-weight: 450;
+    font-size: var(--mc-text-md);
+    line-height: var(--mc-leading-md);
+    font-weight: var(--mc-weight-regular);
     font-variant-numeric: tabular-nums;
     text-rendering: optimizeLegibility;
   }
 
   strong,
   b {
-    font-weight: 550;
+    font-weight: var(--mc-weight-medium);
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--mc-accent) 18%, transparent);
+    background: var(--mc-selection-bg);
+    color: var(--mc-selection-fg);
   }
 
   ::-webkit-scrollbar {
