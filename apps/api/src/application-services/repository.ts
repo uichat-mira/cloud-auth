@@ -109,6 +109,7 @@ export class ApplicationServiceRepository {
       ...normalizeDeclaration(current),
       appId: row.app_id,
       projectId: manifest.projectId,
+      appName: manifest.name,
       revision: row.revision,
       manifestRevision: manifest.manifestRevision,
     });

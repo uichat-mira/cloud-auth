@@ -182,6 +182,31 @@ function revoke(
 }
 
 describe("instance-scoped application service catalog and credentials", () => {
+  it("projects the verified manifest name for each authorized service without conflating names or grants", async () => {
+    const { ctx, alice, bob } = await setup();
+    const initial = manifest(appA, originA);
+    replaceInstance(ctx.db, applicationManifestSchema.parse({
+      ...initial,
+      name: "狐邮 Who You",
+      services: [
+        { ...initial.services[0], name: "狐邮邮件服务" },
+        { ...initial.services[0], serviceId: "archive", name: "归档服务",
+          resource: originA + "/archive", protocol: { ...initial.services[0]!.protocol, endpoint: originA + "/archive" } },
+      ],
+    }), originA);
+    loginGrant(ctx.db, alice.account.id, appA, 1);
+    const read = async () => applicationServiceCatalogSchema.parse((await catalog(ctx, alice.sessionToken)).json()).services;
+    expect((await read()).map(({ appId, appName, serviceId, name }) => ({ appId, appName, serviceId, name }))).toEqual([
+      { appId: appA, appName: "狐邮 Who You", serviceId: "archive", name: "归档服务" },
+      { appId: appA, appName: "狐邮 Who You", serviceId: "mail", name: "狐邮邮件服务" },
+    ]);
+    expect((await catalog(ctx, bob.sessionToken)).json()).toEqual({ services: [] });
+    expect((await revoke(ctx, alice.sessionToken, appA, resourceA, 1)).statusCode).toBe(200);
+    expect((await read()).map(({ serviceId, appName }) => ({ serviceId, appName }))).toEqual([
+      { serviceId: "archive", appName: "狐邮 Who You" },
+    ]);
+  });
+
   it("isolates two APP_IDs that declare the same serviceId and only issues for the granted instance", async () => {
     const { ctx, alice, bob } = await setup();
     expect((await catalog(ctx, alice.sessionToken)).json()).toEqual({ services: [] });

@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   applicationDeclaredServiceSchema,
   applicationIdSchema,
+  applicationManifestSchema,
   applicationServiceResourceSchema,
 } from "./application-instance.js";
 import { applicationServiceScopeSchema } from "./service-credential.js";
@@ -29,6 +30,8 @@ export const applicationServiceCatalogEntrySchema = applicationDeclaredServiceSc
   .extend({
     appId: applicationIdSchema,
     projectId: serviceIdSchema,
+    /** Verified manifest name, distinct from the service declaration name. */
+    appName: applicationManifestSchema.shape.name,
     /** Account-grant revision; changes on declaration refresh or revoke. */
     revision: z.number().int().positive(),
     /** Instance manifest revision that produced this declaration. */

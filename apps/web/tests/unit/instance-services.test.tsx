@@ -7,6 +7,7 @@ const entry = (appId: string, origin: string) => ({
   projectId: "fixture-mail",
   serviceId: "mail",
   name: "邮件服务",
+  appName: "邮件应用",
   type: "mcp",
   protocol: { name: "mcp", version: "2026-07-28", endpoint: origin + "/mcp" },
   resource: origin + "/mcp",
