@@ -116,10 +116,10 @@ for (const viewport of viewports) {
         await page.getByText("pilot").first().waitFor();
         expect(await page.getByText("登录成功，已进入 Mira 账号。").count()).toBe(0);
 
-        // The console shell keeps one rail for all four sections.
+        // The console shell keeps one rail for all account sections.
         const rail = page.getByRole("navigation", { name: "账户分区" });
         await rail.waitFor();
-        expect(await rail.getByRole("link").count()).toBe(4);
+        expect(await rail.getByRole("link").count()).toBe(5);
 
         await rail.getByRole("link", { name: "设备与授权" }).click();
         await page.getByRole("heading", { level: 1, name: "设备与授权" }).waitFor();

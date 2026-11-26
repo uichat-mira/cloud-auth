@@ -10,7 +10,10 @@ import { backfillGuanlanRegistrations, listGuanlanRegistrations, retryGuanlanReg
 const command = process.argv[2];
 const username = process.argv[3] ?? "";
 
-if (!command || (!username && !['guanlan-backfill','guanlan-status','guanlan-deliver'].includes(command))) {
+const supportedCommands = new Set(["provision","reset-password","allow","deny","enable","disable",
+  "guanlan-backfill","guanlan-status","guanlan-retry","guanlan-deliver"]);
+
+if (!command || !supportedCommands.has(command) || (!username && !['guanlan-backfill','guanlan-status','guanlan-deliver'].includes(command))) {
   printUsageAndExit();
 }
 
@@ -112,7 +115,7 @@ function readPasswordFromStdin(): string {
 
 function printUsageAndExit(): never {
   console.error(
-    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver> [username]\n" +
+    "Usage: pnpm run admin <provision|reset-password|allow|deny|enable|disable|guanlan-backfill|guanlan-status|guanlan-retry|guanlan-deliver> [username or accountId]\n" +
       "provision/reset-password read the password from stdin.",
   );
   process.exit(2);

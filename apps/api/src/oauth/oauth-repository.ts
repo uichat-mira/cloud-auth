@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
+import { ApplicationOAuthRepository } from "../application-oauth/repository.js";
 import type { DatabaseSync } from "node:sqlite";
 import {
-  findFirstPartyOAuthClient,
-  WHO_YOU_WEB_OAUTH_CLIENT_ID,
   type DevicePlatform,
 } from "@uichat-mira/cloud-auth-contracts";
 import { verifyAuthorizationCodeSecret } from "./authorization-code.js";
 import { verifyPkceS256 } from "./pkce.js";
+import { TrustedApplicationLoginCatalog } from "../trusted-applications/login-catalog.js";
 
 export interface AuthorizationCodeRecord {
   id: string;
@@ -21,6 +21,7 @@ export interface AuthorizationCodeRecord {
   consumedAt: string | null;
   consumedBySessionId: string | null;
   consumeReason: string | null;
+  serviceGrantFingerprint: string | null;
 }
 
 export interface CreateAuthorizationCodeInput {
@@ -93,10 +94,20 @@ type AuthorizationCodeRow = {
   consumed_at: string | null;
   consumed_by_session_id: string | null;
   consume_reason: string | null;
+  service_grant_fingerprint: string | null;
 };
 
 export class OAuthRepository {
-  constructor(private readonly db: DatabaseSync) {}
+  private readonly loginCatalog: TrustedApplicationLoginCatalog;
+  readonly applicationOAuth: ApplicationOAuthRepository;
+  constructor(private readonly db: DatabaseSync) {
+    this.loginCatalog = new TrustedApplicationLoginCatalog(db);
+    this.applicationOAuth = new ApplicationOAuthRepository(db);
+  }
+
+  resolveRegisteredClient(clientId: string, redirectUri: string) {
+    return this.loginCatalog.snapshot(clientId, redirectUri)?.client ?? null;
+  }
 
   /**
    * The account admission check and insert share one transaction so a disable
@@ -105,14 +116,19 @@ export class OAuthRepository {
   createAuthorizationCodeIfAccountActive(input: CreateAuthorizationCodeInput): boolean {
     this.db.exec("BEGIN IMMEDIATE;");
     try {
+      const snapshot = this.loginCatalog.snapshot(input.clientId, input.redirectUri);
+      if (!snapshot) {
+        this.db.exec("ROLLBACK;");
+        return false;
+      }
       const result = this.db
         .prepare(
           `INSERT INTO oauth_authorization_codes (
              id, account_id, client_id, redirect_uri, code_challenge,
              code_challenge_method, secret_hash, expires_at, created_at,
-             consumed_at, consumed_by_session_id, consume_reason
+             consumed_at, consumed_by_session_id, consume_reason, service_grant_fingerprint
            )
-           SELECT ?, a.id, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL
+           SELECT ?, a.id, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?
              FROM accounts a
             WHERE a.id = ?
               AND a.is_allowed = 1
@@ -127,6 +143,7 @@ export class OAuthRepository {
           input.secretHash,
           input.expiresAt,
           input.now,
+          snapshot.fingerprint,
           input.accountId,
         );
 
@@ -148,7 +165,7 @@ export class OAuthRepository {
       .prepare(
         `SELECT id, account_id, client_id, redirect_uri, code_challenge,
                 code_challenge_method, secret_hash, expires_at, created_at,
-                consumed_at, consumed_by_session_id, consume_reason
+                consumed_at, consumed_by_session_id, consume_reason, service_grant_fingerprint
            FROM oauth_authorization_codes
           WHERE id = ?`,
       )
@@ -173,6 +190,7 @@ export class OAuthRepository {
     this.db.exec("BEGIN IMMEDIATE;");
     try {
       const record = this.findAuthorizationCode(input.codeId);
+      const snapshot = record ? this.loginCatalog.snapshot(record.clientId, record.redirectUri) : null;
       const expiresAt = record ? Date.parse(record.expiresAt) : Number.NaN;
       const now = Date.parse(input.now);
       if (
@@ -186,7 +204,8 @@ export class OAuthRepository {
         record.codeChallengeMethod !== "S256" ||
         !verifyAuthorizationCodeSecret(input.codeSecret, record.secretHash) ||
         !verifyPkceS256(input.codeVerifier, record.codeChallenge) ||
-        findFirstPartyOAuthClient(record.clientId)?.platform !== input.platform
+        !snapshot || snapshot.client.platform !== input.platform ||
+        snapshot.fingerprint !== record.serviceGrantFingerprint
       ) {
         this.db.exec("ROLLBACK;");
         return { ok: false, reason: "invalid_grant" };
@@ -255,7 +274,7 @@ export class OAuthRepository {
             record.accountId,
             input.installationId,
             input.platform,
-            input.clientId === WHO_YOU_WEB_OAUTH_CLIENT_ID ? "Who You Web" : null,
+            snapshot.client.displayName ?? null,
             input.now,
             input.now,
           );
@@ -315,5 +334,6 @@ function mapAuthorizationCode(row: AuthorizationCodeRow): AuthorizationCodeRecor
     consumedAt: row.consumed_at,
     consumedBySessionId: row.consumed_by_session_id,
     consumeReason: row.consume_reason,
+    serviceGrantFingerprint: row.service_grant_fingerprint,
   };
 }

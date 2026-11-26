@@ -19,11 +19,17 @@ export const OAUTH_PKCE_S256_METHOD = "S256";
 export const OAUTH_AUTHORIZATION_CODE_DEFAULT_TTL_SECONDS = 300;
 export const OAUTH_AUTHORIZATION_CODE_MAX_TTL_SECONDS = 600;
 
-export const oauthClientIdSchema = z.enum([
-  MIRA_DESKTOP_OAUTH_CLIENT_ID,
-  MIRA_MOBILE_OAUTH_CLIENT_ID,
-  WHO_YOU_WEB_OAUTH_CLIENT_ID,
-]);
+// Syntax only for a dynamic application ID; registered identity and the exact
+// redirect are resolved by the server, not by a client-controlled schema.
+export const oauthClientIdSchema = z.string().min(1).max(2048).refine((value) => {
+  if (!/^https?:/i.test(value) && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/.test(value)) return true;
+  if (!value.startsWith("https://")) return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password &&
+      !url.search && !url.hash && !/[\s\\*]/.test(value);
+  } catch { return false; }
+}, "Invalid OAuth client identity");
 
 export const oauthRedirectUriSchema = z.string().min(1).max(2048);
 
@@ -98,11 +104,6 @@ export const FIRST_PARTY_OAUTH_CLIENTS: readonly FirstPartyOAuthClient[] = Objec
     platform: "mobile",
     redirectUris: [MIRA_MOBILE_OAUTH_REDIRECT_URI],
   }),
-  firstPartyClient({
-    clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
-    platform: "web",
-    redirectUris: [WHO_YOU_WEB_OAUTH_REDIRECT_URI],
-  }),
 ]);
 
 export function findFirstPartyOAuthClient(
@@ -129,7 +130,16 @@ export const oauthAuthorizationRequestSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (!isRegisteredOAuthRedirectUri(value.client_id, value.redirect_uri)) {
+    const builtin = findFirstPartyOAuthClient(value.client_id);
+    let valid = builtin?.redirectUris.includes(value.redirect_uri) ?? false;
+    if (!builtin) {
+      try {
+        const url = new URL(value.redirect_uri);
+        valid = url.protocol === "https:" && !!url.hostname && !url.username &&
+          !url.password && !url.search && !url.hash && !/[\s\\*]/.test(value.redirect_uri);
+      } catch { valid = false; }
+    }
+    if (!valid) {
       context.addIssue({
         code: "custom",
         path: ["redirect_uri"],

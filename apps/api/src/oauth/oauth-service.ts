@@ -1,9 +1,8 @@
 import {
-  findFirstPartyOAuthClient,
   MIRA_DESKTOP_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
-  type FirstPartyOAuthClient,
   type IssuedCloudSession,
+  type ApplicationOAuthTokenRequest,
   type OAuthAuthorizationRequest,
   type OAuthTokenRequest,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -12,6 +11,7 @@ import { issueSessionToken } from "../security/session-token.js";
 import { issueAuthorizationCode, parseAuthorizationCode } from "./authorization-code.js";
 import { OAuthError } from "./errors.js";
 import type { OAuthRepository } from "./oauth-repository.js";
+import type { LoginClient } from "../trusted-applications/login-catalog.js";
 
 export interface OAuthServiceOptions {
   codeTtlSeconds: number;
@@ -40,11 +40,10 @@ export class OAuthService {
   resolveRegisteredClient(
     clientId: string | undefined,
     redirectUri: string | undefined,
-  ): FirstPartyOAuthClient | null {
+  ): LoginClient | null {
     if (!clientId || !redirectUri) return null;
-    const client = findFirstPartyOAuthClient(clientId);
-    if (!client?.redirectUris.includes(redirectUri)) return null;
-    return client;
+    return this.repository.resolveRegisteredClient(clientId, redirectUri) ??
+      this.repository.applicationOAuth.resolveClient(clientId, redirectUri);
   }
 
   /**
@@ -57,12 +56,19 @@ export class OAuthService {
     password: string,
     ip: string,
     request: OAuthAuthorizationRequest,
+    expectedManifestRevision?: number,
   ): Promise<IssuedAuthorizationGrant> {
     const client = this.resolveRegisteredClient(request.client_id, request.redirect_uri);
     if (!client) {
       throw new OAuthError("OAUTH_UNAUTHORIZED_CLIENT", 400, "OAuth client or redirect URI is not registered");
     }
     const account = await this.authService.authenticate(username, password, ip);
+    if (client.platform === "web") {
+      return this.repository.applicationOAuth.issue(
+        account.id, request, this.now(), this.options.codeTtlSeconds,
+        expectedManifestRevision ?? client.manifestRevision,
+      );
+    }
     return this.issueForAccount(account.id, request);
   }
 
@@ -117,6 +123,10 @@ export class OAuthService {
       expiresAt,
       deviceId: exchanged.value.deviceId,
     };
+  }
+
+  exchangeApplicationCode(request: ApplicationOAuthTokenRequest) {
+    return this.repository.applicationOAuth.exchange(request, this.now(), this.options.sessionTtlSeconds);
   }
 
   private issueForAccount(accountId: string, request: OAuthAuthorizationRequest): IssuedAuthorizationGrant {

@@ -1,14 +1,13 @@
 import {
   CLOUD_GUANLAN_AUDIENCE,
   CLOUD_RELAY_TRANSPORT_AUDIENCE,
-  CLOUD_WHO_YOU_AUDIENCE,
   GUANLAN_READ_SCOPE,
   GUANLAN_WRITE_SCOPE,
   RELAY_TRANSPORT_SCOPE,
   SHIYAN_AUTHENTICATE_SCOPE,
-  WHOYOU_MAIL_SEND_SCOPE,
-  WHOYOU_MAIL_WRITE_SCOPE,
-  WHOYOU_READ_SCOPE,
+  type ApplicationServiceCredential,
+  type ApplicationServiceResource,
+  type ApplicationServiceScope,
   type IssuedServiceCredential,
   type ServiceCredentialJwks,
   type ServiceCredentialRequest,
@@ -25,6 +24,14 @@ import {
 } from "./relay-admission.js";
 import { issueServiceCredential } from "./signer.js";
 
+type ApplicationResolvedRequest = {
+  audience: ApplicationServiceResource;
+  application: { appId: string; serviceId: string; resource: string };
+  applicationScopes: ApplicationServiceScope[];
+};
+
+type ResolvedRequest = ServiceCredentialRequest | ApplicationResolvedRequest;
+
 export interface RelayRoomOwnershipResolver {
   resolveRoomOwnership(relayRoom: string): RelayRoomOwnership | null;
 }
@@ -34,27 +41,16 @@ export interface RelayRoomOwnershipResolver {
  * the request: Guanlan read-only stays read-only and write is only added when
  * the caller asked for it explicitly.
  */
-function scopeForRequest(request: ServiceCredentialRequest): ServiceCredentialScope[] {
+function scopeForRequest(
+  request: ResolvedRequest,
+): (ServiceCredentialScope | ApplicationServiceScope)[] {
+  if ("application" in request) return request.applicationScopes;
   if (request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE) return [RELAY_TRANSPORT_SCOPE];
   if (request.audience === CLOUD_GUANLAN_AUDIENCE) {
     const requested = request.scopes ?? [GUANLAN_READ_SCOPE];
     return requested.includes(GUANLAN_WRITE_SCOPE)
       ? [GUANLAN_READ_SCOPE, GUANLAN_WRITE_SCOPE]
       : [GUANLAN_READ_SCOPE];
-  }
-  if (request.audience === CLOUD_WHO_YOU_AUDIENCE) {
-    // Confirmations are standalone authorities, never general MCP bearers.
-    // Draft-bound send gets mail.send; identity link/unlink gets write-only,
-    // which cannot satisfy Who You's global whoyou.read MCP gate.
-    if (request.confirmation !== undefined) {
-      return "action" in request.confirmation
-        ? [WHOYOU_MAIL_WRITE_SCOPE]
-        : [WHOYOU_MAIL_SEND_SCOPE];
-    }
-    const requested = request.scopes ?? [WHOYOU_READ_SCOPE];
-    return requested.includes(WHOYOU_MAIL_WRITE_SCOPE)
-      ? [WHOYOU_READ_SCOPE, WHOYOU_MAIL_WRITE_SCOPE]
-      : [WHOYOU_READ_SCOPE];
   }
   return [SHIYAN_AUTHENTICATE_SCOPE];
 }
@@ -68,6 +64,60 @@ export class ServiceCredentialService {
   ) {}
 
   issue(token: string, request: ServiceCredentialRequest): IssuedServiceCredential {
+    return this.issueResolved(token, () => request);
+  }
+
+  /**
+   * Issues one short-lived credential for an exact instance-scoped binding.
+   * `resolve` runs inside the session/device/account authority transaction and
+   * must re-read the grant and current declaration there; its returned scopes
+   * are the only authority copied into the signed claims.
+   */
+  issueApplicationService(
+    token: string,
+    resolve: (accountId: string) => {
+      appId: string;
+      serviceId: string;
+      resource: string;
+      revision: number;
+      scopes: ApplicationServiceScope[];
+    },
+  ): ApplicationServiceCredential {
+    let binding:
+      | ReturnType<typeof resolve>
+      | undefined;
+    const credential = this.issueResolved(token, (accountId) => {
+      binding = resolve(accountId);
+      return {
+        audience: binding.resource,
+        application: {
+          appId: binding.appId,
+          serviceId: binding.serviceId,
+          resource: binding.resource,
+        },
+        applicationScopes: binding.scopes,
+      };
+    });
+    if (!binding) {
+      throw new ServiceCredentialRequestError(
+        "SERVICE_CREDENTIAL_REAUTH_REQUIRED",
+        401,
+        "Re-authentication is required",
+      );
+    }
+    return {
+      token: credential.token,
+      tokenType: "Bearer",
+      appId: binding.appId,
+      serviceId: binding.serviceId,
+      resource: binding.resource,
+      revision: binding.revision,
+      scopes: binding.scopes,
+      expiresAt: credential.expiresAt,
+    };
+  }
+
+  private issueResolved(token: string, resolve: (accountId: string) => ResolvedRequest): IssuedServiceCredential {
     const keyRing = this.keyRing;
     if (!keyRing) {
       throw new ServiceCredentialRequestError(
@@ -87,17 +137,14 @@ export class ServiceCredentialService {
     }
 
     const now = new Date();
-    const relay =
-      request.audience === CLOUD_RELAY_TRANSPORT_AUDIENCE ? request.relay : null;
-    const guanlan = request.audience === CLOUD_GUANLAN_AUDIENCE;
-    const whoYou = request.audience === CLOUD_WHO_YOU_AUDIENCE;
-    const confirmation =
-      request.audience === CLOUD_WHO_YOU_AUDIENCE ? request.confirmation : undefined;
     const issued = this.repository.issueWithinActiveDeviceSession(
       parsed.id,
       hashSessionSecret(parsed.secret),
       now.toISOString(),
       ({ accountId, deviceId, devicePlatform }) => {
+        const request = resolve(accountId);
+        const relay = "relay" in request ? request.relay : null;
+        const guanlan = request.audience === CLOUD_GUANLAN_AUDIENCE;
         if (relay) {
           // This query shares the issuance BEGIN IMMEDIATE transaction, so a
           // Host lease, room binding, or device revoke cannot interleave.
@@ -137,16 +184,15 @@ export class ServiceCredentialService {
             deviceId,
             audience: request.audience,
             scope: scopeForRequest(request),
+            ...("application" in request ? { application: request.application } : {}),
             ...(relay ? { relay } : {}),
-            // The Guanlan consumer and the Who You consumer are both derived
-            // from the verified session, never from the request body. One
-            // account is one stable consumer for each service.
-            ...(guanlan || whoYou ? { consumerId: accountId } : {}),
-            ...(confirmation === undefined ? {} : { confirmation }),
+            // The Guanlan consumer is derived from the verified account.
+            ...(guanlan ? { consumerId: accountId } : {}),
           },
         );
         return {
           token: credential,
+          audience: request.audience,
           expiresAt: new Date(
             (Math.floor(now.getTime() / 1000) + keyRing.ttlSeconds) * 1000,
           ).toISOString(),
@@ -172,7 +218,7 @@ export class ServiceCredentialService {
     return {
       token: issued.value.token,
       tokenType: "Bearer",
-      audience: request.audience,
+      audience: issued.value.audience,
       expiresAt: issued.value.expiresAt,
     };
   }

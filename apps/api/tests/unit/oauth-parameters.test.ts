@@ -32,8 +32,8 @@ function request(overrides: Record<string, unknown> = {}) {
 }
 
 describe("first-party OAuth client registry", () => {
-  it("pins Desktop, Mobile and Who You Web to exact reviewed callbacks", () => {
-    expect(FIRST_PARTY_OAUTH_CLIENTS).toHaveLength(3);
+  it("pins only native Desktop and Mobile to exact reviewed callbacks", () => {
+    expect(FIRST_PARTY_OAUTH_CLIENTS).toHaveLength(2);
     expect(
       FIRST_PARTY_OAUTH_CLIENTS.map((client) => ({
         clientId: client.clientId,
@@ -50,11 +50,6 @@ describe("first-party OAuth client registry", () => {
         clientId: MIRA_MOBILE_OAUTH_CLIENT_ID,
         platform: "mobile",
         redirectUris: [MIRA_MOBILE_OAUTH_REDIRECT_URI],
-      },
-      {
-        clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
-        platform: "web",
-        redirectUris: [WHO_YOU_WEB_OAUTH_REDIRECT_URI],
       },
     ]);
 
@@ -73,6 +68,8 @@ describe("first-party OAuth client registry", () => {
     }
 
     expect(findFirstPartyOAuthClient("third-party")).toBeUndefined();
+    expect(findFirstPartyOAuthClient(WHO_YOU_WEB_OAUTH_CLIENT_ID)).toBeUndefined();
+    expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID, WHO_YOU_WEB_OAUTH_REDIRECT_URI)).toBe(false);
     expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
       MIRA_DESKTOP_OAUTH_REDIRECT_URI)).toBe(false);
     expect(isRegisteredOAuthRedirectUri(WHO_YOU_WEB_OAUTH_CLIENT_ID,
@@ -131,6 +128,16 @@ describe("OAuth authorization request parameters", () => {
     ]) {
       expect(oauthAuthorizationRequestSchema.safeParse(invalid).success).toBe(false);
     }
+  });
+
+  it("accepts only the syntax of a dynamic HTTPS client; server admission is separate", () => {
+    expect(oauthAuthorizationRequestSchema.safeParse(request({
+      client_id: "fixture-web", redirect_uri: "https://fixture.example/auth/callback",
+    })).success).toBe(true);
+    expect(findFirstPartyOAuthClient("fixture-web")).toBeUndefined();
+    expect(oauthAuthorizationRequestSchema.safeParse(request({
+      client_id: "fixture-web", redirect_uri: "https://fixture.example/auth/callback?extra=1",
+    })).success).toBe(false);
   });
 
   it("bounds state without allowing callback or header injection characters", () => {
@@ -222,7 +229,7 @@ describe("OAuth token exchange parameters", () => {
       tokenRequest({ installation_id: "not-a-uuid" }),
       tokenRequest({ platform: "server" }),
       tokenRequest({ code: "mcs_v1.abc.def" }),
-      tokenRequest({ client_id: "third-party" }),
+      tokenRequest({ client_id: "invalid client!" }),
     ]) {
       expect(oauthTokenRequestSchema.safeParse(invalid).success).toBe(false);
     }

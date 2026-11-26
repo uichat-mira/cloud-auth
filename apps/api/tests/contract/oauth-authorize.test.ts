@@ -160,7 +160,7 @@ describe("OAuth authorization/callback HTTP contract", () => {
     testContext.db.close();
   });
 
-  it("labels each registered client exactly and keeps the Who You Web callback", async () => {
+  it("labels native clients exactly and rejects the retired Who You Web callback", async () => {
     const testContext = context();
     await testContext.service.provisionAccount("alice", password);
     const clients = [
@@ -173,11 +173,6 @@ describe("OAuth authorization/callback HTTP contract", () => {
         clientId: MIRA_MOBILE_OAUTH_CLIENT_ID,
         redirectUri: MIRA_MOBILE_OAUTH_REDIRECT_URI,
         label: "Mira Mobile",
-      },
-      {
-        clientId: WHO_YOU_WEB_OAUTH_CLIENT_ID,
-        redirectUri: WHO_YOU_WEB_OAUTH_REDIRECT_URI,
-        label: "狐邮 Who You",
       },
     ] as const;
 
@@ -194,16 +189,12 @@ describe("OAuth authorization/callback HTTP contract", () => {
       expect(page.body).toContain("登录成功状态以客户端完成会话兑换后的结果为准");
     }
 
-    const { response } = await browserAuthorize(testContext, authorizeUrl({
+    const response = await testContext.app.inject({ method: "GET", url: authorizeUrl({
       client_id: WHO_YOU_WEB_OAUTH_CLIENT_ID,
       redirect_uri: WHO_YOU_WEB_OAUTH_REDIRECT_URI,
-    }));
-    expect(response.statusCode).toBe(303);
-    const location = locationOf(response);
-    expect(location?.origin).toBe("https://who-you.tomz.io");
-    expect(location?.pathname).toBe("/auth/callback");
-    expect(location?.searchParams.get("state")).toBe(state);
-    expect(oauthAuthorizationCodeSchema.safeParse(location?.searchParams.get("code")).success).toBe(true);
+    }) });
+    expect(response.statusCode).toBe(400);
+    expect(response.headers.location).toBeUndefined();
     await testContext.app.close();
     testContext.db.close();
   });

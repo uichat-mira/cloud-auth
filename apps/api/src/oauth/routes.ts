@@ -1,14 +1,14 @@
 import {
+  findFirstPartyOAuthClient,
   MIRA_DESKTOP_OAUTH_CLIENT_ID,
   MIRA_MOBILE_OAUTH_CLIENT_ID,
   OAUTH_AUTHORIZATION_CODE_GRANT_TYPE,
-  WHO_YOU_WEB_OAUTH_CLIENT_ID,
   oauthAuthorizationCallbackErrorSchema,
   oauthAuthorizationRequestSchema,
   oauthStateSchema,
   oauthTokenRequestSchema,
+  applicationOAuthTokenRequestSchema,
   type OAuthAuthorizationRequest,
-  type FirstPartyOAuthClient,
   type OAuthAuthorizationCallbackError,
   type OAuthApiErrorCode,
 } from "@uichat-mira/cloud-auth-contracts";
@@ -18,6 +18,7 @@ import { AuthError } from "../auth/auth-service.js";
 import { OAuthError } from "./errors.js";
 import { authorizationStyles } from "./authorization-styles.js";
 import type { OAuthService } from "./oauth-service.js";
+import type { LoginClient } from "../trusted-applications/login-catalog.js";
 
 const AUTHORIZATION_QUERY_KEYS = [
   "response_type",
@@ -110,6 +111,7 @@ const FORM_FIELDS = new Set<string>([
   "username",
   "password",
   CSRF_FIELD_NAME,
+  "manifest_revision",
 ]);
 const TOKEN_FORM_FIELDS = new Set<string>([
   "grant_type",
@@ -122,14 +124,13 @@ const TOKEN_FORM_FIELDS = new Set<string>([
 ]);
 
 /** Consent copy is keyed by exact client ID so a new client cannot inherit another name. */
-const OAUTH_CLIENT_LABELS: Record<FirstPartyOAuthClient["clientId"], string> = {
+const OAUTH_CLIENT_LABELS: Record<string, string> = {
   [MIRA_DESKTOP_OAUTH_CLIENT_ID]: "Mira Desktop",
   [MIRA_MOBILE_OAUTH_CLIENT_ID]: "Mira Mobile",
-  [WHO_YOU_WEB_OAUTH_CLIENT_ID]: "狐邮 Who You",
 };
 
-function oauthClientLabel(client: FirstPartyOAuthClient): string {
-  return OAUTH_CLIENT_LABELS[client.clientId];
+function oauthClientLabel(client: LoginClient): string {
+  return client.displayName ?? OAUTH_CLIENT_LABELS[client.clientId] ?? client.clientId;
 }
 
 function escapeHtml(value: string): string {
@@ -166,7 +167,7 @@ function validCsrf(request: FastifyRequest, posted: string | undefined): boolean
 function renderLoginForm(
   reply: FastifyReply,
   request: FastifyRequest,
-  client: FirstPartyOAuthClient,
+  client: LoginClient,
   parameters: OAuthAuthorizationRequest,
   status = 200,
   error?: string,
@@ -176,7 +177,7 @@ function renderLoginForm(
     '<input type="hidden" name="' + key + '" value="' +
     escapeHtml(parameters[key]) + '">'
   ).join("\n");
-  const clientLabel = oauthClientLabel(client);
+  const clientLabel = escapeHtml(oauthClientLabel(client));
   const page = [
     "<!doctype html>",
     '<html lang="zh-CN"><head><meta charset="utf-8">',
@@ -190,9 +191,12 @@ function renderLoginForm(
     '<span class="eyebrow">Mira ID / Authorization</span>',
     "<h1>登录并授权</h1>",
     '<p class="lead">使用 Mira 账号，授权 <strong>' + clientLabel + "</strong>。</p>",
+    client.origin ? '<p class="note">应用地址：' + escapeHtml(client.origin) + "</p>" : "",
+    client.serviceLabels?.length ? '<p class="note">本次登录将关联：' + escapeHtml(client.serviceLabels.join("；")) + "</p>" : "",
     error ? '<p class="error" role="alert">' + escapeHtml(error) + "</p>" : "",
     '<form method="post" action="/v1/oauth/authorize" autocomplete="on">',
     hidden,
+    client.manifestRevision !== undefined ? '<input type="hidden" name="manifest_revision" value="' + client.manifestRevision + '">' : "",
     '<input type="hidden" name="' + CSRF_FIELD_NAME + '" value="' + csrf + '">',
     '<div class="field"><label for="oauth-username">账号</label>',
     '<input id="oauth-username" name="username" autocomplete="username" required maxlength="128"></div>',
@@ -328,6 +332,11 @@ export function registerOAuthRoutes(app: FastifyInstance, oauthService: OAuthSer
       return sendApiError(reply, 400, "OAUTH_UNAUTHORIZED_CLIENT", "OAuth client or redirect URI is not registered");
     }
 
+    if (client.manifestRevision !== undefined
+      ? form.manifest_revision !== String(client.manifestRevision)
+      : form.manifest_revision !== undefined) {
+      return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Application declaration changed; restart authorization");
+    }
     const parsed = oauthAuthorizationRequestSchema.safeParse({
       response_type: form.response_type,
       client_id: form.client_id,
@@ -352,6 +361,7 @@ export function registerOAuthRoutes(app: FastifyInstance, oauthService: OAuthSer
         form.password,
         request.ip,
         parsed.data,
+        client.manifestRevision,
       );
       // A POST becomes a GET at the native redirect, never forwarding credentials.
       return noStore(reply).code(303).header("location", buildCallbackUrl(grant.redirectUri, {
@@ -401,11 +411,29 @@ export function registerOAuthRoutes(app: FastifyInstance, oauthService: OAuthSer
           );
     }
 
+    const native = form.client_id === MIRA_DESKTOP_OAUTH_CLIENT_ID || form.client_id === MIRA_MOBILE_OAUTH_CLIENT_ID;
+    if (!native) {
+      const application = applicationOAuthTokenRequestSchema.safeParse(form);
+      if (!application.success) {
+        return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Invalid application token request");
+      }
+      try {
+        return noStore(reply).code(200).send(oauthService.exchangeApplicationCode(application.data));
+      } catch (error) {
+        if (error instanceof OAuthError) return sendApiError(reply, error.statusCode, error.code, error.message);
+        reply.log.error({ err: error }, "application token exchange failed");
+        return sendApiError(reply, 500, "OAUTH_INTERNAL_ERROR", "Token exchange failed");
+      }
+    }
     const parsed = oauthTokenRequestSchema.safeParse(form);
     if (!parsed.success) {
       return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Invalid token request");
     }
 
+    if (!findFirstPartyOAuthClient(parsed.data.client_id) &&
+        !oauthService.resolveRegisteredClient(parsed.data.client_id, parsed.data.redirect_uri)) {
+      return sendApiError(reply, 400, "OAUTH_INVALID_REQUEST", "Invalid token request");
+    }
     try {
       return noStore(reply).code(200).send(
         oauthService.exchangeAuthorizationCode(parsed.data),

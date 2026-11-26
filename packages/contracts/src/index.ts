@@ -61,6 +61,8 @@ export {
   WHOYOU_MAIL_SEND_SCOPE,
   WHOYOU_MAIL_WRITE_SCOPE,
   WHOYOU_READ_SCOPE,
+  applicationServiceClaimsSchema,
+  applicationServiceScopeSchema,
   guanlanConsumerIdSchema,
   guanlanRequestedScopesSchema,
   guanlanScopeClaimsSchema,
@@ -91,13 +93,13 @@ export {
   whoYouContentHashSchema,
   whoYouDraftIdSchema,
   whoYouDraftVersionSchema,
-  whoYouRequestedScopesSchema,
   whoYouScopeClaimsSchema,
   whoYouServiceCredentialClaimsSchema,
-  whoYouServiceCredentialRequestSchema,
 } from "./service-credential.js";
 
 export type {
+  ApplicationServiceClaims,
+  ApplicationServiceScope,
   GuanlanServiceCredentialClaims,
   IssuedServiceCredential,
   RelayConnectionRole,
@@ -353,3 +355,12 @@ export type DeviceErrorCode = z.infer<typeof deviceErrorCodeSchema>;
 export type DeviceErrorEnvelope = z.infer<typeof deviceErrorEnvelopeSchema>;
 export type PublicAuthErrorCode = z.infer<typeof publicAuthErrorCodeSchema>;
 export type AuthErrorEnvelope = z.infer<typeof authErrorEnvelopeSchema>;
+
+export * from "./service-registry.js";
+export { registeredServiceClaimsSchema } from "./service-credential.js";
+
+export * from "./trusted-application.js";
+export * from "./application-instance.js";
+export * from "./application-service.js";
+
+export * from "./application-oauth.js";

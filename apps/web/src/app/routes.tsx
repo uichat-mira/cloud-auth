@@ -1,4 +1,5 @@
 import type { RouteObject } from "react-router-dom";
+import { ApplicationsPage } from "@/pages/account/applications-page";
 import { AccountLayout } from "@/app/account-layout";
 import { PublicLayout } from "@/app/root-layout";
 import { HomePage } from "@/pages/home-page";
@@ -54,6 +55,10 @@ export const routes: RouteObject[] = [
       {
         path: "security",
         element: <SecurityPage />,
+      },
+      {
+        path: "applications",
+        element: <ApplicationsPage />,
       },
       {
         path: "services",

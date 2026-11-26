@@ -1,5 +1,7 @@
 # Mira Cloud Service Credentials V0
 
+> **Dev cutover (OPS-052, 2026-11-25):** the Who You named audience, its read/write/confirmation issuance requests, and generic serviceId-only issuance described below are retired. They are historical claims, not supported issuance instructions. Only Shiyan, Relay and Guanlan retain the independent /v1/service-credentials request contract; applications use [instance-bound V1 credentials](open-platform-service-credentials-v1.md). JWKS remains shared. Production promotion is separate.
+
 This document describes the implemented OPS-008 run 1 and run 2 scope: the canonical service-credential contract, isolated Ed25519 signing/offline verification helpers, authenticated device-bound issuance, public verifier discovery, and the V0 signing-key overlap strategy. It also covers the OPS-019 account-owned Relay room/role admission layered on the same ticket contract, the GLN-013 Guanlan consumer credential, and the Who You draft-send and mailbox-identity confirmation credentials.
 
 Full OPS-008 remains open. Cross-repository consumer implementation and production verification are intentionally not part of this repository change.
@@ -513,3 +515,7 @@ The unit rotation test constructs a cached pre-switch JWKS, signs tokens with bo
 - Public registration, OAuth, Passkeys, self-service recovery, Redis, PostgreSQL, hardware identifiers, or device proof-of-possession.
 
 Cross-repository consumer implementation and evidence from SHY-001 and REL-001 remain required before production promotion.
+
+## Account-registered services (OPS-047)
+
+See [service registry V0](service-registry-v0.md) for the registry-mediated credential endpoint, derived generic audiences, existing canonical audience reuse and bounded offline revocation. The original canonical issuance request contracts remain unchanged.

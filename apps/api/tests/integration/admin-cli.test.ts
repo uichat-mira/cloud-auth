@@ -42,6 +42,32 @@ describe("maintainer admin CLI", () => {
     ).resolves.toMatchObject({ account: { username: "pilot" } });
     afterReset.db.close();
   });
+  it("rejects retired registration, grant and management commands without mutation", () => {
+    const dir = mkdtempSync(join(tmpdir(), "mira-auth-app-admin-"));
+    cleanup.push(dir);
+    const databasePath = join(dir, "auth.sqlite");
+    const env = { ...process.env, MIRA_AUTH_DB_PATH: databasePath };
+    const context = createTestAuth(databasePath);
+    context.db.prepare("INSERT INTO oauth_cloud_applications(client_id,project_id,display_name,redirect_uri,management_key_hash) VALUES(?,?,?,?,?)")
+      .run("test-app-web","test-app","Test App","https://app.example/callback","historical-digest-fixture");
+    context.db.close();
+    for (const args of [
+      ["application-enroll","other-app-web"],["application-rotate","test-app-web"],
+      ["application-disable","test-app-web"],["application-enable","test-app-web"],
+      ["service-register","account-fixture"],["service-revoke","account-fixture","mail","1"],
+    ]) {
+      const result = runAdmin(args, "{}", env);
+      expect(result.status, args[0]).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("Usage:");
+    }
+    const after = createTestAuth(databasePath);
+    expect(after.db.prepare("SELECT client_id,management_key_hash,disabled_at FROM oauth_cloud_applications").all())
+      .toEqual([{client_id:"test-app-web",management_key_hash:"historical-digest-fixture",disabled_at:null}]);
+    expect(after.db.prepare("SELECT COUNT(*) AS n FROM service_registrations").get()).toEqual({n:0});
+    after.db.close();
+  });
+
 });
 
 function runAdmin(args: string[], input: string, env: NodeJS.ProcessEnv) {
