@@ -148,7 +148,7 @@ All primitives accept `className` and forward native props. Import from `@/compo
 
 ## Framework & surfaces
 
-- **Public shell:** `PortalShell` in `app/root-layout.tsx` (`cloud-shell.css`). Routes `/`, `/login`, public 404.
+- **Public shell:** `PortalShell` in `app/root-layout.tsx` (`cloud-shell.css`). Routes `/`, `/login`, `/open-platform`, `/docs`, public 404.
 - **Account shell:** `AccountLayout` in `app/account-layout.tsx` (`console.css` + shared `cloud-shell.css`). Handles auth gate, rail, notices, session recovery.
 - **New account page:** add a route under `app/routes.tsx`, export a page from `pages/account/`, start with `<PageHead>`, then `<Section>`s.
 - **New rule:** page CSS goes in the matching stylesheet (`cloud-pages`, `dc-control`, `cloud-grants-*`). Reusable visual patterns are promoted to a primitive or a token, not copied between pages.

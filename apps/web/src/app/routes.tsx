@@ -12,6 +12,7 @@ import { SecurityPage } from "@/pages/account/security-page";
 import { ServicesPage } from "@/pages/account/services-page";
 import { LoginPage } from "@/pages/login-page";
 import { NotFoundPage } from "@/pages/not-found-page";
+import { OpenPlatformPage } from "@/pages/open-platform-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 
 /**
@@ -33,6 +34,10 @@ export const routes: RouteObject[] = [
       {
         path: "login",
         element: <LoginPage />,
+      },
+      {
+        path: "open-platform",
+        element: <OpenPlatformPage />,
       },
       {
         path: "docs",

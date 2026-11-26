@@ -50,6 +50,12 @@ const routeCases = [
     authenticated: true,
   },
   {
+    path: "/open-platform",
+    heading: "把 Mira ID 延伸到你的应用",
+    screenshot: "open-platform",
+    authenticated: false,
+  },
+  {
     path: "/docs",
     heading: "Mira ID 开放平台开发指南（V1 预览）",
     screenshot: "docs-guide",
@@ -254,6 +260,26 @@ describe("browser navigation", () => {
       await page.getByRole("link", { name: "开放应用 OAuth V1" }).click();
       await page.waitForURL("**/docs/application-oauth-v1");
       await page.getByRole("heading", { level: 1, name: "Mira ID 开放应用 OAuth V1" }).waitFor();
+    } finally {
+      await page.close();
+    }
+  });
+
+  it("keeps the open platform entry and page within a 320px viewport", async () => {
+    const page = await browser.newPage({ viewport: { width: 320, height: 700 } });
+
+    try {
+      await page.goto(`${baseUrl}/open-platform`, { waitUntil: "load" });
+      await page.getByRole("heading", { level: 1, name: "把 Mira ID 延伸到你的应用" }).waitFor();
+      await page
+        .getByRole("navigation", { name: "主导航" })
+        .getByRole("link", { name: "开放平台" })
+        .waitFor();
+
+      const hasHorizontalOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth,
+      );
+      expect(hasHorizontalOverflow).toBe(false);
     } finally {
       await page.close();
     }

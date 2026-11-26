@@ -60,15 +60,17 @@ function publicNavLinks(): HTMLAnchorElement[] {
 }
 
 describe("Mira account navigation", () => {
-  it("offers the docs entry and one 登录 entry while signed out", async () => {
+  it("offers the open platform, docs and one 登录 entry while signed out", async () => {
     mountPublicShell("unauthenticated");
 
     const login = await waitFor(() => publicNav().getByRole("link", { name: "登录" }));
     expect(login).toHaveAttribute("href", "/login");
+    expect(publicNav().getByRole("link", { name: "开放平台" })).toHaveAttribute(
+      "href",
+      "/open-platform",
+    );
     expect(publicNav().getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
-    expect(publicNavLinks()).toHaveLength(2);
-    expect(screen.getByText("开放平台")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "开放平台" })).not.toBeInTheDocument();
+    expect(publicNavLinks()).toHaveLength(3);
     expect(screen.queryByRole("link", { name: /OAuth|授权/ })).not.toBeInTheDocument();
   });
 
@@ -76,10 +78,13 @@ describe("Mira account navigation", () => {
     mountPublicShell("authenticated");
 
     const trigger = await screen.findByRole("button", { name: "账户菜单" });
+    expect(publicNav().getByRole("link", { name: "开放平台" })).toHaveAttribute(
+      "href",
+      "/open-platform",
+    );
     expect(publicNav().getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
-    expect(publicNavLinks()).toHaveLength(1);
+    expect(publicNavLinks()).toHaveLength(2);
     expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
-    expect(screen.getByText("开放平台")).toBeInTheDocument();
 
     fireEvent.click(trigger);
     const actions = screen.getByRole("group", { name: "账户操作" });
@@ -95,7 +100,7 @@ describe("Mira account navigation", () => {
 
     const login = await waitFor(() => publicNav().getByRole("link", { name: "登录" }));
     expect(login).toHaveAttribute("href", "/login");
-    expect(publicNavLinks()).toHaveLength(2);
+    expect(publicNavLinks()).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "账户菜单" })).not.toBeInTheDocument();
   });
 
@@ -105,9 +110,13 @@ describe("Mira account navigation", () => {
       mountPublicShell(status);
 
       expect(await screen.findByRole("status")).toHaveTextContent("正在检查登录状态");
+      expect(publicNav().getByRole("link", { name: "开放平台" })).toHaveAttribute(
+        "href",
+        "/open-platform",
+      );
       expect(publicNav().getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
       expect(publicNav().queryByRole("link", { name: "登录" })).not.toBeInTheDocument();
-      expect(publicNavLinks()).toHaveLength(1);
+      expect(publicNavLinks()).toHaveLength(2);
     },
   );
 

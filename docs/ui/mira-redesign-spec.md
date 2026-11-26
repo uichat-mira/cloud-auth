@@ -254,6 +254,7 @@ just its tokens. Full build contract: `console-ia-contract.md`.
 | `/account/security` | `账户安全`                  | 账户安全   | caption → 密码 (修改密码 row) → 当前登录会话 (状态/到期 facts + 续期 Session) → dialog                                                                                                        |
 | `/account/services` | `关联服务`                  | 关联服务   | caption → one row per service (名称 + 尚未接入 + 描述 + 边界说明)                                                                                                                             |
 | `/account/*`        | `页面不存在`                | —          | 404 inside the console shell                                                                                                                                                                  |
+| `/open-platform`    | `把 Mira ID 延伸到你的应用` | —          | single-screen hero + trust chain; no page directory or below-fold sections                                                                                                                    |
 | `/docs`             | 文档 h1                     | —          | redirects to `/docs/open-platform-developer-guide`                                                                                                                                            |
 | `/docs/:docId`      | document h1                 | —          | rail 文档目录 → markdown article; unknown id keeps the rail + 文档不存在                                                                                                                      |
 | `/login`, `*`       | `欢迎回来。` / `页面不存在` | —          | public shell, unchanged                                                                                                                                                                       |
@@ -287,7 +288,7 @@ devices, actions on security, status-only information on services.
 
 ### Public shell (`app/root-layout.tsx` + `styles/cloud-shell.css`)
 
-Used by `/`, `/login` and the public 404.
+Used by `/`, `/login`, `/open-platform`, `/docs` and the public 404.
 
 - Header: 56px, `background:rgba(255,255,255,.85)`, `backdrop-filter: blur(8px)`, sticky top 0,
   hairline bottom (`box-shadow: inset 0 -0.5px 0 var(--mc-border-muted)`).
@@ -299,9 +300,9 @@ Used by `/`, `/login` and the public 404.
   `padding:0 10px`; idle secondary, hover overlay, active `background:var(--mc-surface-2)`).
   Once signed in it becomes the same account menu as the console header — avatar + username
   trigger with a dropdown holding `控制台` → `/account` and `退出登录` — so the public header
-  carries no second `账户中心` variant. A plain-text `开放平台` placeholder and a live `文档`
-  link (`/docs`, `aria-current="page"` on docs routes) sit left of the account control; both are
-  hidden ≤640px.
+  carries no second `账户中心` variant. Live `开放平台` (`/open-platform`) and `文档`
+  (`/docs`) links sit left of the account control; each sets `aria-current="page"` on its own
+  route.
 - Container: `max-width:1280px`, `padding-inline:24px` (`16px` ≤640).
 - Footer: `padding-block:20px 28px`, 12/18 secondary, hairline top, flex space-between, stack ≤640.
 
@@ -344,10 +345,21 @@ Public `/docs` (index → `open-platform-developer-guide`) and `/docs/:docId`. T
   article with a hairline bottom. Switching documents scrolls to top and focuses the `h1`; an
   unknown id keeps the rail and renders `文档不存在` with a link back to the guide.
 
+### Open platform (`pages/open-platform-page.tsx` + `styles/cloud-open-platform.css`)
+
+Public single-screen `/open-platform` overview, linked from the header in both shells.
+
+- No section nav and no below-fold sections. The page ends after the hero.
+- Hero: two columns above 980px — eyebrow, h1 `把 Mira ID 延伸到你的应用`, one-sentence lead,
+  `登录后登记应用` primary CTA (`/login`), `阅读开发指南` text link, V1 status line, and a
+  surface-1 trust card listing the four-link chain (account → registered instance → user
+  authorization → Mira terminal). One column below 980px.
+- The page never claims production availability.
+
 ### Console shell (`app/account-layout.tsx` + `styles/console.css`)
 
 - Header: same recipe as the public shell (same 28px logo chip); the right slot carries the same
-  `开放平台` placeholder / `文档` link left of the identity chip (28px avatar, name 13/18 550,
+  `开放平台` / `文档` links left of the identity chip (28px avatar, name 13/18 550,
   `status dot + 已登录` 11/16) when authenticated, otherwise a single `登录` link.
 - Body: `grid-template-columns: 212px minmax(0,1fr)`, gap 40, container 1120 + 24 gutters.
 - Rail: sticky (`top:72px`), nav rows 32px radius 6 (hover overlay, `aria-current="page"` →

@@ -58,6 +58,7 @@ apps/web/src/lib/auth/session-labels.ts  AuthStatus → 中文 label (rail, over
 apps/web/src/lib/format.ts           formatExpiry (shared account facts)
 apps/web/src/lib/auth/account-entry.ts  shared public entry destinations and labels
 apps/web/src/pages/home-page.tsx     persistent account portal home
+apps/web/src/pages/open-platform-page.tsx  public open-platform overview (trust chain, onboarding, developer entries)
 apps/web/src/pages/docs-page.tsx     in-app documentation reader (rail + markdown article)
 apps/web/src/lib/docs/registry.ts    docs allowlist + build-time ?raw markdown imports (no copies)
 apps/web/src/lib/docs/markdown-links.ts  cross-document link rewriting for the reader
@@ -66,6 +67,7 @@ apps/web/src/styles/cloud-shell.css  shared public + console shell: container, h
 apps/web/src/styles/console.css      console-only chrome: rail, page head, sections, facts, summary, recovery
 apps/web/src/styles/cloud-pages.css  login canvas+card, notices, action rows, dialogs, states, fields
 apps/web/src/styles/cloud-home.css   public identity home: hero copy, brand plaque, destination cards
+apps/web/src/styles/cloud-open-platform.css  open-platform page: sticky section nav, trust card, onboarding, developer panel
 apps/web/src/styles/cloud-docs.css   docs reader: sticky rail, markdown article, horizontal rail ≤900
 apps/web/src/styles/cloud-grants.css device/host grants, scope pills, editor, confirm block
 apps/web/src/components/ui/          button, card, input + badge, notice, page-head, section, facts, field, skeleton, confirm-dialog
@@ -93,20 +95,21 @@ the master to x 40–892 / y 35–713, then fitting that artwork by width onto a
 
 ## Routes
 
-| Route                           | Page                                    | h1                 |
-| ------------------------------- | --------------------------------------- | ------------------ |
-| `/`                             | `HomePage`                              | Mira 账号          |
-| `/login`                        | `LoginPage`                             | 登录 Mira 账号     |
-| `/account`                      | `OverviewPage`                          | 我的账户           |
-| `/account/devices`              | `DevicesPage`                           | 设备与授权         |
-| `/account/security`             | `SecurityPage`                          | 账户安全           |
-| `/account/services`             | `ServicesPage`                          | 关联服务           |
-| `/account/services/dc`          | `DcControlPage`                         | DC 控制台          |
-| `/account/services/cloud-agent` | `CloudAgentPage`                        | Cloud Agent · 烤派 |
-| `/docs`                         | `DocsPage` (redirects to the guide)     | 文档标题（md h1）  |
-| `/docs/:docId`                  | `DocsPage`                              | 文档标题（md h1）  |
-| `/account/*`                    | `NotFoundPage` inside the console shell | 页面不存在         |
-| `*`                             | `NotFoundPage` in the public shell      | 页面不存在         |
+| Route                           | Page                                    | h1                        |
+| ------------------------------- | --------------------------------------- | ------------------------- |
+| `/`                             | `HomePage`                              | Mira 账号                 |
+| `/login`                        | `LoginPage`                             | 登录 Mira 账号            |
+| `/account`                      | `OverviewPage`                          | 我的账户                  |
+| `/account/devices`              | `DevicesPage`                           | 设备与授权                |
+| `/account/security`             | `SecurityPage`                          | 账户安全                  |
+| `/account/services`             | `ServicesPage`                          | 关联服务                  |
+| `/account/services/dc`          | `DcControlPage`                         | DC 控制台                 |
+| `/account/services/cloud-agent` | `CloudAgentPage`                        | Cloud Agent · 烤派        |
+| `/open-platform`                | `OpenPlatformPage`                      | 把 Mira ID 延伸到你的应用 |
+| `/docs`                         | `DocsPage` (redirects to the guide)     | 文档标题（md h1）         |
+| `/docs/:docId`                  | `DocsPage`                              | 文档标题（md h1）         |
+| `/account/*`                    | `NotFoundPage` inside the console shell | 页面不存在                |
+| `*`                             | `NotFoundPage` in the public shell      | 页面不存在                |
 
 ## Rules that are easy to break
 

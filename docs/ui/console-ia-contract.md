@@ -294,10 +294,9 @@ Recorded after implementation so the next reader does not treat them as drift.
     menu rather than a second rail row. The prior rail logout markup in §3 is superseded
     by this intentional mobile usability change.
 
-11. **Header utility entries.** `开放平台` is still plain text (no destination yet), while `文档`
-    is a real `NavLink` to `/docs` and carries `aria-current="page"` on the docs routes. Both sit
-    left of the account control in both shells and are hidden below 640px, where the header keeps
-    only the brand and the account control. `HeaderLinks` owns them in
+11. **Header utility entries.** `开放平台` is a real `NavLink` to `/open-platform` and `文档` is a
+    real `NavLink` to `/docs`; each carries `aria-current="page"` on its own routes. Both sit left
+    of the account control in both shells. `HeaderLinks` owns them in
     `components/header-links.tsx`.
 
 12. **In-app documentation.** `/docs` redirects to `/docs/open-platform-developer-guide` and
@@ -308,3 +307,9 @@ Recorded after implementation so the next reader does not treat them as drift.
     tree/blob otherwise. The rail is `nav[aria-label="文档目录"]`; after in-docs navigation the
     article `h1` takes focus, and an unknown id keeps the rail while rendering the `文档不存在`
     state.
+
+13. **Open platform overview.** `/open-platform` is a single-screen public overview inside the
+    public shell. Its h1 is `把 Mira ID 延伸到你的应用`; the hero carries one positioning
+    sentence, the `登录后登记应用` CTA (`/login`), the `阅读开发指南` link, the V1 status and the
+    four-link trust chain. There is no page directory or below-fold section. The page is owned by
+    `pages/open-platform-page.tsx` and `styles/cloud-open-platform.css`.
