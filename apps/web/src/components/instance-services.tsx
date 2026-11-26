@@ -85,21 +85,21 @@ function InstanceServicesForAccount() {
     }
   }
 
-  async function revokeService(service: ApplicationServiceCatalogEntry) {
-    if (
-      busy ||
-      !window.confirm("撤销“" + service.name + "”服务授权？已签发的短期凭据可能在到期前仍有效。")
-    )
-      return;
+  async function performRevocation(
+    confirmText: string,
+    action: (token: string) => Promise<unknown>,
+    successNotice: string,
+  ) {
+    if (busy || !window.confirm(confirmText)) return;
     const token = getSessionToken();
     if (!token) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      await client.revokeService(token, service);
+      await action(token);
       if (!mounted.current || token !== getSessionToken()) return;
-      setNotice("服务授权已撤销。");
+      setNotice(successNotice);
       await refresh();
     } catch (failure) {
       if (!mounted.current || token !== getSessionToken()) return;
@@ -113,32 +113,20 @@ function InstanceServicesForAccount() {
     }
   }
 
-  async function revokeApplication(application: ApplicationAuthorization) {
-    if (
-      busy ||
-      !window.confirm("解除“" + application.appName + "”的全部授权及登录会话？再次使用须主动登录。")
-    )
-      return;
-    const token = getSessionToken();
-    if (!token) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      await client.revokeApplication(token, application.appId);
-      if (!mounted.current || token !== getSessionToken()) return;
-      setNotice("应用授权已解除。");
-      await refresh();
-    } catch (failure) {
-      if (!mounted.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401)
-        invalidateSession(token);
-      await refresh();
-      if (mounted.current && token === getSessionToken())
-        setError("撤权未确认成功，请核对最新授权状态。");
-    } finally {
-      if (mounted.current) setBusy(false);
-    }
+  function revokeService(service: ApplicationServiceCatalogEntry) {
+    return performRevocation(
+      "撤销“" + service.name + "”服务授权？已签发的短期凭据可能在到期前仍有效。",
+      (token) => client.revokeService(token, service),
+      "服务授权已撤销。",
+    );
+  }
+
+  function revokeApplication(application: ApplicationAuthorization) {
+    return performRevocation(
+      "解除“" + application.appName + "”的全部授权及登录会话？再次使用须主动登录。",
+      (token) => client.revokeApplication(token, application.appId),
+      "应用授权已解除。",
+    );
   }
 
   const applications = services ? groupByApplication(services) : null;
