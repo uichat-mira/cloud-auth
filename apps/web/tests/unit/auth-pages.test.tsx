@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { routes } from "@/app/routes";
@@ -68,11 +68,21 @@ async function findIdentity() {
  * The real service catalog behind 关联服务 is `GET /v1/application-services`.
  * Stub it so a route render reaches a settled state instead of failing the
  * unmocked request, and so a test can decide whether the account has a grant.
+ *
+ * The mock answers by URL instead of asserting inside itself: an assertion that
+ * throws in a fetch stub becomes a rejected request, which the page reports as a
+ * read failure — that would turn a wrong expectation into "could not load"
+ * instead of a readable assertion failure.
  */
 function stubServiceCatalog(services: readonly unknown[]) {
   const fetcher = vi.fn(async (url: string) => {
-    expect(String(url)).toBe("/v1/application-services");
-    return new Response(JSON.stringify({ services }), {
+    if (String(url) === "/v1/application-services") {
+      return new Response(JSON.stringify({ services }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ hosts: [] }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
@@ -87,9 +97,18 @@ function stubServiceCatalog(services: readonly unknown[]) {
  * default on a cold CI worker. Only the wait is widened; the assertion is still
  * that the granted application appears.
  */
-const CATALOG_SETTLE_TIMEOUT = 5_000;
+const CATALOG_SETTLE_TIMEOUT = 3_000;
+
+/**
+ * The wait budget above must stay below the test's own timeout, otherwise the
+ * test fails with "Test timed out" before the query reports what it saw.
+ */
+const CATALOG_TEST_TIMEOUT = 10_000;
 
 afterEach(() => {
+  // Unmount before dropping the stub: a still-mounted tree would otherwise fire
+  // another catalog read against the real `fetch` and leak into the next test.
+  cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -355,86 +374,96 @@ describe("auth-backed route components", () => {
     expect(screen.getAllByText(formatExpiry(expiresAt)).length).toBeGreaterThan(0);
   });
 
-  it("keeps Mira service entry points separate from account authorisations on the services route", async () => {
-    stubServiceCatalog([]);
-    renderWithClient({
-      client: createClient(),
-      initialSession: { sessionToken: "token-1", expiresAt },
-      path: "/account/services",
-    });
+  it(
+    "keeps Mira service entry points separate from account authorisations on the services route",
+    async () => {
+      stubServiceCatalog([]);
+      renderWithClient({
+        client: createClient(),
+        initialSession: { sessionToken: "token-1", expiresAt },
+        path: "/account/services",
+      });
 
-    expect(await screen.findByRole("heading", { level: 1, name: "关联服务" })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "关联服务" }),
+      ).toBeInTheDocument();
 
-    // No grant exists, so the authorisation list is empty and no application is
-    // pre-installed in the console: 狐邮 must not appear without a real grant.
-    const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
-    expect(
-      await within(authorised).findByText(/尚无已授权应用服务/, undefined, {
-        timeout: CATALOG_SETTLE_TIMEOUT,
-      }),
-    ).toBeInTheDocument();
-    expect(within(authorised).queryByText("狐邮 Who You")).not.toBeInTheDocument();
-    expect(screen.queryByText("狐邮 Who You")).not.toBeInTheDocument();
+      // No grant exists, so the authorisation list is empty and no application is
+      // pre-installed in the console: 狐邮 must not appear without a real grant.
+      const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
+      expect(
+        await within(authorised).findByText(/尚无已授权应用服务/, undefined, {
+          timeout: CATALOG_SETTLE_TIMEOUT,
+        }),
+      ).toBeInTheDocument();
+      expect(within(authorised).queryByText("狐邮 Who You")).not.toBeInTheDocument();
+      expect(screen.queryByText("狐邮 Who You")).not.toBeInTheDocument();
 
-    // Mira's own entry points live in their own section and are not grants.
-    const miraServices = screen.getByRole("region", { name: "Mira 服务" });
-    expect(within(miraServices).getByText(/不代表账号已获得授权/)).toBeInTheDocument();
-    const entries = within(miraServices).getAllByRole("listitem");
-    expect(entries).toHaveLength(4);
+      // Mira's own entry points live in their own section and are not grants.
+      const miraServices = screen.getByRole("region", { name: "Mira 服务" });
+      expect(within(miraServices).getByText(/不代表账号已获得授权/)).toBeInTheDocument();
+      const entries = within(miraServices).getAllByRole("listitem");
+      expect(entries).toHaveLength(4);
 
-    expect(within(miraServices).getByText("DC 控制台")).toBeInTheDocument();
-    expect(within(miraServices).getByText("Cloud Agent · 烤派")).toBeInTheDocument();
-    expect(
-      within(miraServices).getByRole("link", { name: "进入 Cloud Agent · 烤派" }),
-    ).toHaveAttribute("href", "/account/services/cloud-agent");
-    expect(within(miraServices).getByText("Cloud Shiyan")).toBeInTheDocument();
-    expect(within(miraServices).getByText("Hosted Relay")).toBeInTheDocument();
-    expect(within(miraServices).getAllByText("尚未接入")).toHaveLength(2);
+      expect(within(miraServices).getByText("DC 控制台")).toBeInTheDocument();
+      expect(within(miraServices).getByText("Cloud Agent · 烤派")).toBeInTheDocument();
+      expect(
+        within(miraServices).getByRole("link", { name: "进入 Cloud Agent · 烤派" }),
+      ).toHaveAttribute("href", "/account/services/cloud-agent");
+      expect(within(miraServices).getByText("Cloud Shiyan")).toBeInTheDocument();
+      expect(within(miraServices).getByText("Hosted Relay")).toBeInTheDocument();
+      expect(within(miraServices).getAllByText("尚未接入")).toHaveLength(2);
 
-    // The migrated DC page must stay inside the same account route and session.
-    const dcLink = within(miraServices).getByRole("link", {
-      name: "进入 DC 控制台",
-    });
-    expect(dcLink).toHaveAttribute("href", "/account/services/dc");
-    expect(dcLink).not.toHaveAttribute("target");
+      // The migrated DC page must stay inside the same account route and session.
+      const dcLink = within(miraServices).getByRole("link", {
+        name: "进入 DC 控制台",
+      });
+      expect(dcLink).toHaveAttribute("href", "/account/services/dc");
+      expect(dcLink).not.toHaveAttribute("target");
 
-    // The account navigation and page heading remain single instances.
-    expect(screen.getAllByRole("navigation", { name: "账户分区" })).toHaveLength(1);
-    expect(screen.getByRole("heading", { level: 2, name: "已授权应用服务" })).toBeInTheDocument();
-  });
+      // The account navigation and page heading remain single instances.
+      expect(screen.getAllByRole("navigation", { name: "账户分区" })).toHaveLength(1);
+      expect(screen.getByRole("heading", { level: 2, name: "已授权应用服务" })).toBeInTheDocument();
+    },
+    CATALOG_TEST_TIMEOUT,
+  );
 
-  it("lists an application only after the authorisation catalog reports it", async () => {
-    stubServiceCatalog([
-      {
-        appId: "app_who_you_fixture_001",
-        projectId: "who-you",
-        serviceId: "mail",
-        name: "狐邮",
-        type: "mcp",
-        protocol: { name: "mcp", version: "2026-07-28", endpoint: "https://who-you.tomz.io/mcp" },
-        resource: "https://who-you.tomz.io/mcp",
-        scopes: ["mail.read"],
-        revision: 1,
-        manifestRevision: 1,
-      },
-    ]);
-    renderWithClient({
-      client: createClient(),
-      initialSession: { sessionToken: "token-1", expiresAt },
-      path: "/account/services",
-    });
+  it(
+    "lists an application only after the authorisation catalog reports it",
+    async () => {
+      stubServiceCatalog([
+        {
+          appId: "app_who_you_fixture_001",
+          projectId: "who-you",
+          serviceId: "mail",
+          name: "狐邮",
+          type: "mcp",
+          protocol: { name: "mcp", version: "2026-07-28", endpoint: "https://who-you.tomz.io/mcp" },
+          resource: "https://who-you.tomz.io/mcp",
+          scopes: ["mail.read"],
+          revision: 1,
+          manifestRevision: 1,
+        },
+      ]);
+      renderWithClient({
+        client: createClient(),
+        initialSession: { sessionToken: "token-1", expiresAt },
+        path: "/account/services",
+      });
 
-    const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
-    expect(
-      await within(authorised).findByText("狐邮", undefined, { timeout: CATALOG_SETTLE_TIMEOUT }),
-    ).toBeInTheDocument();
-    expect(within(authorised).getByText(/https:\/\/who-you\.tomz\.io\/mcp/)).toBeInTheDocument();
-    expect(within(authorised).getByRole("button", { name: "撤销服务" })).toBeInTheDocument();
+      const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
+      expect(
+        await within(authorised).findByText("狐邮", undefined, { timeout: CATALOG_SETTLE_TIMEOUT }),
+      ).toBeInTheDocument();
+      expect(within(authorised).getByText(/https:\/\/who-you\.tomz\.io\/mcp/)).toBeInTheDocument();
+      expect(within(authorised).getByRole("button", { name: "撤销服务" })).toBeInTheDocument();
 
-    // A real grant does not make it a Mira-owned entry point.
-    const miraServices = screen.getByRole("region", { name: "Mira 服务" });
-    expect(within(miraServices).queryByText("狐邮")).not.toBeInTheDocument();
-  });
+      // A real grant does not make it a Mira-owned entry point.
+      const miraServices = screen.getByRole("region", { name: "Mira 服务" });
+      expect(within(miraServices).queryByText("狐邮")).not.toBeInTheDocument();
+    },
+    CATALOG_TEST_TIMEOUT,
+  );
 
   it("confirms an explicit session renewal without leaving the security route", async () => {
     const { storage, router } = renderWithClient({
