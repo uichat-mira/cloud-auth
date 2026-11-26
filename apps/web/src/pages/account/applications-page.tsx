@@ -256,15 +256,43 @@ function ApplicationsForAccount() {
         ) : null}
 
         {catalog?.applications.map((application) => (
-          <section key={application.appId} className="console-section">
-            <div className="console-section-head">
-              <div>
-                <h3 className="font-semibold">{application.manifest.name}</h3>
-                <p className="console-section-caption">
-                  {application.manifest.projectId} · revision{" "}
-                  {application.manifest.manifestRevision} ·{" "}
-                  {application.disabledAt ? "已停用" : "已启用"}
-                </p>
+          <section
+            key={application.appId}
+            className="cloud-application-group"
+            aria-label={"应用实例 " + application.manifest.name + " " + application.appId}
+          >
+            <div className="cloud-application-group-head">
+              <div className="cloud-application-identity">
+                <span className="cloud-application-icon" aria-hidden="true">
+                  {application.manifest.name.slice(0, 1)}
+                  {application.manifest.iconUrl ? (
+                    <img
+                      src={application.manifest.iconUrl}
+                      alt=""
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      onError={(event) => event.currentTarget.remove()}
+                    />
+                  ) : null}
+                </span>
+                <div className="min-w-0">
+                  <h3>{application.manifest.name}</h3>
+                  {application.manifest.description ? (
+                    <p className="console-section-caption">{application.manifest.description}</p>
+                  ) : null}
+                  <p className="console-section-caption">
+                    <a
+                      className="console-section-link"
+                      href={application.manifest.homeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      访问应用
+                    </a>
+                    {" · "}
+                    {application.disabledAt ? "已停用" : "已启用"}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2 flex-wrap">
                 <Button
@@ -310,6 +338,14 @@ function ApplicationsForAccount() {
                 </dd>
               </div>
               <div>
+                <dt>Project ID</dt>
+                <dd>{application.manifest.projectId}</dd>
+              </div>
+              <div>
+                <dt>Manifest 版本</dt>
+                <dd>{application.manifest.manifestRevision}</dd>
+              </div>
+              <div>
                 <dt>OAuth 回调</dt>
                 <dd className="break-all">{application.manifest.oauth.redirectUris.join("、")}</dd>
               </div>
@@ -318,19 +354,24 @@ function ApplicationsForAccount() {
             {!application.manifest.services.length ? (
               <p className="console-section-caption">这个实例当前没有声明服务。</p>
             ) : (
-              application.manifest.services.map((service) => (
-                <div className="cloud-row" key={service.serviceId}>
-                  <span className="cloud-row-copy min-w-0">
-                    <strong>{service.name}</strong>
-                    <small className="break-all">
+              <div className="cloud-application-service-list">
+                {application.manifest.services.map((service) => (
+                  <div className="cloud-service-row" key={service.serviceId}>
+                    <div className="cloud-service-row-head">
+                      <span className="cloud-service-name">{service.name}</span>
+                      <span className="cloud-service-pill">{service.type}</span>
+                    </div>
+                    {service.description ? (
+                      <p className="cloud-service-description">{service.description}</p>
+                    ) : null}
+                    <p className="cloud-service-detail break-all">
                       {service.protocol.name} · {service.protocol.version} ·{" "}
                       {service.protocol.endpoint}
-                    </small>
-                    <small className="break-all">{service.resource}</small>
-                  </span>
-                  <span className="text-sm shrink-0">{service.type}</span>
-                </div>
-              ))
+                    </p>
+                    <p className="cloud-service-detail break-all">{service.resource}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
         ))}
