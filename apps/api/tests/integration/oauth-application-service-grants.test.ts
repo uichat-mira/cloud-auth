@@ -148,7 +148,7 @@ describe("V1 registered application OAuth and instance service grants", () => {
     }
     expect((await s.credential(appA, 1, issued.access_token)).statusCode).toBe(401);
     expect(await s.catalog(s.bob.sessionToken)).toEqual([]);
-    expect((await s.catalog()).map(x => [x.appId, x.serviceId])).toEqual([[appA, "mail"]]);
+    expect((await s.catalog()).map(x => [x.appId, x.serviceId, x.appName, x.name])).toEqual([[appA, "mail", "Fixture <Mail>", "Mail"]]);
     expect((await s.credential(appB)).statusCode).toBe(404);
     const ticket = applicationServiceCredentialSchema.parse((await s.credential()).json());
     expect(verifyApplicationServiceCredential(ticket.token, {

@@ -64,6 +64,7 @@ Authorization: Bearer <Cloud Session>
       "projectId": "mail",
       "serviceId": "mail",
       "name": "邮件服务",
+      "appName": "邮件应用",
       "type": "mcp",
       "protocol": {
         "name": "mcp",
@@ -83,6 +84,7 @@ Authorization: Bearer <Cloud Session>
 ```
 
 - 只返回当前账号有效、未撤销且与实例当前声明精确匹配的 grant。
+- `appName` 是已验证 manifest 顶层 `name`，必填；`name` 仍是 `services[].name`。同一 APP_ID 的多个条目共享应用名，终端插件页按 APP_ID 聚合，运行时仍按服务身份绑定。远程图标暂不下发；不得用 service 名或标识推测应用名。
 - `revision` 是账号 grant 修订；`manifestRevision` 是当前实例 manifest 修订。
 - 实例 manifestRevision 变化即使随后恢复原声明也使旧 grant 失效，直至用户主动重新登录。这是当前保守授权策略，不静默恢复旧授权。
 - 目录只是发现与声明信息，不是工具 schema、执行授权或业务权限。`capabilities`、`toolGovernance`、`extensions` 是 Mira 外层语义/治理提示，不替代标准 MCP `tools/list`、ToolAnnotations 或服务自身授权。
