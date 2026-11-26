@@ -81,6 +81,14 @@ function stubServiceCatalog(services: readonly unknown[]) {
   return fetcher;
 }
 
+/**
+ * The catalog settles only after session restore finishes and the stubbed read
+ * resolves, so the data assertion can legitimately take longer than the 1s
+ * default on a cold CI worker. Only the wait is widened; the assertion is still
+ * that the granted application appears.
+ */
+const CATALOG_SETTLE_TIMEOUT = 5_000;
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -360,7 +368,11 @@ describe("auth-backed route components", () => {
     // No grant exists, so the authorisation list is empty and no application is
     // pre-installed in the console: 狐邮 must not appear without a real grant.
     const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
-    expect(await within(authorised).findByText(/尚无已授权应用服务/)).toBeInTheDocument();
+    expect(
+      await within(authorised).findByText(/尚无已授权应用服务/, undefined, {
+        timeout: CATALOG_SETTLE_TIMEOUT,
+      }),
+    ).toBeInTheDocument();
     expect(within(authorised).queryByText("狐邮 Who You")).not.toBeInTheDocument();
     expect(screen.queryByText("狐邮 Who You")).not.toBeInTheDocument();
 
@@ -413,7 +425,9 @@ describe("auth-backed route components", () => {
     });
 
     const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
-    expect(await within(authorised).findByText("狐邮")).toBeInTheDocument();
+    expect(
+      await within(authorised).findByText("狐邮", undefined, { timeout: CATALOG_SETTLE_TIMEOUT }),
+    ).toBeInTheDocument();
     expect(within(authorised).getByText(/https:\/\/who-you\.tomz\.io\/mcp/)).toBeInTheDocument();
     expect(within(authorised).getByRole("button", { name: "撤销服务" })).toBeInTheDocument();
 
