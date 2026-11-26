@@ -1,8 +1,4 @@
 import { Link } from "react-router-dom";
-import {
-  associatedServicesCount,
-  unconnectedServicesCount,
-} from "@/components/associated-services";
 import { useAuthSession } from "@/lib/auth/context";
 import { sessionLabels } from "@/lib/auth/session-labels";
 import { useHostGrantsClient } from "@/lib/grants/context";
@@ -116,14 +112,14 @@ export function OverviewPage() {
         <div className="console-section-head">
           <div>
             <h2 id="overview-services">关联服务</h2>
-            <p className="console-section-caption">Mira 账号关联的服务与子系统。</p>
+            <p className="console-section-caption">已授权应用与 Mira 自身服务。</p>
           </div>
           <Link className="console-section-link" to="/account/services">
             查看
           </Link>
         </div>
         <p className="console-inline-note">
-          {associatedServicesCount} 项服务 · {unconnectedServicesCount} 项尚未接入
+          开放应用授权与 Mira 自身服务分开管理，实际状态以「关联服务」页面为准。
         </p>
       </section>
     </section>
