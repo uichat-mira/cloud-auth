@@ -59,3 +59,78 @@
   font-size: 13px;
   line-height: 20px;
 }
+
+/* ------------------------------------------------------------------ */
+/* Open application groups                                             */
+/* ------------------------------------------------------------------ */
+
+.cloud-application-group {
+  padding: 16px 0;
+  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+}
+
+.cloud-application-group:last-child {
+  padding-bottom: 0;
+}
+
+.cloud-application-group-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.cloud-application-group-head h3 {
+  margin: 0;
+  color: var(--mc-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.cloud-application-identity {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cloud-application-icon {
+  position: relative;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--mc-surface-2);
+  box-shadow: var(--mc-hairline-muted);
+  color: var(--mc-text-secondary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cloud-application-icon img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cloud-application-service-list {
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .cloud-application-group-head {
+    flex-direction: column;
+  }
+
+  .cloud-application-group-head > [data-slot="button"] {
+    width: 100%;
+  }
+}
