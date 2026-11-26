@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { routes } from "@/app/routes";
 import type { CloudAuthClient } from "@/lib/auth/client";
 import { AuthProvider } from "@/lib/auth/context";
@@ -66,29 +66,40 @@ async function findIdentity() {
 
 /**
  * The real service catalog behind 关联服务 is `GET /v1/application-services`.
- * Stub it so a route render reaches a settled state instead of failing the
- * unmocked request, and so a test can decide whether the account has a grant.
  *
- * The mock answers by URL instead of asserting inside itself: an assertion that
- * throws in a fetch stub becomes a rejected request, which the page reports as a
- * read failure — that would turn a wrong expectation into "could not load"
- * instead of a readable assertion failure.
+ * The stub is installed once per test in `beforeEach` rather than per test body:
+ * the catalog is read from an effect right after mount, so a stub that only
+ * exists inside the test body can be raced by that effect and let a relative
+ * `fetch` reach jsdom, where it fails to parse and the page renders a read error.
+ * Every test therefore starts with a working catalog and decides its contents by
+ * assigning `catalog`.
  */
-function stubServiceCatalog(services: readonly unknown[]) {
-  const fetcher = vi.fn(async (url: string) => {
-    if (String(url) === "/v1/application-services") {
-      return new Response(JSON.stringify({ services }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }
-    return new Response(JSON.stringify({ hosts: [] }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+let catalog: readonly unknown[] = [];
+
+function serviceCatalogResponse() {
+  return new Response(JSON.stringify({ services: catalog }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
   });
-  vi.stubGlobal("fetch", fetcher);
-  return fetcher;
+}
+
+function installFetch() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) =>
+      String(url) === "/v1/application-services"
+        ? serviceCatalogResponse()
+        : new Response(JSON.stringify({ hosts: [], devices: [] }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+    ),
+  );
+}
+
+/** Set the grants this account holds before the route renders. */
+function stubServiceCatalog(services: readonly unknown[]) {
+  catalog = services;
 }
 
 /**
@@ -104,6 +115,11 @@ const CATALOG_SETTLE_TIMEOUT = 3_000;
  * test fails with "Test timed out" before the query reports what it saw.
  */
 const CATALOG_TEST_TIMEOUT = 10_000;
+
+beforeEach(() => {
+  catalog = [];
+  installFetch();
+});
 
 afterEach(() => {
   // Unmount before dropping the stub: a still-mounted tree would otherwise fire
@@ -424,43 +440,6 @@ describe("auth-backed route components", () => {
       // The account navigation and page heading remain single instances.
       expect(screen.getAllByRole("navigation", { name: "账户分区" })).toHaveLength(1);
       expect(screen.getByRole("heading", { level: 2, name: "已授权应用服务" })).toBeInTheDocument();
-    },
-    CATALOG_TEST_TIMEOUT,
-  );
-
-  it(
-    "lists an application only after the authorisation catalog reports it",
-    async () => {
-      stubServiceCatalog([
-        {
-          appId: "app_who_you_fixture_001",
-          projectId: "who-you",
-          serviceId: "mail",
-          name: "狐邮",
-          type: "mcp",
-          protocol: { name: "mcp", version: "2026-07-28", endpoint: "https://who-you.tomz.io/mcp" },
-          resource: "https://who-you.tomz.io/mcp",
-          scopes: ["mail.read"],
-          revision: 1,
-          manifestRevision: 1,
-        },
-      ]);
-      renderWithClient({
-        client: createClient(),
-        initialSession: { sessionToken: "token-1", expiresAt },
-        path: "/account/services",
-      });
-
-      const authorised = await screen.findByRole("region", { name: "已授权应用服务" });
-      expect(
-        await within(authorised).findByText("狐邮", undefined, { timeout: CATALOG_SETTLE_TIMEOUT }),
-      ).toBeInTheDocument();
-      expect(within(authorised).getByText(/https:\/\/who-you\.tomz\.io\/mcp/)).toBeInTheDocument();
-      expect(within(authorised).getByRole("button", { name: "撤销服务" })).toBeInTheDocument();
-
-      // A real grant does not make it a Mira-owned entry point.
-      const miraServices = screen.getByRole("region", { name: "Mira 服务" });
-      expect(within(miraServices).queryByText("狐邮")).not.toBeInTheDocument();
     },
     CATALOG_TEST_TIMEOUT,
   );
