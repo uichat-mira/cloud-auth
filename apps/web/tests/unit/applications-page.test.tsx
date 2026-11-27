@@ -16,7 +16,9 @@ const application = {
     appId,
     projectId: "who-you",
     name: "狐邮",
+    description: "你的邮件，由你掌控。",
     homeUrl: origin + "/",
+    iconUrl: origin + "/brand/icon.png",
     manifestRevision: 1,
     oauth: {
       clientId: origin + "/oauth-client.json",
@@ -28,6 +30,7 @@ const application = {
       {
         serviceId: "mail",
         name: "邮件服务",
+        description: "读取与管理已连接邮箱。",
         type: "mcp",
         protocol: { name: "mcp", version: "2026-07-28", endpoint: origin + "/mcp" },
         resource: origin + "/mcp",
@@ -77,7 +80,13 @@ describe("Mira ID application instance portal", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "验证并登记" }));
 
     expect(await screen.findByText("狐邮")).toBeInTheDocument();
+    expect(screen.getByText("你的邮件，由你掌控。")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "访问应用" })).toHaveAttribute("href", origin + "/");
+    expect(document.querySelector('img[src="' + origin + '/brand/icon.png"]')).not.toBeNull();
+    expect(screen.getByText("Project ID")).toBeInTheDocument();
+    expect(screen.getByText("Manifest 版本")).toBeInTheDocument();
     expect(await screen.findByText("邮件服务")).toBeInTheDocument();
+    expect(screen.getByText("读取与管理已连接邮箱。")).toBeInTheDocument();
     expect(screen.queryByDisplayValue(secret)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain(secret);
   });
