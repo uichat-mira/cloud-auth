@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ApplicationServiceCatalogEntry } from "@uichat-mira/cloud-auth-contracts";
 import { useAuthSession } from "@/lib/auth/context";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { Section, SectionHead } from "@/components/ui/section";
 import { ApplicationRequestError, createApplicationClient } from "@/lib/applications/client";
+import { useInstanceServices } from "@/lib/applications/use-instance-services";
 
 type ApplicationAuthorization = {
   appId: string;
@@ -31,6 +34,11 @@ function groupByApplication(
   return [...groups.values()];
 }
 
+/**
+ * Real account authorizations from the V1 catalog. The visual treatment comes
+ * from the Mira ID redesign, while application identity/grouping follows the
+ * current V1 contract.
+ */
 export function InstanceServices() {
   const { account } = useAuthSession();
   return <InstanceServicesForAccount key={account?.id ?? "none"} />;
@@ -38,52 +46,14 @@ export function InstanceServices() {
 
 function InstanceServicesForAccount() {
   const { getSessionToken, invalidateSession } = useAuthSession();
+  const { services, error: readError, refresh } = useInstanceServices();
   const [client] = useState(createApplicationClient);
-  const [services, setServices] = useState<ApplicationServiceCatalogEntry[] | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
-  const mounted = useRef(false);
-  const generation = useRef(0);
 
-  useEffect(() => {
-    mounted.current = true;
-    const token = getSessionToken();
-    const id = ++generation.current;
-    if (token)
-      void client
-        .services(token)
-        .then((result) => {
-          if (mounted.current && id === generation.current && token === getSessionToken())
-            setServices(result.services);
-        })
-        .catch((failure) => {
-          if (!mounted.current || id !== generation.current || token !== getSessionToken()) return;
-          if (failure instanceof ApplicationRequestError && failure.status === 401)
-            invalidateSession(token);
-          setError("无法读取已授权的应用服务。");
-        });
-    return () => {
-      mounted.current = false;
-    };
-  }, [client, getSessionToken, invalidateSession]);
-
-  async function refresh() {
-    const token = getSessionToken();
-    if (!token) return;
-    const id = ++generation.current;
-    setError("");
-    try {
-      const result = await client.services(token);
-      if (mounted.current && id === generation.current && token === getSessionToken())
-        setServices(result.services);
-    } catch (failure) {
-      if (!mounted.current || id !== generation.current || token !== getSessionToken()) return;
-      if (failure instanceof ApplicationRequestError && failure.status === 401)
-        invalidateSession(token);
-      setError("无法读取已授权的应用服务。");
-    }
-  }
+  const failure = error || readError;
+  const applications = services ? groupByApplication(services) : null;
 
   async function performRevocation(
     confirmText: string,
@@ -93,23 +63,23 @@ function InstanceServicesForAccount() {
     if (busy || !window.confirm(confirmText)) return;
     const token = getSessionToken();
     if (!token) return;
+
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await action(token);
-      if (!mounted.current || token !== getSessionToken()) return;
+      if (token !== getSessionToken()) return;
       setNotice(successNotice);
       await refresh();
     } catch (failure) {
-      if (!mounted.current || token !== getSessionToken()) return;
+      if (token !== getSessionToken()) return;
       if (failure instanceof ApplicationRequestError && failure.status === 401)
         invalidateSession(token);
       await refresh();
-      if (mounted.current && token === getSessionToken())
-        setError("撤权未确认成功，请核对最新授权状态。");
+      if (token === getSessionToken()) setError("撤权未确认成功，请核对最新授权状态。");
     } finally {
-      if (mounted.current) setBusy(false);
+      setBusy(false);
     }
   }
 
@@ -129,35 +99,30 @@ function InstanceServicesForAccount() {
     );
   }
 
-  const applications = services ? groupByApplication(services) : null;
-
   return (
-    <section className="console-section" aria-label="已授权应用">
-      <div className="console-section-head">
-        <div>
-          <h2 className="font-semibold">已授权应用</h2>
-          <p className="console-section-caption">
-            来自你主动登录的应用实例；应用授权与“我的应用”所有权分开管理。
-          </p>
-        </div>
-        <Button variant="outline" disabled={busy} onClick={() => void refresh()}>
-          刷新授权
-        </Button>
-      </div>
-      {error && (
-        <p role="alert" className="cloud-notice">
-          {error}
+    <Section labelledBy="authorized-services">
+      <SectionHead
+        id="authorized-services"
+        title="已授权应用服务"
+        caption="来自你主动登录的应用实例，与应用所有权分开管理。撤销后不再出现在这里。"
+        action={
+          <Button variant="outline" disabled={busy} onClick={() => void refresh()}>
+            刷新授权
+          </Button>
+        }
+      />
+
+      {failure && <Notice tone="danger">{failure}</Notice>}
+      {notice && <Notice tone="success">{notice}</Notice>}
+      {applications === null && !failure && (
+        <p className="console-section-caption">正在读取授权…</p>
+      )}
+      {applications?.length === 0 && !failure && (
+        <p className="console-section-caption">
+          尚无已授权应用服务。在你的应用里主动 OAuth 登录 Mira ID 后，授权会出现在这里。
         </p>
       )}
-      {notice && (
-        <p role="status" className="cloud-notice cloud-notice-success">
-          {notice}
-        </p>
-      )}
-      {applications === null && !error && <p className="console-section-caption">正在读取授权…</p>}
-      {applications?.length === 0 && !error && (
-        <p className="console-section-caption">尚无已授权应用。</p>
-      )}
+
       {applications?.map((application) => (
         <section
           className="cloud-application-group"
@@ -212,6 +177,6 @@ function InstanceServicesForAccount() {
           </div>
         </section>
       ))}
-    </section>
+    </Section>
   );
 }

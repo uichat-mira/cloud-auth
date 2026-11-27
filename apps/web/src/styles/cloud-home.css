@@ -1,21 +1,73 @@
 /*
  * Public account home (`/`).
  *
- * Console language, not landing page: one page head, the single contextual
- * entry action, then the destinations the console owns as record rows.
- * Type scale, radii, elevation and row hover all come from the Mira Console
- * tokens — no display sizes for an entry page.
+ * A quiet identity page, not a landing page: the brand statement and the single
+ * contextual entry lead, followed by the destinations the console owns. Type,
+ * radii, elevation, and surfaces come from the Mira Console tokens. The brand
+ * plaque is a neutral gray card; the mark is the only brand-colour accent.
  */
 .cloud-home {
-  max-width: 720px;
-  padding-block: 48px 40px;
+  padding-block: 56px 40px;
+}
+
+/* ---------------------------------------------------------- identity --- */
+
+.cloud-home-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 56px;
+  align-items: center;
+}
+
+.cloud-home-copy {
+  min-width: 0;
+  max-width: 560px;
+}
+
+.cloud-home-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: var(--mc-text-faint);
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+}
+
+.cloud-home-eyebrow::before {
+  content: "";
+  width: 22px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.cloud-home-title {
+  margin: 0;
+  scroll-margin-top: 72px;
+  color: var(--mc-text);
+  font-size: clamp(28px, 3.2vw, 36px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.cloud-home-lead {
+  max-width: 48ch;
+  margin: 12px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 14px;
+  font-weight: 450;
+  line-height: 24px;
 }
 
 .cloud-home-entry {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-top: 24px;
+  margin-top: 28px;
   min-height: 36px;
 }
 
@@ -32,71 +84,184 @@
   line-height: 20px;
 }
 
-/* ------------------------------------------------------ destinations --- */
+/* --------------------------------------------------------- brand plaque --- */
 
-.cloud-home-sections {
-  margin-top: 36px;
-  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
+.cloud-home-brand {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 300px;
+  border-radius: var(--mc-r-xl);
+  padding: 28px;
+  background: var(--mc-surface-2);
+  box-shadow: var(--mc-hairline-muted);
 }
 
-.cloud-home-list {
+/* A quiet brand field behind the plaque content, not a second icon. */
+.cloud-home-brand::after {
+  content: "";
+  position: absolute;
+  right: -48px;
+  bottom: -64px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: var(--mc-overlay-hover);
+  pointer-events: none;
+}
+
+.cloud-home-brand-tile {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--mc-brand-navy);
+  box-shadow: var(--mc-hairline);
+}
+
+.cloud-home-brand-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cloud-home-brand-name {
+  margin: 16px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+}
+
+.cloud-home-brand-line {
+  margin: 20px 0 0;
+  color: var(--mc-text);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.cloud-home-brand-caption {
+  max-width: 30ch;
+  margin: 8px 0 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+}
+
+.cloud-home-brand-pillars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: auto 0 0;
+  padding-top: 24px;
+  color: var(--mc-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.cloud-home-brand-pillars span + span::before {
+  content: "·";
+  margin-inline: 8px;
+  color: var(--mc-text-faint);
+}
+
+/* ------------------------------------------------------ capabilities --- */
+
+.cloud-home-capabilities {
+  margin-top: 48px;
+}
+
+.cloud-home-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 14px;
+  box-shadow: inset 0 -0.5px 0 var(--mc-border-muted);
+}
+
+.cloud-home-section-head h2 {
   margin: 0;
+  color: var(--mc-text);
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 22px;
+}
+
+.cloud-home-section-head p {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--mc-text-secondary);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 20px;
+  text-align: right;
+}
+
+.cloud-home-card-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.cloud-home-list > li + li {
-  box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
-}
-
-.cloud-home-row {
+.cloud-home-card {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) auto;
   gap: 14px;
-  align-items: center;
-  margin-inline: -12px;
-  border-radius: var(--mc-r-md);
-  padding: 14px 12px;
+  align-items: start;
+  min-height: 120px;
+  border-radius: var(--mc-r-lg);
+  padding: 18px;
+  background: var(--mc-surface-1);
+  box-shadow: var(--mc-hairline-muted);
   color: inherit;
   text-decoration: none;
-  transition: background-color 85ms var(--mc-ease);
+  transition:
+    background-color var(--mc-duration-fast) var(--mc-ease),
+    box-shadow var(--mc-duration-fast) var(--mc-ease);
 }
 
-a.cloud-home-row:hover {
-  background: var(--mc-overlay-hover);
+a.cloud-home-card:hover {
+  background: var(--mc-surface-0);
+  box-shadow: var(--mc-el-control);
 }
 
-a.cloud-home-row:active {
-  background: var(--mc-overlay-pressed);
+a.cloud-home-card:active {
+  background: var(--mc-surface-2);
 }
 
-/* Static rows (e.g. not-yet-connected services) keep the layout, not the affordance. */
-.cloud-home-row-static {
-  cursor: default;
-}
-
-.cloud-home-row-icon {
+.cloud-home-card-icon {
   display: grid;
   width: 32px;
   height: 32px;
   place-items: center;
   border-radius: var(--mc-r-sm);
-  /* A white tile would disappear on the white page; the inset surface keeps the glyph anchored. */
-  background: var(--mc-surface-2);
+  background: var(--mc-surface-0);
   box-shadow: var(--mc-hairline-muted);
   color: var(--mc-text-secondary);
 }
 
-.cloud-home-row-icon svg {
+.cloud-home-card-icon svg {
   width: 16px;
   height: 16px;
 }
 
-.cloud-home-row-body {
+.cloud-home-card-body {
   min-width: 0;
 }
 
-.cloud-home-row-title {
+.cloud-home-card-title {
   display: block;
   color: var(--mc-text);
   font-size: 14px;
@@ -104,46 +269,67 @@ a.cloud-home-row:active {
   line-height: 20px;
 }
 
-.cloud-home-row-caption {
+.cloud-home-card-caption {
   display: block;
-  margin-top: 2px;
+  margin-top: 6px;
   color: var(--mc-text-secondary);
   font-size: 13px;
   font-weight: 450;
   line-height: 20px;
 }
 
-.cloud-home-row-trail {
+.cloud-home-card-trail {
   color: var(--mc-text-faint);
   font-size: 14px;
   line-height: 20px;
-}
-
-.cloud-home-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 18px;
-  padding-inline: 6px;
-  border-radius: 4px;
-  background: var(--mc-surface-3);
-  color: var(--mc-text-secondary);
-  font-size: 11px;
-  font-weight: 550;
-  line-height: 16px;
-  white-space: nowrap;
 }
 
 /* --------------------------------------------------------- boundary --- */
 
 .cloud-home-boundary {
   max-width: 62ch;
-  margin: 32px 0 0;
+  margin: 36px 0 0;
   padding-top: 16px;
   box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
   color: var(--mc-text-secondary);
   font-size: 13px;
   font-weight: 450;
   line-height: 20px;
+}
+
+@media (max-width: 900px) {
+  .cloud-home-identity {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+
+  .cloud-home-brand {
+    min-height: 0;
+    padding: 24px;
+  }
+
+  .cloud-home-brand-pillars {
+    margin-top: 20px;
+    padding-top: 0;
+  }
+
+  .cloud-home-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .cloud-home-section-head p {
+    text-align: left;
+  }
+
+  .cloud-home-card-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cloud-home-card {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 640px) {
@@ -155,14 +341,25 @@ a.cloud-home-row:active {
     margin-top: 20px;
   }
 
-  .cloud-home-sections {
-    margin-top: 28px;
+  .cloud-home-entry [data-slot="button"] {
+    width: 100%;
+    justify-content: space-between;
   }
 
-  .cloud-home-row {
-    gap: 12px;
-    margin-inline: -8px;
-    padding: 14px 8px;
+  .cloud-home-brand {
+    padding: 22px;
+  }
+
+  .cloud-home-brand-line {
+    font-size: 20px;
+  }
+
+  .cloud-home-capabilities {
+    margin-top: 36px;
+  }
+
+  .cloud-home-card {
+    padding: 16px;
   }
 
   .cloud-home-boundary {

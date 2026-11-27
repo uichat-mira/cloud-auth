@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Facts } from "@/components/ui/facts";
+import { Notice } from "@/components/ui/notice";
+import { PageHead } from "@/components/ui/page-head";
 import { DcPolicyDialog } from "@/components/dc/dc-policy-dialog";
 import { DcStopDialog } from "@/components/dc/dc-stop-dialog";
 import { errorMessage, remainingLabel } from "@/components/dc/dc-format";
@@ -21,15 +23,12 @@ type Action = "start" | "stop" | "save";
 export function DcControlPage() {
   return (
     <section className="console-page dc-page">
-      <header className="console-page-head">
-        <Link className="console-section-link dc-back" to="/account/services">
-          关联服务
-        </Link>
-        <h1 id="dc-heading" tabIndex={-1}>
-          DC 控制台
-        </h1>
-        <p className="console-page-caption">广州服务器 · Desktop Commander · 按需启动</p>
-      </header>
+      <PageHead
+        id="dc-heading"
+        title="DC 控制台"
+        caption="广州服务器 · Desktop Commander · 按需启动"
+        back={{ to: "/account/services", label: "关联服务" }}
+      />
       <div className="dc-layout">
         <DcNodeCard node="aliyun" />
         <DcNodeCard node="tencent" />
@@ -210,21 +209,21 @@ function DcNodeCard({ node }: { node: DcNode }) {
           <h2 id={`dc-node-title-${node}`}>{nodeName}</h2>
           <p>广州 · Ubuntu · Desktop Commander</p>
         </div>
-        <span className="dc-state-pill" role="status">
+        <span className="dc-state-pill">
           <span className={running ? "dc-dot dc-dot-on" : "dc-dot"} aria-hidden="true" />
           {loading ? "读取中" : !snapshot ? "无法连接" : running ? "运行中" : "已停止"}
         </span>
       </header>
 
       {error ? (
-        <p role="alert" className="cloud-notice cloud-notice-danger dc-feedback">
+        <Notice tone="danger" className="dc-feedback">
           {error}
-        </p>
+        </Notice>
       ) : null}
       {notice ? (
-        <p role="status" className="cloud-notice cloud-notice-success dc-feedback">
+        <Notice tone="success" className="dc-feedback">
           {notice}
-        </p>
+        </Notice>
       ) : null}
 
       <div className="dc-panel-head">
@@ -250,24 +249,24 @@ function DcNodeCard({ node }: { node: DcNode }) {
               : "按需启动，减少服务器资源占用"}
         </span>
       </div>
-      <dl className="console-facts dc-facts">
-        <div>
-          <dt>本次剩余时间</dt>
-          <dd>{legacy ? "临时服务" : remainingLabel(remaining)}</dd>
-        </div>
-        <div>
-          <dt>进程内存</dt>
-          <dd>
-            {snapshot?.memoryBytes == null
-              ? "—"
-              : Math.round(snapshot.memoryBytes / 1048576) + " MiB"}
-          </dd>
-        </div>
-        <div>
-          <dt>主机</dt>
-          <dd>{node === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu</dd>
-        </div>
-      </dl>
+      <Facts
+        align="end"
+        className="dc-facts"
+        items={[
+          { label: "本次剩余时间", value: legacy ? "临时服务" : remainingLabel(remaining) },
+          {
+            label: "进程内存",
+            value:
+              snapshot?.memoryBytes == null
+                ? "—"
+                : Math.round(snapshot.memoryBytes / 1048576) + " MiB",
+          },
+          {
+            label: "主机",
+            value: `${node === "aliyun" ? "阿里云" : "腾讯云"} · 广州 · Ubuntu`,
+          },
+        ]}
+      />
       <div className="dc-actions">
         <Button size="xl" disabled={inactive || running} onClick={() => void perform("start")}>
           {busy === "start" ? "正在启动…" : "启动 DC"}

@@ -1,15 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardTitle } from "@/components/ui/card";
+import { Notice, type NoticeTone } from "@/components/ui/notice";
+import { PageHead } from "@/components/ui/page-head";
 import { HostGrantCard } from "@/components/host-grant-card";
 import { useAuthSession } from "@/lib/auth/context";
 import { useHostGrantsClient } from "@/lib/grants/context";
 import { useDeviceGrants, type HostGrantsNotice } from "@/lib/grants/use-device-grants";
-import { cn } from "@/lib/utils";
 
-const noticeToneClass: Record<HostGrantsNotice["tone"], string> = {
-  success: "cloud-grants-notice--success",
-  warning: "cloud-grants-notice--warning",
-  error: "cloud-grants-notice--danger",
+const noticeTone: Record<HostGrantsNotice["tone"], NoticeTone> = {
+  success: "success",
+  warning: "warning",
+  error: "danger",
 };
 
 /**
@@ -42,11 +43,11 @@ export function DeviceGrantsCard() {
 
   return (
     <div className="cloud-grants">
-      <header className="console-page-head">
-        <div className="cloud-grants-title-row">
-          <h1 id="device-grants-heading" tabIndex={-1}>
-            设备与授权
-          </h1>
+      <PageHead
+        id="device-grants-heading"
+        title="设备与授权"
+        caption="云端保存的授权状态；刷新只读取云端快照，不会强制 Desktop 立即同步。"
+        actions={
           <Button
             type="button"
             variant="ghost"
@@ -72,32 +73,29 @@ export function DeviceGrantsCard() {
               <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.5 2.7L21 9" />
             </svg>
           </Button>
-        </div>
-        <p className="console-page-caption">
-          云端保存的授权状态；刷新只读取云端快照，不会强制 Desktop 立即同步。
-        </p>
-        <div className="cloud-grants-toolbar">
-          {grants.status === "loading" ? (
-            <p className="cloud-grants-summary" aria-hidden="true">
-              <span className="cloud-grants-skeleton cloud-grants-skeleton-summary" />
-            </p>
-          ) : (
-            <p className="cloud-grants-summary">
-              Desktop Host {grants.hosts.length} · 手机设备 {grants.mobiles.length} · 有效授权{" "}
-              {activeGrantCount}
-            </p>
-          )}
-        </div>
-      </header>
+        }
+      />
+      <div className="cloud-grants-toolbar">
+        {grants.status === "loading" ? (
+          <p className="cloud-grants-summary" aria-hidden="true">
+            <span className="cloud-grants-skeleton cloud-grants-skeleton-summary" />
+          </p>
+        ) : (
+          <p className="cloud-grants-summary">
+            Desktop Host {grants.hosts.length} · 手机设备 {grants.mobiles.length} · 有效授权{" "}
+            {activeGrantCount}
+          </p>
+        )}
+      </div>
 
       {grants.notice ? <GrantsNotice notice={grants.notice} /> : null}
 
       {grants.loadFailure ? (
         <Card className="cloud-grants-failure">
           <CardContent className="cloud-grants-failure-body">
-            <p role="alert" className="cloud-grants-failure-message">
+            <Notice role="alert" tone="danger" className="cloud-grants-failure-message">
               {grants.loadFailure.message}
-            </p>
+            </Notice>
             <div className="cloud-grants-failure-actions">
               <Button
                 type="button"
@@ -140,15 +138,16 @@ export function DeviceGrantsCard() {
 
 function GrantsNotice({ notice }: { notice: HostGrantsNotice }) {
   return (
-    <p
+    <Notice
+      tone={noticeTone[notice.tone]}
       role={notice.tone === "success" ? "status" : "alert"}
-      className={cn("cloud-grants-notice", noticeToneClass[notice.tone])}
+      className="cloud-grants-notice"
     >
       <span className="cloud-grants-notice-icon" aria-hidden="true">
         {noticeIcon(notice.tone)}
       </span>
       <span>{notice.message}</span>
-    </p>
+    </Notice>
   );
 }
 

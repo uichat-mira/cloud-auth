@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { PortalShell } from "@/app/root-layout";
@@ -13,9 +13,10 @@ import { createMemoryStorage } from "../helpers/session-storage";
 type ShellStatus = "unauthenticated" | "authenticated" | "unavailable" | "checking" | "idle";
 
 /**
- * The public shell (`/`, `/login`, public 404) keeps exactly one contextual
- * entry link. It is not the console rail: `/account/**` owns the four-section
- * navigation and is covered by console-navigation.test.tsx.
+ * The public shell (`/`, `/login`, public 404) shows a single `登录` link while
+ * signed out and reuses the console account menu once signed in. It is not the
+ * console rail: `/account/**` owns the section navigation and is covered by
+ * console-navigation.test.tsx.
  */
 function mountPublicShell(status: ShellStatus) {
   const client: CloudAuthClient =
@@ -50,63 +51,72 @@ function mountPublicShell(status: ShellStatus) {
   );
 }
 
-function publicNavLinks(): HTMLAnchorElement[] {
-  const nav = screen.getByRole("navigation", { name: "主导航" });
-  return Array.from(nav.querySelectorAll("a"));
+function publicNav() {
+  return within(screen.getByRole("navigation", { name: "主导航" }));
 }
 
-describe("Mira account single entry navigation", () => {
-  it("offers exactly one 登录 entry while signed out", async () => {
+function publicNavLinks(): HTMLAnchorElement[] {
+  return Array.from(screen.getByRole("navigation", { name: "主导航" }).querySelectorAll("a"));
+}
+
+describe("Mira account navigation", () => {
+  it("offers the open platform, docs and one 登录 entry while signed out", async () => {
     mountPublicShell("unauthenticated");
 
-    const links = await waitFor(() => {
-      const current = publicNavLinks();
-      expect(current).toHaveLength(1);
-      return current;
-    });
-
-    expect(links[0]).toHaveTextContent("登录");
-    expect(links[0]).toHaveAttribute("href", "/login");
+    const login = await waitFor(() => publicNav().getByRole("link", { name: "登录" }));
+    expect(login).toHaveAttribute("href", "/login");
+    expect(publicNav().getByRole("link", { name: "开放平台" })).toHaveAttribute(
+      "href",
+      "/open-platform",
+    );
+    expect(publicNav().getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
+    expect(publicNavLinks()).toHaveLength(3);
     expect(screen.queryByRole("link", { name: /OAuth|授权/ })).not.toBeInTheDocument();
   });
 
-  it("points the authenticated entry at the console", async () => {
+  it("switches the signed-in header to the account menu with the console entry", async () => {
     mountPublicShell("authenticated");
 
-    const links = await waitFor(() => {
-      const current = publicNavLinks();
-      expect(current).toHaveLength(1);
-      return current;
-    });
+    const trigger = await screen.findByRole("button", { name: "账户菜单" });
+    expect(publicNav().getByRole("link", { name: "开放平台" })).toHaveAttribute(
+      "href",
+      "/open-platform",
+    );
+    expect(publicNav().getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
+    expect(publicNavLinks()).toHaveLength(2);
+    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
 
-    expect(links[0]).toHaveTextContent("账户中心");
-    expect(links[0]).toHaveAttribute("href", "/account");
+    fireEvent.click(trigger);
+    const actions = screen.getByRole("group", { name: "账户操作" });
+    expect(within(actions).getByRole("link", { name: "控制台" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
+    expect(within(actions).getByRole("button", { name: "退出登录" })).toBeInTheDocument();
   });
 
-  it("never guesses an identity while the session is unavailable", async () => {
+  it("falls back to the 登录 entry when the session is unavailable", async () => {
     mountPublicShell("unavailable");
 
-    const links = await waitFor(() => {
-      const current = publicNavLinks();
-      expect(current).toHaveLength(1);
-      return current;
-    });
-
-    expect(links[0]).toHaveTextContent("检查登录状态");
-    expect(links[0]).toHaveAttribute("href", "/account");
-    expect(screen.queryByRole("link", { name: "账户中心" })).not.toBeInTheDocument();
+    const login = await waitFor(() => publicNav().getByRole("link", { name: "登录" }));
+    expect(login).toHaveAttribute("href", "/login");
+    expect(publicNavLinks()).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "账户菜单" })).not.toBeInTheDocument();
   });
 
   it.each(["idle", "checking"] as const)(
-    "renders no entry link and a status hint during %s",
+    "keeps the docs entry and a status hint during %s",
     async (status) => {
       mountPublicShell(status);
 
       expect(await screen.findByRole("status")).toHaveTextContent("正在检查登录状态");
-      expect(publicNavLinks()).toHaveLength(0);
-      expect(
-        within(screen.getByRole("navigation", { name: "主导航" })).queryByRole("link"),
-      ).toBeNull();
+      expect(publicNav().getByRole("link", { name: "开放平台" })).toHaveAttribute(
+        "href",
+        "/open-platform",
+      );
+      expect(publicNav().getByRole("link", { name: "文档" })).toHaveAttribute("href", "/docs");
+      expect(publicNav().queryByRole("link", { name: "登录" })).not.toBeInTheDocument();
+      expect(publicNavLinks()).toHaveLength(2);
     },
   );
 

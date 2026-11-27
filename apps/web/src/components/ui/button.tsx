@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
  * Button — Mira Console recipe.
  * Heights: sm 24 / default 28 / lg 32 / xl 36 / icon 28. Radius 4–6px, never pills.
  * Depth comes from the shared elevation tokens, not from borders.
+ * The default action is the brand navy with a plain white label. Ivory stays a
+ * brand-asset colour, not a UI surface.
  */
 const buttonVariants = cva(
   [
@@ -20,11 +22,11 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[#242424] text-white shadow-[var(--mc-el-contrast)] hover:bg-[#2e2e2e] active:bg-[#242424]",
+          "bg-[var(--mc-brand-navy)] text-[var(--mc-text-inverse)] shadow-[var(--mc-el-brand)] hover:bg-[var(--mc-brand-navy-hover)] active:bg-[var(--mc-brand-navy-active)]",
         outline:
           "bg-white text-[var(--mc-text)] shadow-[var(--mc-el-control)] hover:bg-[var(--mc-surface-1)]",
         secondary:
-          "bg-[var(--mc-surface-2)] text-[var(--mc-text)] shadow-[var(--mc-hairline-muted)] hover:bg-[#ececec]",
+          "bg-[var(--mc-surface-2)] text-[var(--mc-text)] shadow-[var(--mc-hairline-muted)] hover:bg-[var(--mc-surface-3)]",
         ghost:
           "bg-transparent text-[var(--mc-text-secondary)] hover:bg-[var(--mc-overlay-hover)] hover:text-[var(--mc-text)]",
         destructive:
