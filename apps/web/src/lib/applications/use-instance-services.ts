@@ -9,63 +9,82 @@ export interface InstanceServicesState {
   refresh: () => Promise<void>;
 }
 
+type CatalogState = {
+  accountId: string | null;
+  services: ApplicationServiceCatalogEntry[] | null;
+  error: string;
+};
+
 /**
  * Read the account's real V1 application-service catalog. Requests are scoped by
- * generation and session token so stale responses cannot overwrite a newer
- * account/session, including StrictMode remounts and refresh-after-revoke.
+ * generation, account and session token so stale responses cannot overwrite a
+ * newer account/session, including StrictMode remounts and refresh-after-revoke.
  */
 export function useInstanceServices(): InstanceServicesState {
   const { account, getSessionToken, invalidateSession } = useAuthSession();
   const [client] = useState(createApplicationClient);
-  const [services, setServices] = useState<ApplicationServiceCatalogEntry[] | null>(null);
-  const [error, setError] = useState("");
+  const [state, setState] = useState<CatalogState>({
+    accountId: null,
+    services: null,
+    error: "",
+  });
   const generation = useRef(0);
+  const accountId = account?.id ?? null;
 
   const refresh = useCallback(async () => {
     const token = getSessionToken();
     if (!token) return;
     const id = ++generation.current;
-    setError("");
+    const targetAccountId = accountId;
 
     try {
       const result = await client.services(token);
       if (id !== generation.current || token !== getSessionToken()) return;
-      setServices(result.services);
+      setState({ accountId: targetAccountId, services: result.services, error: "" });
     } catch (failure) {
       if (id !== generation.current || token !== getSessionToken()) return;
       if (failure instanceof ApplicationRequestError && failure.status === 401)
         invalidateSession(token);
-      setError("无法读取已授权的应用服务。");
+      setState({
+        accountId: targetAccountId,
+        services: null,
+        error: "无法读取已授权的应用服务。",
+      });
     }
-  }, [client, getSessionToken, invalidateSession]);
+  }, [accountId, client, getSessionToken, invalidateSession]);
 
   useEffect(() => {
     const token = getSessionToken();
     if (!token) return;
 
     const id = ++generation.current;
+    const targetAccountId = accountId;
     let cancelled = false;
-    setServices(null);
-    setError("");
 
     void client
       .services(token)
       .then((result) => {
         if (cancelled || id !== generation.current || token !== getSessionToken()) return;
-        setServices(result.services);
+        setState({ accountId: targetAccountId, services: result.services, error: "" });
       })
       .catch((failure) => {
         if (cancelled || id !== generation.current || token !== getSessionToken()) return;
         if (failure instanceof ApplicationRequestError && failure.status === 401)
           invalidateSession(token);
-        setError("无法读取已授权的应用服务。");
+        setState({
+          accountId: targetAccountId,
+          services: null,
+          error: "无法读取已授权的应用服务。",
+        });
       });
 
     return () => {
       cancelled = true;
       if (generation.current === id) generation.current += 1;
     };
-  }, [account?.id, client, getSessionToken, invalidateSession]);
+  }, [accountId, client, getSessionToken, invalidateSession]);
 
-  return { services, error, refresh };
+  return state.accountId === accountId
+    ? { services: state.services, error: state.error, refresh }
+    : { services: null, error: "", refresh };
 }
