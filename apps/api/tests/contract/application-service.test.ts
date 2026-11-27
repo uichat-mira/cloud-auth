@@ -30,6 +30,7 @@ describe("instance application service V1 contract", () => {
       projectId: "fixture",
       serviceId: "mail",
       name: "Mail",
+      appName: "Fixture Mail App",
       type: "mcp",
       protocol: { name: "mcp", version: "2026-07-28", endpoint: resource },
       resource,
@@ -39,10 +40,14 @@ describe("instance application service V1 contract", () => {
     };
     expect(applicationServiceCatalogEntrySchema.parse(entry)).toMatchObject({
       appId: entry.appId,
+      appName: "Fixture Mail App",
+      name: "Mail",
       serviceId: entry.serviceId,
       resource,
       revision: 1,
     });
+    expect(applicationServiceCatalogEntrySchema.safeParse({ ...entry, appName: undefined }).success).toBe(false);
+    expect(applicationServiceCatalogEntrySchema.safeParse({ ...entry, appName: " " }).success).toBe(false);
     expect(
       applicationServiceCatalogEntrySchema.safeParse({ ...entry, serviceId: "MAIL" }).success,
     ).toBe(false);

@@ -4,85 +4,68 @@ import { useAuthSession } from "@/lib/auth/context";
 import { ApplicationRequestError, createApplicationClient } from "@/lib/applications/client";
 
 export interface InstanceServicesState {
-  /** `null` until the first catalog read settles. */
   services: ApplicationServiceCatalogEntry[] | null;
   error: string;
-  /** Re-read the catalog; used after a revoke to confirm the new state. */
   refresh: () => Promise<void>;
 }
 
 /**
- * Reads `GET /v1/application-services` for the signed-in account: the account's
- * real service grants. This is the only source for 关联服务 and for the overview
- * count — ownership, registration and static entry lists never feed it.
+ * Read the account's real V1 application-service catalog. Requests are scoped by
+ * generation and session token so stale responses cannot overwrite a newer
+ * account/session, including StrictMode remounts and refresh-after-revoke.
  */
 export function useInstanceServices(): InstanceServicesState {
   const { account, getSessionToken, invalidateSession } = useAuthSession();
   const [client] = useState(createApplicationClient);
   const [services, setServices] = useState<ApplicationServiceCatalogEntry[] | null>(null);
   const [error, setError] = useState("");
-  const mounted = useRef(false);
   const generation = useRef(0);
 
-  /** Claims the next request identity, or `null` without a session token. */
-  const claim = useCallback(() => {
+  const refresh = useCallback(async () => {
     const token = getSessionToken();
-    if (!token) return null;
-    return { token, id: (generation.current += 1) };
-  }, [getSessionToken]);
+    if (!token) return;
+    const id = ++generation.current;
+    setError("");
 
-  const isCurrent = useCallback(
-    (token: string, id: number) =>
-      mounted.current && id === generation.current && token === getSessionToken(),
-    [getSessionToken],
-  );
+    try {
+      const result = await client.services(token);
+      if (id !== generation.current || token !== getSessionToken()) return;
+      setServices(result.services);
+    } catch (failure) {
+      if (id !== generation.current || token !== getSessionToken()) return;
+      if (failure instanceof ApplicationRequestError && failure.status === 401)
+        invalidateSession(token);
+      setError("无法读取已授权的应用服务。");
+    }
+  }, [client, getSessionToken, invalidateSession]);
 
-  const read = useCallback(
-    async (token: string) => {
-      try {
-        const result = await client.services(token);
-        return result.services;
-      } catch (failure) {
+  useEffect(() => {
+    const token = getSessionToken();
+    if (!token) return;
+
+    const id = ++generation.current;
+    let cancelled = false;
+    setServices(null);
+    setError("");
+
+    void client
+      .services(token)
+      .then((result) => {
+        if (cancelled || id !== generation.current || token !== getSessionToken()) return;
+        setServices(result.services);
+      })
+      .catch((failure) => {
+        if (cancelled || id !== generation.current || token !== getSessionToken()) return;
         if (failure instanceof ApplicationRequestError && failure.status === 401)
           invalidateSession(token);
-        return null;
-      }
-    },
-    [client, invalidateSession],
-  );
+        setError("无法读取已授权的应用服务。");
+      });
 
-  const refresh = useCallback(async () => {
-    const ticket = claim();
-    if (!ticket) return;
-    const next = await read(ticket.token);
-    if (!isCurrent(ticket.token, ticket.id)) return;
-    if (next === null) setError("无法读取已授权的应用服务。");
-    else {
-      setServices(next);
-      setError("");
-    }
-  }, [claim, isCurrent, read]);
-
-  useEffect(() => {
-    mounted.current = true;
     return () => {
-      mounted.current = false;
-      generation.current += 1;
+      cancelled = true;
+      if (generation.current === id) generation.current += 1;
     };
-  }, []);
-
-  useEffect(() => {
-    const ticket = claim();
-    if (!ticket) return;
-    void read(ticket.token).then((next) => {
-      if (!isCurrent(ticket.token, ticket.id)) return;
-      if (next === null) setError("无法读取已授权的应用服务。");
-      else {
-        setServices(next);
-        setError("");
-      }
-    });
-  }, [account?.id, claim, isCurrent, read]);
+  }, [account?.id, client, getSessionToken, invalidateSession]);
 
   return { services, error, refresh };
 }
