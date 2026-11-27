@@ -55,7 +55,7 @@ describe("instance service authorizations", () => {
     vi.stubGlobal("fetch", fetcher);
 
     mountPortal({ path: "/account/services", session: storedSession });
-    const panel = await screen.findByRole("region", { name: "已授权应用" });
+    const panel = await screen.findByRole("region", { name: "已授权应用服务" });
     const appA = await within(panel).findByRole("region", {
       name: "应用授权 邮件应用 app-fixture-a",
     });
@@ -97,7 +97,7 @@ describe("instance service authorizations", () => {
     vi.stubGlobal("fetch", fetcher);
 
     mountPortal({ path: "/account/services", session: storedSession });
-    const panel = await screen.findByRole("region", { name: "已授权应用" });
+    const panel = await screen.findByRole("region", { name: "已授权应用服务" });
     const appA = await within(panel).findByRole("region", {
       name: "应用授权 邮件应用 app-fixture-a",
     });

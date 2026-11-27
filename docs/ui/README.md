@@ -4,9 +4,9 @@ The Account portal was redesigned against a measured reference (the OpenCode Con
 activity page). Everything here is derived from that reference's shipped CSS, not from
 memory, and every value is checked against the running app.
 
-Round 1 adopted the reference's *visual* language (tokens, type scale, elevation, components).
-Round 2 adopted its *information organisation*: the account area is now a console — a left
-section rail, four routes, page heads with one-line captions, fact lists and record rows —
+Round 1 adopted the reference's _visual_ language (tokens, type scale, elevation, components).
+Round 2 adopted its _information organisation_: the account area is now a console — a left
+section rail, routed sections, page heads with one-line captions, fact lists and record rows —
 instead of one long marketing scroll.
 
 The delivered portal also has a persistent public home at `/` and a centered login form
@@ -14,19 +14,39 @@ at `/login`. The console rail keeps only the logout action; the header identity 
 longer repeats the login status. These refinements supersede the initial layouts in
 the design and IA documents below.
 
+## Current direction (2026-11-24 brand pass)
+
+The **Mira ID brand pass** supersedes the earlier OpenCode-blue accent:
+
+- Actions, links, focus and emphasis use brand navy `#151A2C`; ivory `#FFF6ED` remains a
+  brand-asset colour only. UI surfaces are an achromatic black / white / gray ramp.
+- Selected states use the same neutral wash as hover; no ivory, warm tint or accent fill.
+- The scope containment is now explicit: `/account/services/*` exists for Cloud Agent and DC;
+  the account rail lists the parent route only.
+- Shared primitives live in `apps/web/src/components/ui/` (`badge`, `notice`, `page-head`,
+  `section`, `facts`, `field`, `skeleton`, `confirm-dialog` on top of `button` / `card` / `input`).
+- Shell duplication is gone: public and console shells share header, container, brand and
+  mobile-hit recipes in `cloud-shell.css`; `console.css` keeps only rail and page recipes.
+- `/` now carries the README position ("One identity. Across Mira.") with a quiet hero and
+  brand plaque, while keeping the contextual entry, the account destination cards and the
+  signed-in account menu shared with the console header (`控制台` → `/account`).
+
+The live contract is [`design-system-reference.md`](./design-system-reference.md).
+
 ## Current boundary note (2026-11-21)
 
 The implemented `/account/services` Associated Services route exists, but its current list in `apps/web/src/components/associated-services.tsx` does **not** yet contain Who You. The approved future link/identity association belongs here; provider mailbox setup and credential management belong in Who You, not the Cloud Auth console. The **single product responsibility record** is [Who You `docs/product-design.md`](https://github.com/uichat-mira/who-you/blob/dev/docs/product-design.md). The historical UI IA sections below do not supersede runtime code or imply the Who You service entry is shipped.
 
 ## Documents
 
-| File | What it is |
-| --- | --- |
-| [`opencode-design-system.md`](./opencode-design-system.md) | Factual harvest of the reference console: 240 `--v2-*` + 14 `--oc-*` tokens, elevation recipes, type scale, component recipes (button-v2, inputs, menus, dialogs, tags…), the `.activity-dashboard` layout and breakpoint cascade. Evidence, not a plan. |
-| [`current-ui-audit.md`](./current-ui-audit.md) | Objective audit of the **old** UI (measured at commit `b1f358c`): font-size histogram, WCAG contrast failures, affordance/tap-target counts, CSS entropy, plus the must-preserve test contract. |
-| [`console-ia-contract.md`](./console-ia-contract.md) | The build contract for the console IA: route tree, page exports, shell markup, per-route copy and heading ids, component changes, CSS class list, file ownership, invariants. Read this before touching `app/`, `pages/account/` or the grants components. |
-| [`mira-redesign-spec.md`](./mira-redesign-spec.md) | The design system we adopted ("Mira Console"): information architecture, token tables, type scale, component recipes, page blueprints, breakpoints, accessibility rules and the verification protocol. |
-| [`redesign-verification.md`](./redesign-verification.md) | Before/after measurements taken from the running app (type histogram, contrast, tap targets, focus rings, layout geometry), with the command used for each number. |
+| File                                                         | What it is                                                                                                                                                                                                                                                 |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`design-system-reference.md`](./design-system-reference.md) | **Current contract.** Token tiers, type/spacing/motion scales, primitive inventory, shell surfaces, confirmed patterns and gotchas.                                                                                                                        |
+| [`opencode-design-system.md`](./opencode-design-system.md)   | Factual harvest of the reference console: 240 `--v2-*` + 14 `--oc-*` tokens, elevation recipes, type scale, component recipes (button-v2, inputs, menus, dialogs, tags…), the `.activity-dashboard` layout and breakpoint cascade. Evidence, not a plan.   |
+| [`current-ui-audit.md`](./current-ui-audit.md)               | Objective audit of the **old** UI (measured at commit `b1f358c`): font-size histogram, WCAG contrast failures, affordance/tap-target counts, CSS entropy, plus the must-preserve test contract.                                                            |
+| [`console-ia-contract.md`](./console-ia-contract.md)         | The build contract for the console IA: route tree, page exports, shell markup, per-route copy and heading ids, component changes, CSS class list, file ownership, invariants. Read this before touching `app/`, `pages/account/` or the grants components. |
+| [`mira-redesign-spec.md`](./mira-redesign-spec.md)           | The design system we adopted ("Mira Console"): information architecture, token tables, type scale, component recipes, page blueprints, breakpoints, accessibility rules and the verification protocol.                                                     |
+| [`redesign-verification.md`](./redesign-verification.md)     | Before/after measurements taken from the running app (type histogram, contrast, tap targets, focus rings, layout geometry), with the command used for each number.                                                                                         |
 
 ## Where it lives in code
 
@@ -38,19 +58,25 @@ apps/web/src/lib/auth/session-labels.ts  AuthStatus → 中文 label (rail, over
 apps/web/src/lib/format.ts           formatExpiry (shared account facts)
 apps/web/src/lib/auth/account-entry.ts  shared public entry destinations and labels
 apps/web/src/pages/home-page.tsx     persistent account portal home
-apps/web/src/styles/globals.css      --mc-* raw tokens, shadcn bridge, base layer, focus ring
-apps/web/src/styles/cloud-shell.css  public header / container / footer / brand / nav
-apps/web/src/styles/console.css      console shell + info primitives (rail, page head, facts, summary)
-apps/web/src/styles/cloud-pages.css  login canvas+card, account sections, rows, dialog, states
-apps/web/src/styles/cloud-home.css   public account entry: page head, entry action, destination rows
+apps/web/src/pages/open-platform-page.tsx  public open-platform overview (trust chain, onboarding, developer entries)
+apps/web/src/pages/docs-page.tsx     in-app documentation reader (rail + markdown article)
+apps/web/src/lib/docs/registry.ts    docs allowlist + build-time ?raw markdown imports (no copies)
+apps/web/src/lib/docs/markdown-links.ts  cross-document link rewriting for the reader
+apps/web/src/styles/globals.css      --mc-* raw tokens (brand, neutral surfaces, type/space/motion), shadcn bridge, base layer, focus ring
+apps/web/src/styles/cloud-shell.css  shared public + console shell: container, header, brand, footer, nav link, mobile hit areas
+apps/web/src/styles/console.css      console-only chrome: rail, page head, sections, facts, summary, recovery
+apps/web/src/styles/cloud-pages.css  login canvas+card, notices, action rows, dialogs, states, fields
+apps/web/src/styles/cloud-home.css   public identity home: hero copy, brand plaque, destination cards
+apps/web/src/styles/cloud-open-platform.css  open-platform page: sticky section nav, trust card, onboarding, developer panel
+apps/web/src/styles/cloud-docs.css   docs reader: sticky rail, markdown article, horizontal rail ≤900
 apps/web/src/styles/cloud-grants.css device/host grants, scope pills, editor, confirm block
-apps/web/src/components/ui/          button, input, card recipes (CVA)
+apps/web/src/components/ui/          button, card, input + badge, notice, page-head, section, facts, field, skeleton, confirm-dialog
 apps/web/public/fonts/               Inter variable (latin subset, OFL) + licence
 apps/web/public/brand/               deployed brand assets: header mark 96×96, favicon 64×64
 docs/assets/mira-logo.png            brand master derivative for README/docs (302×240, not deployed)
 ```
 
-Load order matters: `globals → cloud-shell → console → cloud-pages → cloud-home → cloud-grants`. Plain CSS
+Load order matters: `globals → cloud-shell → console → cloud-pages → cloud-home → cloud-docs → cloud-grants`. Plain CSS
 (no `@layer`) always beats Tailwind utilities — that is deliberate, it is how the
 token layer wins over stray component utilities, and it is also why the focus ring lives
 outside `@layer base` (a ring declared in `base` is erased by `outline-none`).
@@ -69,20 +95,27 @@ the master to x 40–892 / y 35–713, then fitting that artwork by width onto a
 
 ## Routes
 
-| Route | Page | h1 |
-| --- | --- | --- |
-| `/` | `HomePage` | Mira Cloud 账户 |
-| `/login` | `LoginPage` | 登录 Mira Cloud |
-| `/account` | `OverviewPage` | 我的账户 |
-| `/account/devices` | `DevicesPage` | 设备与授权 |
-| `/account/security` | `SecurityPage` | 账户安全 |
-| `/account/services` | `ServicesPage` | 关联服务 |
-| `/account/*` | `NotFoundPage` inside the console shell | 页面不存在 |
-| `*` | `NotFoundPage` in the public shell | 页面不存在 |
+| Route                           | Page                                    | h1                        |
+| ------------------------------- | --------------------------------------- | ------------------------- |
+| `/`                             | `HomePage`                              | Mira 账号                 |
+| `/login`                        | `LoginPage`                             | 登录 Mira 账号            |
+| `/account`                      | `OverviewPage`                          | 我的账户                  |
+| `/account/devices`              | `DevicesPage`                           | 设备与授权                |
+| `/account/security`             | `SecurityPage`                          | 账户安全                  |
+| `/account/services`             | `ServicesPage`                          | 关联服务                  |
+| `/account/services/dc`          | `DcControlPage`                         | DC 控制台                 |
+| `/account/services/cloud-agent` | `CloudAgentPage`                        | Cloud Agent · 烤派        |
+| `/open-platform`                | `OpenPlatformPage`                      | 把 Mira ID 延伸到你的应用 |
+| `/docs`                         | `DocsPage` (redirects to the guide)     | 文档标题（md h1）         |
+| `/docs/:docId`                  | `DocsPage`                              | 文档标题（md h1）         |
+| `/account/*`                    | `NotFoundPage` inside the console shell | 页面不存在                |
+| `*`                             | `NotFoundPage` in the public shell      | 页面不存在                |
 
 ## Rules that are easy to break
 
 - Colours and elevation come from `--mc-*` only. A raw hex belongs in `globals.css`, nowhere else.
+- Actions, links, focus and emphasis use brand navy `#151A2C`; selection is the same neutral wash as hover, never an ivory/yellow or accent fill. Do not add a second accent hue.
+- Warm neutrals are deliberate. Do not reintroduce cool grey or `#fafafa` as a surface value.
 - Depth is a `0 0 0 .5px` hairline or a multi-layer elevation token — never `1px solid`.
 - No `!important` (the single `prefers-reduced-motion` guard is the exception).
 - Body copy is 13px minimum (14px default); 11–12px is reserved for metadata captions.
@@ -98,14 +131,18 @@ the master to x 40–892 / y 35–713, then fitting that artwork by width onto a
 ## Verifying a change
 
 ```bash
-pnpm --filter @uichat-mira/cloud-auth-web run typecheck
-pnpm --filter @uichat-mira/cloud-auth-web run test:unit          # T1
-pnpm --filter @uichat-mira/cloud-auth-web run test:integration   # T3, renders real pages
-pnpm run check                                                   # fast repository gate
+# Node ≥24 is required. On a Node 20 shell, pin both the runtime and pnpm through npx.
+NODE_ENV=test npx -y -p node@24.19.0 -p pnpm@10.34.7 pnpm --filter @uichat-mira/cloud-auth-web run typecheck
+NODE_ENV=test npx -y -p node@24.19.0 -p pnpm@10.34.7 pnpm --filter @uichat-mira/cloud-auth-web run test:unit          # T1
+NODE_ENV=test npx -y -p node@24.19.0 -p pnpm@10.34.7 pnpm --filter @uichat-mira/cloud-auth-web run test:integration   # T3, renders real pages
+NODE_ENV=test npx -y -p node@24.19.0 -p pnpm@10.34.7 pnpm run check                                                   # fast repository gate
 ```
 
+`NODE_ENV=test` matters: this shell exports `production`, which makes React Testing Library
+fail with `React.act is not a function`.
+
 `test:integration` writes full-page screenshots to `apps/web/coverage/screenshots/`
-(desktop + mobile for login, the four account routes, the password dialog, 404). Those are the
+(desktop + mobile for login, the account routes, the password dialog, 404). Those are the
 quickest way to eyeball a regression. The app also supports `pnpm run dev` (API
 `127.0.0.1:8788`, Vite `127.0.0.1:5173` proxying `/v1`, `/health`, `/ready`, `/.well-known`) and
 `pnpm --filter @uichat-mira/cloud-auth-web run preview` for the production bundle.

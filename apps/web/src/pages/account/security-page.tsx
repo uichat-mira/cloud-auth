@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { Button } from "@/components/ui/button";
+import { Facts } from "@/components/ui/facts";
+import { PageHead } from "@/components/ui/page-head";
+import { Section, SectionHead } from "@/components/ui/section";
 import { useAuthSession } from "@/lib/auth/context";
 import { sessionLabels } from "@/lib/auth/session-labels";
 import { formatExpiry } from "@/lib/format";
@@ -26,19 +29,14 @@ export function SecurityPage() {
 
   return (
     <section className="console-page">
-      <header className="console-page-head">
-        <h1 id="account-security-heading" tabIndex={-1}>
-          账户安全
-        </h1>
-        <p className="console-page-caption">密码与此浏览器的云端会话。</p>
-      </header>
+      <PageHead
+        id="account-security-heading"
+        title="账户安全"
+        caption="密码与此浏览器的云端会话。"
+      />
 
-      <section className="console-section" aria-labelledby="security-password">
-        <div className="console-section-head">
-          <div>
-            <h2 id="security-password">密码</h2>
-          </div>
-        </div>
+      <Section labelledBy="security-password">
+        <SectionHead id="security-password" title="密码" />
         <button
           type="button"
           aria-label="修改密码"
@@ -51,35 +49,32 @@ export function SecurityPage() {
           </span>
           <span aria-hidden="true" className="cloud-row-chevron" />
         </button>
-      </section>
+      </Section>
 
-      <section className="console-section" aria-labelledby="security-session">
-        <div className="console-section-head">
-          <div>
-            <h2 id="security-session">当前登录会话</h2>
-            <p className="console-section-caption">仅管理此浏览器的会话。</p>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => void renew()}
-            disabled={pending !== null}
-          >
-            {pending === "renew" ? "续期中…" : "续期 Session"}
-          </Button>
-        </div>
-        <dl className="console-facts">
-          <div>
-            <dt>状态</dt>
-            <dd>{sessionLabels[status]}</dd>
-          </div>
-          <div>
-            <dt>到期时间</dt>
-            <dd>{formatExpiry(expiresAt)}</dd>
-          </div>
-        </dl>
-      </section>
+      <Section labelledBy="security-session">
+        <SectionHead
+          id="security-session"
+          title="当前登录会话"
+          caption="仅管理此浏览器的会话。"
+          action={
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void renew()}
+              disabled={pending !== null}
+            >
+              {pending === "renew" ? "续期中…" : "续期 Session"}
+            </Button>
+          }
+        />
+        <Facts
+          items={[
+            { label: "状态", value: sessionLabels[status] },
+            { label: "到期时间", value: formatExpiry(expiresAt) },
+          ]}
+        />
+      </Section>
 
       <ChangePasswordDialog open={passwordOpen} onClose={closePasswordDialog} />
     </section>

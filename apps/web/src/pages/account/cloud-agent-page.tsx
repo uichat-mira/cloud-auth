@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Facts } from "@/components/ui/facts";
+import { Notice } from "@/components/ui/notice";
+import { PageHead } from "@/components/ui/page-head";
 import { useAuthSession } from "@/lib/auth/context";
 import { revokeFailedSession } from "@/lib/auth/reauth";
 
@@ -88,6 +92,18 @@ function dateLabel(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("zh-CN");
 }
 
+const scheduleTone: Record<Schedule["status"], "success" | "warning" | "info"> = {
+  active: "success",
+  paused: "warning",
+  completed: "info",
+};
+
+const scheduleLabel: Record<Schedule["status"], string> = {
+  active: "进行中",
+  paused: "已暂停",
+  completed: "已完成",
+};
+
 export function CloudAgentPage() {
   const { getSessionToken, invalidateSession } = useAuthSession();
   const [status, setStatus] = useState<AgentStatus | null>(null);
@@ -97,6 +113,7 @@ export function CloudAgentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -155,11 +172,6 @@ export function CloudAgentPage() {
 
   async function operate(id: string, action: "pause" | "enable" | "run-now") {
     if (busy) return;
-    if (
-      action === "run-now" &&
-      !window.confirm("现在执行这项研究？会真实调用模型、工具，并可能向已配置目标发送消息。")
-    )
-      return;
     const token = getSessionToken();
     if (!token) return;
     setBusy(id);
@@ -181,26 +193,14 @@ export function CloudAgentPage() {
 
   return (
     <section className="console-page dc-page">
-      <header className="console-page-head">
-        <Link className="console-section-link dc-back" to="/account/services">
-          关联服务
-        </Link>
-        <h1 tabIndex={-1}>Cloud Agent · 烤派</h1>
-        <p className="console-page-caption">
-          统一查看研究任务与运行状态。只有 Cloud Account
-          维护者可以操作；飞书和企微的普通聊天权限不会授予管理权。
-        </p>
-      </header>
-      {error ? (
-        <p className="cloud-notice cloud-notice-danger" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {notice ? (
-        <p className="cloud-notice cloud-notice-success" role="status">
-          {notice}
-        </p>
-      ) : null}
+      <PageHead
+        id="cloud-agent-heading"
+        title="Cloud Agent · 烤派"
+        caption="统一查看研究任务与运行状态。只有 Cloud Account 维护者可以操作；飞书和企微的普通聊天权限不会授予管理权。"
+        back={{ to: "/account/services", label: "关联服务" }}
+      />
+      {error ? <Notice tone="danger">{error}</Notice> : null}
+      {notice ? <Notice tone="success">{notice}</Notice> : null}
       <div className="dc-layout">
         <section className="dc-panel" aria-label="Agent 服务状态">
           <div className="dc-panel-head">
@@ -217,24 +217,16 @@ export function CloudAgentPage() {
           <p className="dc-primary-state">
             <strong>{loading ? "正在读取…" : status ? "控制接口在线" : "尚未连接"}</strong>
           </p>
-          <dl className="console-facts dc-facts">
-            <div>
-              <dt>计划数量</dt>
-              <dd>{status?.scheduler.scheduleCount ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>正在执行</dt>
-              <dd>{status?.scheduler.activeRuns ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>历史运行</dt>
-              <dd>{status?.research.runCount ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>状态更新时间</dt>
-              <dd>{dateLabel(status?.checkedAt)}</dd>
-            </div>
-          </dl>
+          <Facts
+            align="end"
+            className="dc-facts"
+            items={[
+              { label: "计划数量", value: status?.scheduler.scheduleCount ?? "—" },
+              { label: "正在执行", value: status?.scheduler.activeRuns ?? "—" },
+              { label: "历史运行", value: status?.research.runCount ?? "—" },
+              { label: "状态更新时间", value: dateLabel(status?.checkedAt) },
+            ]}
+          />
           <p className="dc-muted">管理接口在线不等于飞书、企微及观澜全部通过真实服务验收。</p>
         </section>
         <section className="dc-panel" aria-labelledby="agent-schedules-heading">
@@ -251,7 +243,7 @@ export function CloudAgentPage() {
                 <li className="cloud-service-row" key={s.scheduleId}>
                   <div className="cloud-service-row-head">
                     <span className="cloud-service-name">{s.name || s.scheduleId}</span>
-                    <span className="cloud-service-pill">{s.status}</span>
+                    <Badge tone={scheduleTone[s.status]}>{scheduleLabel[s.status]}</Badge>
                   </div>
                   <p className="cloud-service-detail">
                     下次运行：{dateLabel(s.nextRunAt)} · {s.timezone} · 投递目标{" "}
@@ -273,7 +265,7 @@ export function CloudAgentPage() {
                     <Button
                       size="sm"
                       disabled={busy !== null}
-                      onClick={() => void operate(s.scheduleId, "run-now")}
+                      onClick={() => setConfirmId(s.scheduleId)}
                     >
                       {busy === s.scheduleId ? "执行中…" : "立即执行"}
                     </Button>
@@ -297,7 +289,7 @@ export function CloudAgentPage() {
                 <li className="cloud-service-row" key={r.runId}>
                   <div className="cloud-service-row-head">
                     <span className="cloud-service-name">{r.chat?.channel ?? "定时研究"}</span>
-                    <span className="cloud-service-pill">{r.status}</span>
+                    <Badge tone="neutral">{r.status}</Badge>
                   </div>
                   <p className="cloud-service-detail">
                     {dateLabel(r.finishedAt ?? r.createdAt)} · {r.runId}
@@ -312,6 +304,21 @@ export function CloudAgentPage() {
         当前只开放状态、计划启停与已有计划的执行。模型密钥、双 IM 凭证与 Guanlan
         后台委托需要独立的安全配置写入能力，不能存入浏览器或伪装已接入。
       </p>
+
+      {confirmId ? (
+        <ConfirmDialog
+          title="现在执行这项研究？"
+          description="会真实调用模型、工具，并可能向已配置目标发送消息。"
+          confirmLabel="立即执行"
+          busy={busy !== null}
+          onCancel={() => setConfirmId(null)}
+          onConfirm={() => {
+            const id = confirmId;
+            setConfirmId(null);
+            void operate(id, "run-now");
+          }}
+        />
+      ) : null}
     </section>
   );
 }

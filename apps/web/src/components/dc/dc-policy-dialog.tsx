@@ -1,5 +1,6 @@
 import { useEffect, useRef, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
 import {
   dcCpuLimits,
   dcDurations,
@@ -155,11 +156,7 @@ export function DcPolicyDialog({
           <span>开机自动启动</span>
           <span>未启用</span>
         </div>
-        {policyError ? (
-          <p role="alert" className="cloud-notice cloud-notice-danger">
-            {policyError}
-          </p>
-        ) : null}
+        {policyError ? <Notice tone="danger">{policyError}</Notice> : null}
         <div className="cloud-dialog-footer">
           <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
             取消

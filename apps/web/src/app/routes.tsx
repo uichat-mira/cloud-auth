@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router-dom";
 import { ApplicationsPage } from "@/pages/account/applications-page";
 import { AccountLayout } from "@/app/account-layout";
 import { PublicLayout } from "@/app/root-layout";
+import { DocsPage } from "@/pages/docs-page";
 import { HomePage } from "@/pages/home-page";
 import { DevicesPage } from "@/pages/account/devices-page";
 import { DcControlPage } from "@/pages/account/dc-control-page";
@@ -11,6 +12,7 @@ import { SecurityPage } from "@/pages/account/security-page";
 import { ServicesPage } from "@/pages/account/services-page";
 import { LoginPage } from "@/pages/login-page";
 import { NotFoundPage } from "@/pages/not-found-page";
+import { OpenPlatformPage } from "@/pages/open-platform-page";
 import { RouteErrorPage } from "@/pages/route-error-page";
 
 /**
@@ -32,6 +34,18 @@ export const routes: RouteObject[] = [
       {
         path: "login",
         element: <LoginPage />,
+      },
+      {
+        path: "open-platform",
+        element: <OpenPlatformPage />,
+      },
+      {
+        path: "docs",
+        element: <DocsPage />,
+      },
+      {
+        path: "docs/:docId",
+        element: <DocsPage />,
       },
       {
         path: "*",

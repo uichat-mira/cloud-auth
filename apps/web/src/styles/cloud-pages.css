@@ -44,6 +44,24 @@
   box-shadow: 0 0 0 0.5px var(--mc-danger-border);
 }
 
+.cloud-notice-warning {
+  background: var(--mc-warning-bg);
+  color: var(--mc-warning-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-warning-border);
+}
+
+.cloud-notice-info {
+  background: var(--mc-info-bg);
+  color: var(--mc-info-fg);
+  box-shadow: 0 0 0 0.5px var(--mc-info-border);
+}
+
+.cloud-notice-neutral {
+  background: var(--mc-surface-1);
+  color: var(--mc-text-secondary);
+  box-shadow: var(--mc-hairline-muted);
+}
+
 /* ------------------------------------------------------------------ */
 /* Action row (security page: 修改密码)                                 */
 
@@ -144,7 +162,7 @@
 /* Login page                                                          */
 /* ------------------------------------------------------------------ */
 
-/* Full-bleed #fafafa canvas. The 100vmax shadow paints edge-to-edge without
+/* Full-bleed neutral canvas. The 100vmax shadow paints edge-to-edge without
  * creating horizontal scroll; the clip (plus overflow: clip for iOS Safari)
  * keeps it inside this block vertically and stops any scrollWidth contribution.
  * min-height mirrors the shell: header 56 + footer 66 = 122px at 641px and up. */
@@ -207,6 +225,14 @@
 .cloud-field-hint {
   margin: 0;
   color: var(--mc-text-faint);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 450;
+}
+
+.cloud-field-error {
+  margin: 0;
+  color: var(--mc-danger-fg);
   font-size: 13px;
   line-height: 20px;
   font-weight: 450;
