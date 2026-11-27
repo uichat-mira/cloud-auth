@@ -77,8 +77,7 @@ function InstanceServicesForAccount() {
       if (failure instanceof ApplicationRequestError && failure.status === 401)
         invalidateSession(token);
       await refresh();
-      if (token === getSessionToken())
-        setError("撤权未确认成功，请核对最新授权状态。");
+      if (token === getSessionToken()) setError("撤权未确认成功，请核对最新授权状态。");
     } finally {
       setBusy(false);
     }
