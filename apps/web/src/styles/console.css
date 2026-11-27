@@ -1,82 +1,15 @@
 /*
- * Console shell — the account area's own chrome: sticky header, a 212px section
- * rail (tabs below 1024px), one 960px content column and the single session
- * block. Every value references the --mc-* tokens in globals.css; depth is a
- * .5px hairline shadow, never a 1px border; the focus ring is the global
- * unlayered rule in globals.css and is not redefined here.
+ * Console shell — the account area's own chrome: the section rail (tabs below
+ * 1024px) and one wide content column. Shared shell recipes (container,
+ * header, brand lockup, mobile hit areas) live in cloud-shell.css.
+ * Depth is a .5px hairline shadow, never a 1px border; the focus ring is the
+ * global unlayered rule in globals.css and is not redefined here.
  */
-
-/* ---------------------------------------------------------------- shell --- */
-
-.console-shell {
-  display: flex;
-  min-height: 100dvh;
-  flex-direction: column;
-  background: var(--mc-surface-0);
-  color: var(--mc-text);
-}
-
-.console-container {
-  width: 100%;
-  max-width: 1120px;
-  margin-inline: auto;
-  padding-inline: 24px;
-}
 
 /* --------------------------------------------------------------- header --- */
 
-.console-header {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  background: color-mix(in srgb, var(--mc-surface-0) 85%, transparent);
-  -webkit-backdrop-filter: blur(8px) saturate(180%);
-  backdrop-filter: blur(8px) saturate(180%);
-  box-shadow: inset 0 -0.5px 0 var(--mc-border-muted);
-}
-
-.console-header-inner {
-  display: flex;
-  height: 56px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.console-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  flex: none;
-  border-radius: var(--mc-r-sm);
-  color: inherit;
-  text-decoration: none;
-}
-
-.console-brand-mark {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  overflow: hidden;
-  border-radius: 7px;
-  background: var(--mc-brand-navy);
-  box-shadow: var(--mc-hairline-muted);
-}
-
-.console-brand-mark img {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.console-brand-copy strong {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 18px;
-  letter-spacing: 0;
-}
+/* `.console-header-action` is the signed-out console action; the identity menu
+ * is shared by the console header and the signed-in public header. */
 
 .console-header-action {
   display: inline-flex;
@@ -152,7 +85,7 @@
   box-shadow: var(--mc-el-floating);
 }
 
-.console-account-logout {
+.console-account-item {
   display: flex;
   width: 100%;
   min-height: 40px;
@@ -166,15 +99,16 @@
   font-size: 13px;
   font-weight: 550;
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.console-account-logout:hover {
+.console-account-item:hover {
   background: var(--mc-overlay-hover);
   color: var(--mc-text);
 }
 
-.console-account-logout:disabled {
+.console-account-item:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -274,14 +208,11 @@
   opacity: 0.45;
 }
 
-/* NavLink maintains aria-current; the visual active state keys off it. */
-.console-nav-link[aria-current="page"] {
-  background: var(--mc-surface-2);
-  color: var(--mc-text);
-}
-
+/* NavLink maintains aria-current; selection uses the same neutral wash as hover. */
+.console-nav-link[aria-current="page"],
 .console-nav-link[aria-current="page"]:hover {
-  background: var(--mc-surface-2);
+  background: var(--mc-selected-bg);
+  color: var(--mc-selected-fg);
 }
 
 .console-nav-hint {
@@ -297,7 +228,7 @@
 
 .console-main {
   min-width: 0;
-  max-width: 960px;
+  max-width: 1040px;
 }
 
 .console-notices {
@@ -353,6 +284,25 @@
   font-size: 13px;
   font-weight: 450;
   line-height: 20px;
+}
+
+/* Title + trailing action (refresh, renew) share one aligned row. */
+.console-page-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.console-page-head-row h1 {
+  min-width: 0;
+}
+
+.console-page-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
 }
 
 /* -------------------------------------------------------------- section --- */
@@ -448,6 +398,16 @@
   font-weight: 450;
   line-height: 20px;
   overflow-wrap: anywhere;
+}
+
+.console-facts[data-align="end"] > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.console-facts[data-align="end"] dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .console-summary {
@@ -685,14 +645,6 @@
 }
 
 @media (max-width: 640px) {
-  .console-container {
-    padding-inline: 16px;
-  }
-
-  .console-header-inner {
-    height: 52px;
-  }
-
   .console-rail {
     top: 52px;
     margin-inline: -16px;
@@ -719,15 +671,6 @@
   .console-facts > div {
     grid-template-columns: 104px minmax(0, 1fr);
     gap: 12px;
-  }
-
-  /* Mobile hit areas: never smaller than the 40px comfortable minimum. */
-  .console-shell [data-slot="button"] {
-    min-height: 40px;
-  }
-
-  .console-brand {
-    min-height: 40px;
   }
 
   /* Section links sit at the end of a heading row; give them a real hit area. */

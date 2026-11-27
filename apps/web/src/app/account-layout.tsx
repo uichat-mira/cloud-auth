@@ -2,9 +2,12 @@ import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
 import { ConsoleNav } from "@/components/console-nav";
+import { HeaderLinks } from "@/components/header-links";
 import { ModalOpenProvider, useModalOpen } from "@/components/modal-open-context";
 import { SessionBlock } from "@/components/session-block";
 import { SessionRecovery } from "@/components/session-recovery";
+import { Notice } from "@/components/ui/notice";
+import { PageHead } from "@/components/ui/page-head";
 import { useAuthSession } from "@/lib/auth/context";
 import { loginUrlForAccount } from "@/lib/auth/return-location";
 import { SessionExpiryNotice } from "@/components/session-expiry-notice";
@@ -40,7 +43,7 @@ function AccountConsole() {
     <div className="console-shell">
       <header className="console-header">
         <div className="console-container console-header-inner">
-          <Link to={authenticated ? "/account" : loginHref} className="console-brand">
+          <Link to={authenticated ? "/" : loginHref} className="console-brand">
             <span aria-hidden="true" className="console-brand-mark">
               <img src="/brand/mira-id/svg/mira-id-app.svg" alt="" width={96} height={96} />
             </span>
@@ -49,13 +52,16 @@ function AccountConsole() {
             </span>
           </Link>
 
-          {authenticated ? (
-            <SessionBlock />
-          ) : (
-            <Link to={loginHref} className="console-header-action">
-              登录
-            </Link>
-          )}
+          <div className="console-header-meta">
+            <HeaderLinks />
+            {authenticated ? (
+              <SessionBlock />
+            ) : (
+              <Link to={loginHref} className="console-header-action">
+                登录
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
@@ -69,19 +75,13 @@ function AccountConsole() {
             {authenticated ? <SessionExpiryNotice /> : null}
             <AuthFailureAlert failure={modalOpen ? null : failure} />
             {authenticated && notice === "login_succeeded" ? (
-              <p role="status" className="cloud-notice cloud-notice-success">
-                登录成功，已进入 Mira 账号。
-              </p>
+              <Notice tone="success">登录成功，已进入 Mira 账号。</Notice>
             ) : null}
             {notice === "session_renewed" ? (
-              <p role="status" className="cloud-notice cloud-notice-success">
-                Cloud Session 已续期，当前登录状态保持不变。
-              </p>
+              <Notice tone="success">Cloud Session 已续期，当前登录状态保持不变。</Notice>
             ) : null}
             {notice === "password_changed" ? (
-              <p role="status" className="cloud-notice cloud-notice-success">
-                密码已修改，请重新登录。
-              </p>
+              <Notice tone="success">密码已修改，请重新登录。</Notice>
             ) : null}
           </div>
 
@@ -90,14 +90,11 @@ function AccountConsole() {
           ) : (
             <>
               {checking ? null : (
-                <header className="console-page-head">
-                  <h1 id="account-recovery-heading" tabIndex={-1}>
-                    我的账户
-                  </h1>
-                  <p className="console-page-caption">
-                    登录 Mira 账号后即可管理设备授权与账户安全。
-                  </p>
-                </header>
+                <PageHead
+                  id="account-recovery-heading"
+                  title="我的账户"
+                  caption="登录 Mira 账号后即可管理设备授权与账户安全。"
+                />
               )}
               <SessionRecovery />
             </>

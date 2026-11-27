@@ -1,3 +1,4 @@
+import { Notice } from "@/components/ui/notice";
 import type { AuthFailure } from "@/lib/auth/errors";
 
 /**
@@ -8,9 +9,9 @@ export function AuthFailureAlert({ failure }: { failure: AuthFailure | null }) {
   if (!failure) return null;
 
   return (
-    <p role="alert" className="cloud-notice cloud-notice-danger">
+    <Notice tone="danger">
       {failure.message}
       {failure.retryAfterSeconds !== null ? `（约 ${failure.retryAfterSeconds} 秒后可重试）` : null}
-    </p>
+    </Notice>
   );
 }

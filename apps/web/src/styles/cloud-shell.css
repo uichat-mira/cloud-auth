@@ -1,8 +1,11 @@
 /*
- * Shell — sticky translucent header, 56px, hairline bottom, pill tab navigation,
- * 1120px content column. All values come from the tokens in globals.css.
+ * Shell — sticky translucent header, 56px, hairline bottom, brand lockup,
+ * 1280px content column. Public (`.cloud-*`) and account (`.console-*`) shells
+ * share these recipes; only their navigation differs and lives in console.css.
+ * All values come from the tokens in globals.css.
  */
-.cloud-shell {
+.cloud-shell,
+.console-shell {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
@@ -10,14 +13,16 @@
   color: var(--mc-text);
 }
 
-.cloud-container {
+.cloud-container,
+.console-container {
   width: 100%;
-  max-width: 1120px;
+  max-width: 1280px;
   margin-inline: auto;
   padding-inline: 24px;
 }
 
-.cloud-header {
+.cloud-header,
+.console-header {
   position: sticky;
   top: 0;
   z-index: 40;
@@ -27,7 +32,8 @@
   box-shadow: inset 0 -0.5px 0 var(--mc-border-muted);
 }
 
-.cloud-header-inner {
+.cloud-header-inner,
+.console-header-inner {
   display: flex;
   height: 56px;
   align-items: center;
@@ -35,7 +41,8 @@
   gap: 16px;
 }
 
-.cloud-brand {
+.cloud-brand,
+.console-brand {
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -44,7 +51,12 @@
   text-decoration: none;
 }
 
-.cloud-brand-mark {
+.console-brand {
+  flex: none;
+}
+
+.cloud-brand-mark,
+.console-brand-mark {
   display: inline-flex;
   width: 28px;
   height: 28px;
@@ -56,16 +68,18 @@
   box-shadow: var(--mc-hairline-muted);
 }
 
-.cloud-brand-mark img {
+.cloud-brand-mark img,
+.console-brand-mark img {
   display: block;
   width: 100%;
   height: 100%;
 }
 
-.cloud-brand-copy strong {
+.cloud-brand-copy strong,
+.console-brand-copy strong {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-weight-semibold);
   line-height: 18px;
   letter-spacing: 0;
 }
@@ -76,6 +90,43 @@
   gap: 4px;
 }
 
+.console-header-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-link {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  border-radius: var(--mc-r-sm);
+  padding-inline: 10px;
+  color: var(--mc-text-secondary);
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-weight-medium);
+  line-height: var(--mc-leading-sm);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.header-link[href]:hover {
+  background: var(--mc-overlay-hover);
+  color: var(--mc-text);
+}
+
+.header-link[aria-current="page"] {
+  background: var(--mc-selected-bg);
+  color: var(--mc-selected-fg);
+}
+
 .cloud-nav-link {
   display: inline-flex;
   height: 28px;
@@ -83,14 +134,14 @@
   border-radius: var(--mc-r-sm);
   padding-inline: 10px;
   color: var(--mc-text-secondary);
-  font-size: 13px;
-  font-weight: 550;
-  line-height: 20px;
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-weight-medium);
+  line-height: var(--mc-leading-sm);
   text-decoration: none;
   white-space: nowrap;
   transition:
-    background-color 85ms var(--mc-ease),
-    color 85ms var(--mc-ease);
+    background-color var(--mc-duration-fast) var(--mc-ease),
+    color var(--mc-duration-fast) var(--mc-ease);
 }
 
 .cloud-nav-link:hover {
@@ -98,13 +149,10 @@
   color: var(--mc-text);
 }
 
-.cloud-nav-active {
-  background: var(--mc-surface-2);
-  color: var(--mc-text);
-}
-
+.cloud-nav-active,
 .cloud-nav-active:hover {
-  background: var(--mc-surface-2);
+  background: var(--mc-selected-bg);
+  color: var(--mc-selected-fg);
 }
 
 .cloud-footer {
@@ -115,15 +163,15 @@
   padding-block: 20px 28px;
   box-shadow: inset 0 0.5px 0 var(--mc-border-muted);
   color: var(--mc-text-secondary);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--mc-text-xs);
+  line-height: var(--mc-leading-xs);
 }
 
 /* Identifiers (account id, session token tails) read better in mono. */
 .cloud-mono {
   font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 20px;
+  font-size: var(--mc-text-sm);
+  line-height: var(--mc-leading-sm);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
@@ -135,11 +183,13 @@
 }
 
 @media (max-width: 640px) {
-  .cloud-container {
+  .cloud-container,
+  .console-container {
     padding-inline: 16px;
   }
 
-  .cloud-header-inner {
+  .cloud-header-inner,
+  .console-header-inner {
     height: 52px;
   }
 
@@ -147,6 +197,7 @@
     gap: 2px;
   }
 
+  .header-link,
   .cloud-nav-link {
     height: 40px;
     padding-inline: 12px;
@@ -160,11 +211,13 @@
   }
 
   /* Mobile hit areas: never smaller than the 40px comfortable minimum. */
-  .cloud-shell [data-slot="button"] {
+  .cloud-shell [data-slot="button"],
+  .console-shell [data-slot="button"] {
     min-height: 40px;
   }
 
-  .cloud-brand {
+  .cloud-brand,
+  .console-brand {
     min-height: 40px;
   }
 }

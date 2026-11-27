@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { returnToFromLoginSearch } from "@/lib/auth/return-location";
 import { AuthFailureAlert } from "@/components/auth-failure-alert";
 import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useAuthSession } from "@/lib/auth/context";
 
@@ -31,8 +32,7 @@ export function LoginPage() {
         </div>
 
         <form className="cloud-auth-form" onSubmit={handleSubmit}>
-          <div className="cloud-field">
-            <label htmlFor="username">账号</label>
+          <Field label="账号" htmlFor="username">
             <Input
               id="username"
               name="username"
@@ -45,9 +45,8 @@ export function LoginPage() {
                 if (failure) clearFailure();
               }}
             />
-          </div>
-          <div className="cloud-field">
-            <label htmlFor="password">密码</label>
+          </Field>
+          <Field label="密码" htmlFor="password">
             <Input
               id="password"
               name="password"
@@ -61,7 +60,7 @@ export function LoginPage() {
                 if (failure) clearFailure();
               }}
             />
-          </div>
+          </Field>
           {status === "restoring" ? (
             <p role="status" className="cloud-auth-status">
               正在恢复登录状态…

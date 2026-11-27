@@ -15,6 +15,7 @@ Phase III roadmap: https://github.com/uichat-mira/mira-desktop/issues/315
 This service owns Mira Cloud Account, Mira Device, Cloud Session, and audience-bound service credential issuance.
 
 It does not replace:
+
 - Desktop or Mobile local identity;
 - Local Provider credentials;
 - Remote Host V1 pairing and business authorization;
@@ -40,7 +41,7 @@ Run workspace commands from the repository root; API package-local source, tests
 - Docker / Docker Compose
 - Caddy TLS, API reverse proxy, and static SPA delivery on the Mira self-managed server
 
-The web application is a separate Vite build providing the `/` account portal home, `/login`, `/account`, and not-found routes. The home page stays visible regardless of session state and offers the appropriate login or account entry. The legacy embedded browser acceptance harness has been retired; use the real Portal for acceptance. Route components use a typed Cloud Auth client and session state layer; `apps/web/src/lib/auth` owns HTTP transport, contract validation, session persistence, and auth state so route components never handle bearer tokens directly.
+The web application is a separate Vite build providing the `/` account portal home, `/login`, `/account`, the public `/open-platform` overview, the in-app `/docs` documentation reader, and not-found routes. The home page stays visible regardless of session state and offers the appropriate login or account entry. The legacy embedded browser acceptance harness has been retired; use the real Portal for acceptance. Route components use a typed Cloud Auth client and session state layer; `apps/web/src/lib/auth` owns HTTP transport, contract validation, session persistence, and auth state so route components never handle bearer tokens directly.
 
 Historically, OPS-001 established the service boundary, persistence/migrations, health and operations substrate. Account/password, device lifecycle, first-party OAuth and service credentials are now implemented in later work items; inspect current code and runtime rather than treating OPS-001 scope as a present-day limitation.
 

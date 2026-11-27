@@ -15,6 +15,9 @@ RUN pnpm --filter @uichat-mira/cloud-auth-contracts run build
 
 COPY apps/api ./apps/api
 COPY apps/web ./apps/web
+# The web `/docs` reader imports repository markdown with `?raw`, so the source
+# documents must exist in the build context. It resolves to the repo root `docs`.
+COPY docs ./docs
 RUN pnpm --filter @uichat-mira/cloud-auth-api run build \
   && pnpm --filter @uichat-mira/cloud-auth-web run build
 

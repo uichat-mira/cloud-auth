@@ -4,10 +4,9 @@ import { useAuthSession } from "@/lib/auth/context";
 import { getAccountEntry } from "@/lib/auth/account-entry";
 
 /**
- * Public account entry. It is a console page, not a landing page: one factual
- * head, the single contextual entry action, and the destinations that the
- * console owns. No illustration, no slogans — `/` has to read as the same
- * product as `/login` and `/account`.
+ * Public identity home. It presents the Mira ID position — one identity across
+ * the ecosystem — while keeping the single contextual entry and the account
+ * destinations that the public portal owns.
  */
 const destinations = [
   {
@@ -30,57 +29,91 @@ export function HomePage() {
 
   return (
     <div className="cloud-home">
-      <header className="console-page-head">
-        <h1 id="home-title">Mira 账号</h1>
-        <p className="console-page-caption">登录后查看 Mira 设备、调整访问授权，并管理账户安全。</p>
-      </header>
-
-      <div className="cloud-home-entry">
-        {checking ? (
-          <p role="status" className="cloud-home-checking">
-            正在检查登录状态…
+      <section className="cloud-home-identity" aria-labelledby="home-title">
+        <div className="cloud-home-copy">
+          <p className="cloud-home-eyebrow">Mira ID · 统一身份</p>
+          <h1 id="home-title" tabIndex={-1} className="cloud-home-title">
+            Mira 账号
+          </h1>
+          <p className="cloud-home-lead">
+            一个 Mira 账号，连接 Mira Desktop、Mobile 与云端服务。身份应当始终可靠，但不应成为负担。
           </p>
-        ) : (
-          <Button asChild size="xl">
-            <Link to={destination}>
-              {homeLabel}
-              <span aria-hidden="true">→</span>
-            </Link>
-          </Button>
-        )}
-      </div>
 
-      <section className="cloud-home-sections" aria-label="账户功能">
-        <ul className="cloud-home-list">
+          <div className="cloud-home-entry">
+            {checking ? (
+              <p role="status" className="cloud-home-checking">
+                正在检查登录状态…
+              </p>
+            ) : (
+              <Button asChild size="xl">
+                <Link to={destination}>
+                  {homeLabel}
+                  <span aria-hidden="true">→</span>
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <aside className="cloud-home-brand" aria-label="Mira ID 品牌">
+          <span aria-hidden="true" className="cloud-home-brand-tile">
+            <img src="/brand/mira-id/svg/mira-id-app.svg" alt="" width={96} height={96} />
+          </span>
+          <p className="cloud-home-brand-name">Mira ID · 独立云身份</p>
+          <p className="cloud-home-brand-line">
+            One identity.
+            <br />
+            Across Mira.
+          </p>
+          <p className="cloud-home-brand-caption">
+            安静、可靠的身份底座，让同一份身份贯穿你的设备与服务。
+          </p>
+          <p className="cloud-home-brand-pillars">
+            <span>身份</span>
+            <span>设备</span>
+            <span>服务</span>
+          </p>
+        </aside>
+      </section>
+
+      <section className="cloud-home-capabilities" aria-labelledby="home-capabilities-title">
+        <header className="cloud-home-section-head">
+          <h2 id="home-capabilities-title">账户入口</h2>
+          <p>设备授权、账户安全与关联服务，都归在同一个 Mira 账号下。</p>
+        </header>
+
+        <ul className="cloud-home-card-list">
           {destinations.map((item) => (
             <li key={item.name}>
-              <Link className="cloud-home-row" to={item.href}>
-                <span className="cloud-home-row-icon" aria-hidden="true">
+              <Link className="cloud-home-card" to={item.href}>
+                <span className="cloud-home-card-icon" aria-hidden="true">
                   <CapabilityIcon kind={item.icon} />
                 </span>
-                <span className="cloud-home-row-body">
-                  <span className="cloud-home-row-title">{item.name}</span>
-                  <span className="cloud-home-row-caption">{item.description}</span>
+                <span className="cloud-home-card-body">
+                  <span className="cloud-home-card-title">{item.name}</span>
+                  <span className="cloud-home-card-caption">{item.description}</span>
                 </span>
-                <span className="cloud-home-row-trail" aria-hidden="true">
+                <span className="cloud-home-card-trail" aria-hidden="true">
                   →
                 </span>
               </Link>
             </li>
           ))}
           <li>
-            <div className="cloud-home-row cloud-home-row-static">
-              <span className="cloud-home-row-icon" aria-hidden="true">
+            <Link className="cloud-home-card" to="/account/services">
+              <span className="cloud-home-card-icon" aria-hidden="true">
                 <CapabilityIcon kind="services" />
               </span>
-              <span className="cloud-home-row-body">
-                <span className="cloud-home-row-title">关联服务</span>
-                <span className="cloud-home-row-caption">
-                  Cloud Shiyan 与 Hosted Relay 尚未接入此门户，登录不会自动授予服务权限。
+              <span className="cloud-home-card-body">
+                <span className="cloud-home-card-title">关联服务</span>
+                <span className="cloud-home-card-caption">
+                  查看你的账号已获得使用授权的应用服务；Mira 自有服务入口在同一页单独列出。
                 </span>
               </span>
-              <span className="cloud-home-pill">尚未接入</span>
-            </div>
+              <span className="cloud-home-card-trail" aria-hidden="true">
+                →
+              </span>
+            </Link>
           </li>
         </ul>
       </section>

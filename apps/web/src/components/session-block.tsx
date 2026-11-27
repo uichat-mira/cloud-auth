@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthSession } from "@/lib/auth/context";
 
 /**
@@ -80,9 +80,12 @@ export function SessionBlock() {
       </button>
       {open ? (
         <div className="console-account-menu" id={menuId} role="group" aria-label="账户操作">
+          <Link to="/account" className="console-account-item" onClick={() => setOpen(false)}>
+            控制台
+          </Link>
           <button
             type="button"
-            className="console-account-logout"
+            className="console-account-item"
             onClick={() => void handleLogout()}
             disabled={pending !== null}
           >
